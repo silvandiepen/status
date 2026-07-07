@@ -19,12 +19,19 @@ public final class PluginStoreViewModel: ObservableObject {
     @Published public private(set) var runningPluginID: String?
     @Published public private(set) var runResults: [String: String]
     @Published public private(set) var runErrors: [String: String]
+    @Published public private(set) var setupValues: [String: String]
+    @Published public private(set) var savingSetupPluginID: String?
+    @Published public private(set) var setupResults: [String: String]
+    @Published public private(set) var setupErrors: [String: String]
 
     private let loadInstalled: () throws -> [InstalledPlugin]
     private let loadAvailable: () async throws -> [RegistryPluginSummary]
     private let installPlugin: (RegistryPluginSummary) async throws -> Void
     private let canRunPlugin: (InstalledPlugin) -> Bool
     private let runPlugin: (InstalledPlugin) async throws -> String
+    private let canConfigurePlugin: (InstalledPlugin) -> Bool
+    private let loadConfigurationValue: (InstalledPlugin) throws -> String?
+    private let saveConfigurationValue: (InstalledPlugin, String) async throws -> String
 
     public init(
         initialCatalog: PluginStoreCatalog = PluginStoreCatalog(),
@@ -32,16 +39,25 @@ public final class PluginStoreViewModel: ObservableObject {
         loadAvailable: @escaping () async throws -> [RegistryPluginSummary],
         installPlugin: @escaping (RegistryPluginSummary) async throws -> Void,
         canRunPlugin: @escaping (InstalledPlugin) -> Bool = { _ in false },
-        runPlugin: @escaping (InstalledPlugin) async throws -> String = { _ in "" }
+        runPlugin: @escaping (InstalledPlugin) async throws -> String = { _ in "" },
+        canConfigurePlugin: @escaping (InstalledPlugin) -> Bool = { _ in false },
+        loadConfigurationValue: @escaping (InstalledPlugin) throws -> String? = { _ in nil },
+        saveConfigurationValue: @escaping (InstalledPlugin, String) async throws -> String = { _, _ in "" }
     ) {
         self.catalog = initialCatalog
         self.runResults = [:]
         self.runErrors = [:]
+        self.setupValues = [:]
+        self.setupResults = [:]
+        self.setupErrors = [:]
         self.loadInstalled = loadInstalled
         self.loadAvailable = loadAvailable
         self.installPlugin = installPlugin
         self.canRunPlugin = canRunPlugin
         self.runPlugin = runPlugin
+        self.canConfigurePlugin = canConfigurePlugin
+        self.loadConfigurationValue = loadConfigurationValue
+        self.saveConfigurationValue = saveConfigurationValue
     }
 
     public func reload() async {
@@ -49,9 +65,12 @@ public final class PluginStoreViewModel: ObservableObject {
             let installed = try loadInstalled()
             let available = try await loadAvailable()
             catalog = PluginStoreCatalog(installed: installed, available: available)
+            refreshSetupValues(for: installed)
             loadError = nil
         } catch {
-            catalog = PluginStoreCatalog(installed: (try? loadInstalled()) ?? [], available: [])
+            let installed = (try? loadInstalled()) ?? []
+            catalog = PluginStoreCatalog(installed: installed, available: [])
+            refreshSetupValues(for: installed)
             loadError = error.localizedDescription
         }
     }
@@ -78,6 +97,32 @@ public final class PluginStoreViewModel: ObservableObject {
         canRunPlugin(plugin)
     }
 
+    public func canConfigure(_ plugin: InstalledPlugin) -> Bool {
+        canConfigurePlugin(plugin)
+    }
+
+    public func updateSetupValue(_ plugin: InstalledPlugin, value: String) {
+        setupValues[plugin.id] = value
+        setupResults[plugin.id] = nil
+        setupErrors[plugin.id] = nil
+    }
+
+    public func saveSetup(_ plugin: InstalledPlugin) async {
+        guard savingSetupPluginID == nil else { return }
+        let value = setupValues[plugin.id, default: ""]
+        savingSetupPluginID = plugin.id
+        setupResults[plugin.id] = nil
+        setupErrors[plugin.id] = nil
+        defer { savingSetupPluginID = nil }
+
+        do {
+            setupResults[plugin.id] = try await saveConfigurationValue(plugin, value)
+            await reload()
+        } catch {
+            setupErrors[plugin.id] = error.localizedDescription
+        }
+    }
+
     public func run(_ plugin: InstalledPlugin) async {
         guard runningPluginID == nil else { return }
         runningPluginID = plugin.id
@@ -90,6 +135,14 @@ public final class PluginStoreViewModel: ObservableObject {
             await reload()
         } catch {
             runErrors[plugin.id] = error.localizedDescription
+        }
+    }
+
+    private func refreshSetupValues(for plugins: [InstalledPlugin]) {
+        for plugin in plugins where canConfigurePlugin(plugin) {
+            if let value = try? loadConfigurationValue(plugin) {
+                setupValues[plugin.id] = value
+            }
         }
     }
 }
@@ -108,6 +161,21 @@ public struct PluginStoreContainerView: View {
             runningPluginID: viewModel.runningPluginID,
             runResults: viewModel.runResults,
             runErrors: viewModel.runErrors,
+            setupValues: viewModel.setupValues,
+            savingSetupPluginID: viewModel.savingSetupPluginID,
+            setupResults: viewModel.setupResults,
+            setupErrors: viewModel.setupErrors,
+            canConfigure: { plugin in
+                viewModel.canConfigure(plugin)
+            },
+            updateSetupValue: { plugin, value in
+                viewModel.updateSetupValue(plugin, value: value)
+            },
+            saveSetup: { plugin in
+                Task {
+                    await viewModel.saveSetup(plugin)
+                }
+            },
             canRun: { plugin in
                 viewModel.canRun(plugin)
             },
@@ -148,6 +216,13 @@ public struct PluginStoreView: View {
     private let runningPluginID: String?
     private let runResults: [String: String]
     private let runErrors: [String: String]
+    private let setupValues: [String: String]
+    private let savingSetupPluginID: String?
+    private let setupResults: [String: String]
+    private let setupErrors: [String: String]
+    private let canConfigure: (InstalledPlugin) -> Bool
+    private let updateSetupValue: (InstalledPlugin, String) -> Void
+    private let saveSetup: (InstalledPlugin) -> Void
     private let canRun: (InstalledPlugin) -> Bool
     private let run: (InstalledPlugin) -> Void
     private let install: (RegistryPluginSummary) -> Void
@@ -158,6 +233,13 @@ public struct PluginStoreView: View {
         runningPluginID: String? = nil,
         runResults: [String: String] = [:],
         runErrors: [String: String] = [:],
+        setupValues: [String: String] = [:],
+        savingSetupPluginID: String? = nil,
+        setupResults: [String: String] = [:],
+        setupErrors: [String: String] = [:],
+        canConfigure: @escaping (InstalledPlugin) -> Bool = { _ in false },
+        updateSetupValue: @escaping (InstalledPlugin, String) -> Void = { _, _ in },
+        saveSetup: @escaping (InstalledPlugin) -> Void = { _ in },
         canRun: @escaping (InstalledPlugin) -> Bool = { _ in false },
         run: @escaping (InstalledPlugin) -> Void = { _ in },
         install: @escaping (RegistryPluginSummary) -> Void = { _ in }
@@ -167,6 +249,13 @@ public struct PluginStoreView: View {
         self.runningPluginID = runningPluginID
         self.runResults = runResults
         self.runErrors = runErrors
+        self.setupValues = setupValues
+        self.savingSetupPluginID = savingSetupPluginID
+        self.setupResults = setupResults
+        self.setupErrors = setupErrors
+        self.canConfigure = canConfigure
+        self.updateSetupValue = updateSetupValue
+        self.saveSetup = saveSetup
         self.canRun = canRun
         self.run = run
         self.install = install
@@ -181,6 +270,13 @@ public struct PluginStoreView: View {
                     runningPluginID: runningPluginID,
                     runResults: runResults,
                     runErrors: runErrors,
+                    setupValues: setupValues,
+                    savingSetupPluginID: savingSetupPluginID,
+                    setupResults: setupResults,
+                    setupErrors: setupErrors,
+                    canConfigure: canConfigure,
+                    updateSetupValue: updateSetupValue,
+                    saveSetup: saveSetup,
                     canRun: canRun,
                     run: run
                 )
@@ -220,6 +316,13 @@ private struct InstalledPluginSection: View {
     let runningPluginID: String?
     let runResults: [String: String]
     let runErrors: [String: String]
+    let setupValues: [String: String]
+    let savingSetupPluginID: String?
+    let setupResults: [String: String]
+    let setupErrors: [String: String]
+    let canConfigure: (InstalledPlugin) -> Bool
+    let updateSetupValue: (InstalledPlugin, String) -> Void
+    let saveSetup: (InstalledPlugin) -> Void
     let canRun: (InstalledPlugin) -> Bool
     let run: (InstalledPlugin) -> Void
 
@@ -235,6 +338,13 @@ private struct InstalledPluginSection: View {
                     ForEach(plugins) { plugin in
                         InstalledPluginRow(
                             plugin: plugin,
+                            canConfigure: canConfigure(plugin),
+                            setupValue: setupValues[plugin.id, default: ""],
+                            isSavingSetup: savingSetupPluginID == plugin.id,
+                            setupResult: setupResults[plugin.id],
+                            setupError: setupErrors[plugin.id],
+                            updateSetupValue: updateSetupValue,
+                            saveSetup: saveSetup,
                             canRun: canRun(plugin),
                             isRunning: runningPluginID == plugin.id,
                             runResult: runResults[plugin.id],
@@ -279,6 +389,13 @@ private struct AvailablePluginSection: View {
 
 private struct InstalledPluginRow: View {
     let plugin: InstalledPlugin
+    let canConfigure: Bool
+    let setupValue: String
+    let isSavingSetup: Bool
+    let setupResult: String?
+    let setupError: String?
+    let updateSetupValue: (InstalledPlugin, String) -> Void
+    let saveSetup: (InstalledPlugin) -> Void
     let canRun: Bool
     let isRunning: Bool
     let runResult: String?
@@ -323,6 +440,46 @@ private struct InstalledPluginRow: View {
                         .disabled(isRunning)
                     }
                 }
+            }
+            if canConfigure {
+                HStack(spacing: 10) {
+                    TextField(
+                        "status-registry.hakobs.com",
+                        text: Binding(
+                            get: { setupValue },
+                            set: { updateSetupValue(plugin, $0) }
+                        )
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    .disableAutocorrection(true)
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(.URL)
+                    #endif
+
+                    Button {
+                        saveSetup(plugin)
+                    } label: {
+                        if isSavingSetup {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Text("Save")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isSavingSetup || setupValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            if let setupResult {
+                Text(setupResult)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let setupError {
+                Text(setupError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
             }
             if let runResult {
                 Text(runResult)

@@ -49,6 +49,20 @@ public struct Account: Identifiable, Codable, Equatable, Sendable {
     }
 }
 
+public struct PluginAccountConfiguration: Identifiable, Codable, Equatable, Sendable {
+    public var id: String
+    public var pluginID: String
+    public var accountName: String
+    public var variables: [String: String]
+
+    public init(id: String, pluginID: String, accountName: String, variables: [String: String]) {
+        self.id = id
+        self.pluginID = pluginID
+        self.accountName = accountName
+        self.variables = variables
+    }
+}
+
 public struct Resource: Identifiable, Codable, Equatable, Sendable {
     public var id: String
     public var accountID: String

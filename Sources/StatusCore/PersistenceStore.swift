@@ -291,6 +291,72 @@ public final class StatusPersistenceStore {
         return try account(from: row)
     }
 
+    public func upsertAccountConfiguration(_ configuration: PluginAccountConfiguration, updatedAt: Date) throws {
+        try upsertAccount(
+            Account(
+                id: configuration.id,
+                pluginID: configuration.pluginID,
+                provider: configuration.pluginID,
+                displayName: configuration.accountName
+            ),
+            updatedAt: updatedAt
+        )
+        let metadata = try jsonString(AccountConfigurationMetadata(
+            pluginID: configuration.pluginID,
+            accountName: configuration.accountName,
+            variables: configuration.variables
+        ))
+        try database.execute(
+            """
+            INSERT INTO sync_state
+            (id, owner_type, owner_id, cursor, last_success_at, metadata_json)
+            VALUES (?, 'account-configuration', ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              cursor = excluded.cursor,
+              last_success_at = excluded.last_success_at,
+              metadata_json = excluded.metadata_json,
+              error = NULL
+            """,
+            bindings: [
+                .text(accountConfigurationSyncID(configuration.id)),
+                .text(configuration.id),
+                .text(configuration.pluginID),
+                .text(ISO8601.string(from: updatedAt)),
+                .text(metadata)
+            ]
+        )
+    }
+
+    public func accountConfiguration(accountID: String) throws -> PluginAccountConfiguration? {
+        guard let row = try database.query(
+            """
+            SELECT a.plugin_id, a.display_name, s.metadata_json
+            FROM sync_state s
+            JOIN accounts a ON a.id = s.owner_id
+            WHERE s.id = ? AND s.owner_type = 'account-configuration'
+            """,
+            bindings: [.text(accountConfigurationSyncID(accountID))]
+        ).first else {
+            return nil
+        }
+        return try accountConfiguration(from: row, accountID: accountID)
+    }
+
+    public func accountConfigurations(pluginID: String) throws -> [PluginAccountConfiguration] {
+        try database.query(
+            """
+            SELECT s.owner_id AS account_id, a.plugin_id, a.display_name, s.metadata_json
+            FROM sync_state s
+            JOIN accounts a ON a.id = s.owner_id
+            WHERE s.owner_type = 'account-configuration' AND a.plugin_id = ?
+            ORDER BY a.display_name COLLATE NOCASE ASC
+            """,
+            bindings: [.text(pluginID)]
+        ).map { row in
+            try accountConfiguration(from: row, accountID: row.requiredText("account_id"))
+        }
+    }
+
     public func upsertResource(_ resource: Resource, externalID: String, fields: [String: String] = [:], seenAt: Date) throws {
         try database.execute(
             """
@@ -781,6 +847,16 @@ public final class StatusPersistenceStore {
         )
     }
 
+    private func accountConfiguration(from row: [String: SQLiteValue], accountID: String) throws -> PluginAccountConfiguration {
+        let metadata = try optionalJSON(AccountConfigurationMetadata.self, from: row.optionalText("metadata_json"))
+        return try PluginAccountConfiguration(
+            id: accountID,
+            pluginID: metadata?.pluginID ?? row.requiredText("plugin_id"),
+            accountName: metadata?.accountName ?? row.requiredText("display_name"),
+            variables: metadata?.variables ?? [:]
+        )
+    }
+
     private func statusItem(from row: [String: SQLiteValue]) throws -> StatusItem {
         let actionURL = row.optionalURL("action_url")
         return try StatusItem(
@@ -1056,6 +1132,16 @@ private enum ISO8601 {
         }
         return date
     }
+}
+
+private struct AccountConfigurationMetadata: Codable {
+    var pluginID: String
+    var accountName: String
+    var variables: [String: String]
+}
+
+private func accountConfigurationSyncID(_ accountID: String) -> String {
+    "cfg_\(accountID)"
 }
 
 private extension Dictionary where Key == String, Value == SQLiteValue {

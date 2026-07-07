@@ -1,0 +1,14 @@
+{
+  "title": "Website to check",
+  "description": "Configure one host that Status will check from this device.",
+  "fields": [
+    {
+      "id": "host",
+      "label": "Host",
+      "type": "hostname",
+      "placeholder": "status-registry.hakobs.com",
+      "help": "Enter a host name without https:// or a path.",
+      "required": true
+    }
+  ]
+}

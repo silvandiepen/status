@@ -105,6 +105,41 @@ import Testing
     #expect(try store.auditEntry(id: "aud_\(jobID)_success")?.status == "success")
 }
 
+@Test func pluginPackageDefinitionDecodesSetupSchema() throws {
+    let packageData = runtimeStoredZip(files: [
+        ("setup.schema.json", Data("""
+        {
+          "title": "Website to check",
+          "description": "Configure one host.",
+          "fields": [
+            {
+              "id": "host",
+              "label": "Host",
+              "type": "hostname",
+              "placeholder": "status-registry.hakobs.com",
+              "help": "Enter a host name.",
+              "required": true
+            }
+          ]
+        }
+        """.utf8))
+    ])
+
+    let definition = try PluginPackageDefinition.decode(from: packageData)
+
+    #expect(definition.setup?.title == "Website to check")
+    #expect(definition.setup?.fields == [
+        PackagedPluginSetupField(
+            id: "host",
+            label: "Host",
+            type: .hostname,
+            placeholder: "status-registry.hakobs.com",
+            help: "Enter a host name.",
+            required: true
+        )
+    ])
+}
+
 private struct RuntimeFakeTransport: PluginRequestHTTPTransport {
     var responses: [URL: PluginHTTPResponse]
 

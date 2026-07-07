@@ -1,17 +1,20 @@
 import Foundation
 
 public struct PluginPackageDefinition: Equatable, Sendable {
+    public var setup: PackagedPluginSetup?
     public var triggers: [PackagedPluginTrigger]
     public var requests: PackagedPluginRequests
     public var mappings: PackagedPluginMappings
     public var rulePresets: [PackagedRulePreset]
 
     public init(
+        setup: PackagedPluginSetup? = nil,
         triggers: [PackagedPluginTrigger] = [],
         requests: PackagedPluginRequests = PackagedPluginRequests(),
         mappings: PackagedPluginMappings = PackagedPluginMappings(),
         rulePresets: [PackagedRulePreset] = []
     ) {
+        self.setup = setup
         self.triggers = triggers
         self.requests = requests
         self.mappings = mappings
@@ -21,6 +24,10 @@ public struct PluginPackageDefinition: Equatable, Sendable {
     public static func decode(from packageData: Data) throws -> PluginPackageDefinition {
         let archive = try StoredZipArchive(data: packageData)
         let decoder = JSONDecoder()
+
+        let setup = try archive.file(named: "setup.schema.json").map { data in
+            try decoder.decode(PackagedPluginSetup.self, from: data)
+        }
 
         let triggers = try archive.file(named: "triggers.json").map { data in
             try decoder.decode(PackagedPluginTriggersFile.self, from: data).triggers
@@ -38,8 +45,75 @@ public struct PluginPackageDefinition: Equatable, Sendable {
             try decoder.decode(PackagedRulePresetsFile.self, from: data).presets
         } ?? []
 
-        return PluginPackageDefinition(triggers: triggers, requests: requests, mappings: mappings, rulePresets: presets)
+        return PluginPackageDefinition(setup: setup, triggers: triggers, requests: requests, mappings: mappings, rulePresets: presets)
     }
+}
+
+public struct PackagedPluginSetup: Decodable, Equatable, Sendable {
+    public var title: String
+    public var description: String?
+    public var fields: [PackagedPluginSetupField]
+
+    public init(title: String, description: String? = nil, fields: [PackagedPluginSetupField]) {
+        self.title = title
+        self.description = description
+        self.fields = fields
+    }
+}
+
+public struct PackagedPluginSetupField: Decodable, Equatable, Sendable {
+    public var id: String
+    public var label: String
+    public var type: PackagedPluginSetupFieldType
+    public var placeholder: String?
+    public var help: String?
+    public var required: Bool
+    public var defaultValue: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case label
+        case type
+        case placeholder
+        case help
+        case required
+        case defaultValue
+    }
+
+    public init(
+        id: String,
+        label: String,
+        type: PackagedPluginSetupFieldType,
+        placeholder: String? = nil,
+        help: String? = nil,
+        required: Bool = false,
+        defaultValue: String? = nil
+    ) {
+        self.id = id
+        self.label = label
+        self.type = type
+        self.placeholder = placeholder
+        self.help = help
+        self.required = required
+        self.defaultValue = defaultValue
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        label = try container.decode(String.self, forKey: .label)
+        type = try container.decode(PackagedPluginSetupFieldType.self, forKey: .type)
+        placeholder = try container.decodeIfPresent(String.self, forKey: .placeholder)
+        help = try container.decodeIfPresent(String.self, forKey: .help)
+        required = try container.decodeIfPresent(Bool.self, forKey: .required) ?? false
+        defaultValue = try container.decodeIfPresent(String.self, forKey: .defaultValue)
+    }
+}
+
+public enum PackagedPluginSetupFieldType: String, Decodable, Equatable, Sendable {
+    case text
+    case url
+    case hostname
 }
 
 public struct PackagedPluginTrigger: Decodable, Equatable, Sendable {

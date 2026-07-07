@@ -31,6 +31,7 @@ public struct PluginRuntimeRequest: Equatable, Sendable {
 public enum PluginRuntimeServiceError: Error, Equatable, LocalizedError, Sendable {
     case pluginNotInstalled(String)
     case packageUnavailable(String)
+    case accountNotConfigured(String)
 
     public var errorDescription: String? {
         switch self {
@@ -38,17 +39,46 @@ public enum PluginRuntimeServiceError: Error, Equatable, LocalizedError, Sendabl
             "Plugin is not installed: \(pluginID)"
         case .packageUnavailable(let pluginID):
             "Installed plugin package is unavailable: \(pluginID)"
+        case .accountNotConfigured(let accountID):
+            "Plugin account is not configured: \(accountID)"
         }
     }
 }
 
-public final class PluginRuntimeService {
+public final class PluginRuntimeService: @unchecked Sendable {
     private let store: StatusPersistenceStore
     private let transport: PluginRequestHTTPTransport
 
     public init(store: StatusPersistenceStore, transport: PluginRequestHTTPTransport = URLSessionPluginRequestTransport()) {
         self.store = store
         self.transport = transport
+    }
+
+    public func saveAccountConfiguration(_ configuration: PluginAccountConfiguration, now: Date = Date()) throws {
+        try store.upsertAccountConfiguration(configuration, updatedAt: now)
+    }
+
+    public func runConfiguredPluginRequest(
+        pluginID: String,
+        requestID: String,
+        accountID: String,
+        headers: [String: String] = [:],
+        now: Date = Date()
+    ) async throws -> PluginRequestJobResult {
+        guard let configuration = try store.accountConfiguration(accountID: accountID) else {
+            throw PluginRuntimeServiceError.accountNotConfigured(accountID)
+        }
+        return try await runInstalledPluginRequest(
+            PluginRuntimeRequest(
+                pluginID: pluginID,
+                requestID: requestID,
+                accountID: configuration.id,
+                accountName: configuration.accountName,
+                variables: configuration.variables,
+                headers: headers,
+                now: now
+            )
+        )
     }
 
     public func runInstalledPluginRequest(_ request: PluginRuntimeRequest) async throws -> PluginRequestJobResult {

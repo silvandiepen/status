@@ -203,6 +203,26 @@ import Testing
     #expect(try store.resourceStateSnapshot(resourceID: "res_app") == snapshot)
 }
 
+@Test func accountConfigurationRoundTripsThroughSyncState() throws {
+    let database = try temporaryDatabase()
+    try StatusDatabaseMigrator.migrate(database)
+    try insertPluginFixture(database, pluginID: "com.status.website")
+    let store = StatusPersistenceStore(database: database)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let configuration = PluginAccountConfiguration(
+        id: "acct_website_status_registry",
+        pluginID: "com.status.website",
+        accountName: "status-registry.hakobs.com",
+        variables: ["host": "status-registry.hakobs.com"]
+    )
+
+    try store.upsertAccountConfiguration(configuration, updatedAt: now)
+
+    #expect(try store.account(id: configuration.id)?.displayName == "status-registry.hakobs.com")
+    #expect(try store.accountConfiguration(accountID: configuration.id) == configuration)
+    #expect(try store.accountConfigurations(pluginID: "com.status.website") == [configuration])
+}
+
 @Test func emptyDashboardSnapshotUsesLocalFirstEmptyState() throws {
     let database = try temporaryDatabase()
     try StatusDatabaseMigrator.migrate(database)
@@ -454,6 +474,18 @@ private func temporaryDatabase() throws -> SQLiteDatabase {
         .appendingPathComponent("status-\(UUID().uuidString).sqlite")
         .path
     return try SQLiteDatabase(path: path)
+}
+
+private func insertPluginFixture(_ database: SQLiteDatabase, pluginID: String) throws {
+    let now = "2026-07-07T12:00:00Z"
+    try database.execute(
+        """
+        INSERT INTO plugins
+        (id, name, author, description, category, trust_level, installed_version, install_path, installed_at, updated_at)
+        VALUES (?, ?, 'Status Foundry', 'Fixture plugin', 'monitoring', 'official', '0.1.0', '/tmp/plugin', ?, ?)
+        """,
+        bindings: [.text(pluginID), .text(pluginID), .text(now), .text(now)]
+    )
 }
 
 private func insertResourceFixture(_ database: SQLiteDatabase, resourceID: String) throws {

@@ -92,8 +92,8 @@ export const registry = {
           ],
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.website/0.1.0/com.status.website-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.website/0.1.0/manifest.json",
-          "sha256": "1653616a50de63357dd803f638fee6ecb708ed263eb5c4b61ba8479c8e11158a",
-          "signature": "dev-signature:1653616a50de63357dd803f638fee6ecb708ed263eb5c4b61ba8479c8e11158a",
+          "sha256": "54c5d963fed0e4b0b2079c7f722e6c19bd3e04b1468fe11c70f125b761f73147",
+          "signature": "dev-signature:54c5d963fed0e4b0b2079c7f722e6c19bd3e04b1468fe11c70f125b761f73147",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-07T12:00:00Z"
         }
