@@ -442,33 +442,50 @@ private struct InstalledPluginRow: View {
                 }
             }
             if canConfigure {
-                HStack(spacing: 10) {
-                    TextField(
-                        "status-registry.hakobs.com",
-                        text: Binding(
-                            get: { setupValue },
-                            set: { updateSetupValue(plugin, $0) }
-                        )
-                    )
-                    .textFieldStyle(.roundedBorder)
-                    .disableAutocorrection(true)
-                    #if os(iOS)
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.URL)
-                    #endif
-
-                    Button {
-                        saveSetup(plugin)
-                    } label: {
-                        if isSavingSetup {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Text("Save")
-                        }
+                VStack(alignment: .leading, spacing: 8) {
+                    if let setup = plugin.setup {
+                        Text(setup.title)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
                     }
-                    .buttonStyle(.bordered)
-                    .disabled(isSavingSetup || setupValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            if let field = primarySetupField {
+                                Text(field.label)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            TextField(
+                                primarySetupField?.placeholder ?? "Configuration value",
+                                text: Binding(
+                                    get: { setupValue },
+                                    set: { updateSetupValue(plugin, $0) }
+                                )
+                            )
+                            .textFieldStyle(.roundedBorder)
+                            .disableAutocorrection(true)
+                            #if os(iOS)
+                            .textInputAutocapitalization(.never)
+                            .keyboardType(primarySetupField?.type == .hostname || primarySetupField?.type == .url ? .URL : .default)
+                            #endif
+                        }
+
+                        Button {
+                            saveSetup(plugin)
+                        } label: {
+                            if isSavingSetup {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Text("Save")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(
+                            isSavingSetup ||
+                            (primarySetupField?.required == true && setupValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        )
+                    }
                 }
             }
             if let setupResult {
@@ -495,6 +512,10 @@ private struct InstalledPluginRow: View {
         .padding(14)
         .background(Color.statusSurface)
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var primarySetupField: PackagedPluginSetupField? {
+        plugin.setup?.fields.first
     }
 }
 

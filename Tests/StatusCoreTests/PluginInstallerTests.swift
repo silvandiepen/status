@@ -10,6 +10,20 @@ import Testing
     let manifestData = try JSONEncoder().encode(manifest)
     let packageData = storedZip(files: [
         ("manifest.json", manifestData),
+        ("setup.schema.json", Data("""
+        {
+          "title": "Repository",
+          "fields": [
+            {
+              "id": "repo",
+              "label": "Repository",
+              "type": "text",
+              "placeholder": "statusfoundry/status",
+              "required": true
+            }
+          ]
+        }
+        """.utf8)),
         ("triggers.json", Data("""
         {
           "triggers": [
@@ -88,6 +102,8 @@ import Testing
     let result = try await installer.install(pluginID: manifest.id, version: manifest.version, trustLevel: .official, installedAt: installedAt)
 
     #expect(result.plugin.id == manifest.id)
+    #expect(try store.installedPlugin(id: manifest.id)?.setup?.title == "Repository")
+    #expect(try store.installedPlugin(id: manifest.id)?.setup?.fields.first?.placeholder == "statusfoundry/status")
     #expect(result.plugin.installedVersion == manifest.version)
     #expect(result.version.manifest == manifest)
     #expect(result.verification.sha256 == PluginPackageVerifier.sha256Hex(packageData))

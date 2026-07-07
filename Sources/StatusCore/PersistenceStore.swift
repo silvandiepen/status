@@ -782,20 +782,41 @@ public final class StatusPersistenceStore {
     }
 
     private func installedPlugin(from row: [String: SQLiteValue]) throws -> InstalledPlugin {
-        try InstalledPlugin(
-            id: row.requiredText("id"),
+        let pluginID = try row.requiredText("id")
+        let installedVersion = try row.requiredText("installed_version")
+        return try InstalledPlugin(
+            id: pluginID,
             name: row.requiredText("name"),
             author: row.requiredText("author"),
             description: row.requiredText("description"),
             category: row.requiredText("category"),
             iconPath: row.optionalText("icon_path"),
             trustLevel: PluginTrustLevel(rawValue: row.requiredText("trust_level")) ?? .localDev,
-            installedVersion: row.requiredText("installed_version"),
+            installedVersion: installedVersion,
             installPath: row.requiredText("install_path"),
             enabled: row.optionalInteger("enabled") != 0,
+            setup: installedPluginSetup(pluginID: pluginID, version: installedVersion),
             installedAt: ISO8601.date(from: row.requiredText("installed_at")),
             updatedAt: ISO8601.date(from: row.requiredText("updated_at"))
         )
+    }
+
+    private func installedPluginSetup(pluginID: String, version: String) -> PackagedPluginSetup? {
+        guard let row = try? database.query(
+            """
+            SELECT package_path FROM plugin_versions
+            WHERE plugin_id = ? AND version = ?
+            ORDER BY installed_at DESC
+            LIMIT 1
+            """,
+            bindings: [.text(pluginID), .text(version)]
+        ).first,
+              let packagePath = row.optionalText("package_path"),
+              let packageData = try? Data(contentsOf: URL(fileURLWithPath: packagePath)),
+              let definition = try? PluginPackageDefinition.decode(from: packageData) else {
+            return nil
+        }
+        return definition.setup
     }
 
     private func installedPluginVersion(from row: [String: SQLiteValue]) throws -> InstalledPluginVersion {

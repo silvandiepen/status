@@ -49,7 +49,7 @@ public struct PluginPackageDefinition: Equatable, Sendable {
     }
 }
 
-public struct PackagedPluginSetup: Decodable, Equatable, Sendable {
+public struct PackagedPluginSetup: Codable, Equatable, Sendable {
     public var title: String
     public var description: String?
     public var fields: [PackagedPluginSetupField]
@@ -61,7 +61,7 @@ public struct PackagedPluginSetup: Decodable, Equatable, Sendable {
     }
 }
 
-public struct PackagedPluginSetupField: Decodable, Equatable, Sendable {
+public struct PackagedPluginSetupField: Codable, Equatable, Sendable {
     public var id: String
     public var label: String
     public var type: PackagedPluginSetupFieldType
@@ -110,7 +110,7 @@ public struct PackagedPluginSetupField: Decodable, Equatable, Sendable {
     }
 }
 
-public enum PackagedPluginSetupFieldType: String, Decodable, Equatable, Sendable {
+public enum PackagedPluginSetupFieldType: String, Codable, Equatable, Sendable {
     case text
     case url
     case hostname
