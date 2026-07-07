@@ -12,7 +12,7 @@ Related documents:
 
 ## Implementation status
 
-`StatusCore` currently includes `MappingConditionEvaluator`, a small evaluator for single mapping conditions and AND groups over normalized resource state. It supports the plain operators and the transition operators (`changed`, `changed_to`, `changed_from`) against current and previous resource snapshots. It does not yet include the full JSON selector parser, source iteration, shorthand string parser, template rendering, severity mapping, or pagination runtime.
+`StatusCore` currently includes `MappingConditionEvaluator`, a small evaluator for single mapping conditions and AND groups over normalized resource state. It supports the plain operators and the transition operators (`changed`, `changed_to`, `changed_from`) against current and previous resource snapshots. `StatusCore` also includes the first mapping runtime primitives: a JSON selector parser/resolver, wildcard-tail source iteration, and scalar template rendering with the documented scopes. It does not yet include full request-to-resource/event mapping execution, shorthand condition parsing, severity mapping, pagination runtime, or developer-mode mapping warnings.
 
 ## Design rules
 
