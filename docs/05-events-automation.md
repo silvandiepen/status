@@ -25,6 +25,18 @@ The same pipeline is used for:
 - plugin state changes;
 - event-based follow-up rules.
 
+## Implementation status
+
+`StatusCore` currently includes the first local execution primitives:
+
+- `TriggerDefinition` and `TriggerScheduler` classify cron/manual/push/event/app-lifecycle triggers.
+- Cron triggers can be evaluated deterministically and enqueue jobs when due.
+- Manual triggers enqueue only when explicitly requested.
+- Failure backoff and success reset logic are implemented in core.
+- `InMemoryJobQueue` tracks queued/running/success/failed job lifecycle for tests and app scaffolding.
+
+Persisted trigger/job storage, background timers, retry execution, timeouts, and job audit wiring remain planned work.
+
 ## Triggers
 
 A trigger starts work.
