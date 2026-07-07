@@ -125,10 +125,11 @@ SQLiteDatabase
 
 StatusDatabaseMigrator
 → applies schema v0
-→ sets PRAGMA user_version = 1
+→ sets PRAGMA user_version = 2
 
 StatusPersistenceStore
-→ first round-trip store for events, status items, and audit entries
+→ first round-trip store for events, status items, audit entries,
+  and resource state snapshots
 ```
 
 This is an implementation starting point, not a rejection of GRDB. GRDB can still replace or wrap this layer later if it materially reduces persistence complexity. The schema contract in this document remains authoritative either way.

@@ -20,6 +20,7 @@ import Testing
     #expect(tableNames.contains("resources"))
     #expect(tableNames.contains("events"))
     #expect(tableNames.contains("status_items"))
+    #expect(tableNames.contains("resource_state_snapshots"))
     #expect(tableNames.contains("rules"))
     #expect(tableNames.contains("audit_entries"))
     #expect(tableNames.contains("sync_state"))
@@ -97,11 +98,69 @@ import Testing
     #expect(try store.auditEntry(id: auditEntry.id) == auditEntry)
 }
 
+@Test func resourceStateSnapshotRoundTripsThroughSQLite() throws {
+    let database = try temporaryDatabase()
+    try StatusDatabaseMigrator.migrate(database)
+    try insertResourceFixture(database, resourceID: "res_app")
+    let store = StatusPersistenceStore(database: database)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let snapshot = ResourceStateSnapshot(
+        resourceID: "res_app",
+        state: [
+            "appStoreState": "REJECTED",
+            "latestBuildState": "VALID"
+        ],
+        stateHash: "hash_01",
+        jobID: "job_01poll",
+        capturedAt: now
+    )
+
+    try store.upsertResourceStateSnapshot(snapshot)
+
+    #expect(try store.resourceStateSnapshot(resourceID: "res_app") == snapshot)
+}
+
 private func temporaryDatabase() throws -> SQLiteDatabase {
     let path = FileManager.default.temporaryDirectory
         .appendingPathComponent("status-\(UUID().uuidString).sqlite")
         .path
     return try SQLiteDatabase(path: path)
+}
+
+private func insertResourceFixture(_ database: SQLiteDatabase, resourceID: String) throws {
+    let now = "2026-07-07T12:00:00Z"
+    try database.execute(
+        """
+        INSERT INTO plugins
+        (id, name, author, description, category, trust_level, installed_version, install_path, installed_at, updated_at)
+        VALUES (?, 'App Store Connect', 'Status Foundry', 'Fixture plugin', 'developer', 'official', '0.1.0', '/tmp/plugin', ?, ?)
+        """,
+        bindings: [.text("com.status.appstoreconnect"), .text(now), .text(now)]
+    )
+    try database.execute(
+        """
+        INSERT INTO accounts
+        (id, plugin_id, provider, display_name, auth_type, created_at, updated_at)
+        VALUES (?, 'com.status.appstoreconnect', 'appstoreconnect', 'Example Account', 'none', ?, ?)
+        """,
+        bindings: [.text("acc_fixture"), .text(now), .text(now)]
+    )
+    try database.execute(
+        """
+        INSERT INTO resources
+        (id, account_id, plugin_id, type, external_id, name, first_seen_at, last_seen_at)
+        VALUES (?, 'acc_fixture', 'com.status.appstoreconnect', 'app', '123', 'Example App', ?, ?)
+        """,
+        bindings: [.text(resourceID), .text(now), .text(now)]
+    )
+    try database.execute(
+        """
+        INSERT INTO jobs
+        (id, plugin_id, trigger_id, account_id, status, started_at)
+        VALUES ('job_01poll', 'com.status.appstoreconnect', 'trg_fixture', 'acc_fixture', 'succeeded', ?)
+        """,
+        bindings: [.text(now)]
+    )
 }
 
 private extension Dictionary where Key == String, Value == SQLiteValue {

@@ -2,9 +2,12 @@ import Foundation
 
 public final class StatusPersistenceStore {
     private let database: SQLiteDatabase
+    private let stateEncoder = JSONEncoder()
+    private let stateDecoder = JSONDecoder()
 
     public init(database: SQLiteDatabase) {
         self.database = database
+        self.stateEncoder.outputFormatting = [.sortedKeys]
     }
 
     public func insertEvent(_ event: Event) throws {
@@ -157,6 +160,43 @@ public final class StatusPersistenceStore {
         )
     }
 
+    public func upsertResourceStateSnapshot(_ snapshot: ResourceStateSnapshot) throws {
+        let stateJSON = try String(decoding: stateEncoder.encode(snapshot.state), as: UTF8.self)
+        try database.execute(
+            """
+            INSERT OR REPLACE INTO resource_state_snapshots
+            (resource_id, state_json, state_hash, job_id, captured_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            bindings: [
+                .text(snapshot.resourceID),
+                .text(stateJSON),
+                .text(snapshot.stateHash),
+                snapshot.jobID.map { .text($0) } ?? .null,
+                .text(ISO8601.string(from: snapshot.capturedAt))
+            ]
+        )
+    }
+
+    public func resourceStateSnapshot(resourceID: String) throws -> ResourceStateSnapshot? {
+        guard let row = try database.query(
+            "SELECT * FROM resource_state_snapshots WHERE resource_id = ?",
+            bindings: [.text(resourceID)]
+        ).first else {
+            return nil
+        }
+
+        let stateData = Data(try row.requiredText("state_json").utf8)
+        let state = try stateDecoder.decode([String: String].self, from: stateData)
+        return try ResourceStateSnapshot(
+            resourceID: row.requiredText("resource_id"),
+            state: state,
+            stateHash: row.requiredText("state_hash"),
+            jobID: row.optionalText("job_id"),
+            capturedAt: ISO8601.date(from: row.requiredText("captured_at"))
+        )
+    }
+
     public func statusItemCount() throws -> Int {
         try count("status_items")
     }
@@ -204,5 +244,12 @@ private extension Dictionary where Key == String, Value == SQLiteValue {
             return nil
         }
         return URL(string: value)
+    }
+
+    func optionalText(_ column: String) -> String? {
+        guard case .text(let value)? = self[column] else {
+            return nil
+        }
+        return value
     }
 }

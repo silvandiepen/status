@@ -67,6 +67,22 @@ public struct Resource: Identifiable, Codable, Equatable, Sendable {
     }
 }
 
+public struct ResourceStateSnapshot: Codable, Equatable, Sendable {
+    public var resourceID: String
+    public var state: [String: String]
+    public var stateHash: String
+    public var jobID: String?
+    public var capturedAt: Date
+
+    public init(resourceID: String, state: [String: String], stateHash: String, jobID: String? = nil, capturedAt: Date) {
+        self.resourceID = resourceID
+        self.state = state
+        self.stateHash = stateHash
+        self.jobID = jobID
+        self.capturedAt = capturedAt
+    }
+}
+
 public struct ActionLink: Identifiable, Codable, Equatable, Sendable {
     public var id: String
     public var label: String

@@ -1,7 +1,7 @@
 import Foundation
 
 public enum StatusDatabaseMigrator {
-    public static let currentUserVersion = 1
+    public static let currentUserVersion = 2
 
     public static func migrate(_ database: SQLiteDatabase) throws {
         try database.executeBatch("""
@@ -103,6 +103,14 @@ public enum StatusDatabaseMigrator {
       updated_at  TEXT NOT NULL
     );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_account_resources_account_resource ON account_resources (account_id, resource_id);
+
+    CREATE TABLE IF NOT EXISTS resource_state_snapshots (
+      resource_id TEXT PRIMARY KEY REFERENCES resources(id) ON DELETE CASCADE,
+      state_json  TEXT NOT NULL,
+      state_hash  TEXT NOT NULL,
+      job_id      TEXT REFERENCES jobs(id) ON DELETE SET NULL,
+      captured_at TEXT NOT NULL
+    );
 
     CREATE TABLE IF NOT EXISTS events (
       id              TEXT PRIMARY KEY,
