@@ -98,6 +98,9 @@ If Xcode project generation is easier, use XcodeGen and document the command. If
 - Cloudflare Pages hosts the marketing/developer site.
 - Cloudflare R2 stores immutable signed plugin ZIPs.
 - Cloudflare Workers serve the registry API.
+- Current Pages domain: `status.hakobs.com`.
+- Current registry Worker domain: `status-registry.hakobs.com`.
+- Current Cloudflare account: `me@sil.mt` / `8cef251b5fdcf6c6f63db98b7aa49f9a`.
 - Registry and relay are separate Workers.
 - Do not build relay before registry.
 
@@ -122,6 +125,8 @@ If Xcode project generation is easier, use XcodeGen and document the command. If
 - Add build/test commands to `AGENTS.md` as soon as they exist.
 - Prefer commands that can run locally and in CI.
 - If a command fails because tooling is missing, document the missing prerequisite.
+- CI runs `npm ci` and `npm run check`.
+- Manual Cloudflare deploy workflow requires `CLOUDFLARE_API_TOKEN` in GitHub repository secrets.
 
 ## First-pass checklist
 
@@ -413,4 +418,3 @@ Git:
 Next:
 - next 3 concrete tasks
 ```
-

@@ -1,0 +1,11 @@
+node_modules/
+
+# Web builds
+web/dist/
+
+# Cloudflare / Wrangler local state
+.wrangler/
+.dev.vars
+
+# System/editor noise
+.DS_Store

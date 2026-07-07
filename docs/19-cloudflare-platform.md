@@ -36,7 +36,8 @@ Suggested paths:
 
 ```txt
 web/
-→ marketing site
+→ Vue + TypeScript + Sass marketing site
+→ uses @sil/ui and BEMM class generation
 → plugin directory pages
 → developer documentation pages
 
@@ -53,6 +54,15 @@ plugins/
 ```
 
 The marketing site should be static-first and deploy to Cloudflare Pages.
+
+Current implementation requirements:
+
+- Vue;
+- TypeScript;
+- Sass;
+- `@sil/ui` for shared UI styles/components;
+- `bemm` for BEM class generation;
+- no scoped SCSS in Vue components.
 
 Initial pages:
 
@@ -250,15 +260,11 @@ The app should check revocations before install, before update, and periodically
 
 ## Domains
 
-Working domains:
+Current working domains:
 
 ```txt
-status.app
-www.status.app
-plugins.status.app
-docs.status.app
-hooks.status.app
-api.status.app
+status.hakobs.com
+status-registry.hakobs.com
 ```
 
 If the final brand changes, keep the same structure:
@@ -269,6 +275,14 @@ plugins.{brand}.app
 docs.{brand}.app
 hooks.{brand}.app
 api.{brand}.app
+```
+
+Current Cloudflare account:
+
+```txt
+email: me@sil.mt
+account: Me@sil.mt's Account
+account_id: 8cef251b5fdcf6c6f63db98b7aa49f9a
 ```
 
 ## Later relay

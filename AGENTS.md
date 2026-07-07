@@ -4,7 +4,28 @@ This repository is documentation-first. Agents should preserve the product doctr
 
 ## Repository status
 
-This repository currently contains documentation only. There is no code, build system, or test suite yet. Code, when added, must follow the docs — not redefine the product. When build tooling is added, document the build/test commands here.
+This repository now contains documentation plus initial web/registry tooling. App code, when added, must follow the docs — not redefine the product.
+
+## Build and validation commands
+
+Current commands:
+
+```txt
+npm install
+npm ci
+npm run check
+npm run web:build
+npm run registry:check
+```
+
+Deployment commands, only when intentionally deploying:
+
+```txt
+npm run pages:deploy
+npm run registry:deploy
+```
+
+`npm run check` currently runs TypeScript checks, builds the Vue/Sass website, and runs a Wrangler dry-run for the registry Worker.
 
 ## Read in this order
 

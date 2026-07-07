@@ -1,0 +1,35 @@
+{
+  "name": "@statusfoundry/status",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 web",
+    "build": "npm run web:build",
+    "check": "npm run typecheck && npm run web:build && npm run registry:check",
+    "typecheck": "vue-tsc --noEmit",
+    "web:build": "vite build web",
+    "web:preview": "vite preview --host 0.0.0.0 --outDir web/dist",
+    "registry:check": "WRANGLER_WRITE_LOGS=false wrangler deploy --config workers/registry/wrangler.toml --dry-run",
+    "registry:deploy": "WRANGLER_WRITE_LOGS=false wrangler deploy --config workers/registry/wrangler.toml",
+    "pages:deploy": "wrangler pages deploy web/dist --project-name status"
+  },
+  "dependencies": {
+    "@sil/ui": "^2.6.0",
+    "bemm": "^1.4.0",
+    "nizel-plugin-shiki": "^0.1.0",
+    "sass": "^1.97.0",
+    "shiki": "^4.3.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.0",
+    "vue": "^3.5.25",
+    "vue-i18n": "^11.2.1",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20251222.0",
+    "@vitejs/plugin-vue": "^6.0.3",
+    "vue-tsc": "^3.1.8",
+    "wrangler": "^4.107.0"
+  }
+}

@@ -1,0 +1,12 @@
+name = "status-registry"
+main = "src/index.js"
+compatibility_date = "2026-07-07"
+account_id = "8cef251b5fdcf6c6f63db98b7aa49f9a"
+
+routes = [
+  { pattern = "status-registry.hakobs.com", custom_domain = true }
+]
+
+[[r2_buckets]]
+binding = "PLUGIN_BUCKET"
+bucket_name = "status-plugins"
