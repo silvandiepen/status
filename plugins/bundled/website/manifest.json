@@ -7,6 +7,6 @@
   "description": "Declarative uptime checks for sites and endpoints the user chooses to track.",
   "minCoreVersion": "0.1.0",
   "platforms": ["macOS", "iOS"],
-  "permissions": [],
+  "permissions": ["network", "user-configured-domains", "background-refresh"],
   "domains": []
 }

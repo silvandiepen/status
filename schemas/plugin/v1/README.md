@@ -76,7 +76,7 @@ private-key-jwt
 
 JSON Schema validates each file in isolation. The loader must additionally verify:
 
-- every request URL host appears in the manifest `domains` list;
+- every request URL host appears in the manifest `domains` list, unless the plugin has both `network` and `user-configured-domains`; for those plugins, the runtime must restrict requests to hosts stored in account/resource setup data;
 - every `request` reference (triggers, actions, mappings) names a key in `requests.json`;
 - every event type in mappings and presets is declared in `events.json`;
 - every `resourceType` (events, views) matches a resource mapping type;

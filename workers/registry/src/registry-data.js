@@ -76,7 +76,11 @@ export const registry = {
       "category": "monitoring",
       "author": "Status Foundry",
       "trustLevel": "official",
-      "permissions": [],
+      "permissions": [
+        "network",
+        "user-configured-domains",
+        "background-refresh"
+      ],
       "domains": [],
       "versions": [
         {
@@ -88,8 +92,8 @@ export const registry = {
           ],
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.website/0.1.0/com.status.website-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.website/0.1.0/manifest.json",
-          "sha256": "87d93665d2b72d50edda4ef5b4eb6539e766f302fb7bd9d5c521c98ef08944a5",
-          "signature": "dev-signature:87d93665d2b72d50edda4ef5b4eb6539e766f302fb7bd9d5c521c98ef08944a5",
+          "sha256": "1653616a50de63357dd803f638fee6ecb708ed263eb5c4b61ba8479c8e11158a",
+          "signature": "dev-signature:1653616a50de63357dd803f638fee6ecb708ed263eb5c4b61ba8479c8e11158a",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-07T12:00:00Z"
         }

@@ -62,6 +62,7 @@
           "private-key",
           "background-refresh",
           "push-webhook",
+          "user-configured-domains",
           "write-actions",
           "local-notification-suggestion"
         ]

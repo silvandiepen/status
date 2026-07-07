@@ -13,6 +13,7 @@ public enum PluginPermission: String, Codable, CaseIterable, Sendable {
     case privateKey = "private-key"
     case backgroundRefresh = "background-refresh"
     case pushWebhook = "push-webhook"
+    case userConfiguredDomains = "user-configured-domains"
     case writeActions = "write-actions"
     case localNotificationSuggestion = "local-notification-suggestion"
 }
@@ -167,7 +168,9 @@ public enum PluginManifestValidator {
             throw PluginValidationError.noPlatform
         }
 
-        if manifest.permissions.contains(.network), manifest.domains.isEmpty {
+        if manifest.permissions.contains(.network),
+           manifest.permissions.contains(.userConfiguredDomains) == false,
+           manifest.domains.isEmpty {
             throw PluginValidationError.noDomainForNetworkPermission
         }
 
@@ -178,6 +181,9 @@ public enum PluginManifestValidator {
         let declaredDomains = Set(manifest.domains.map { $0.lowercased() })
         for request in input.requests {
             let host = request.url.host?.lowercased() ?? ""
+            if manifest.permissions.contains(.userConfiguredDomains) {
+                continue
+            }
             guard declaredDomains.contains(host) else {
                 throw PluginValidationError.undeclaredRequestDomain(host)
             }

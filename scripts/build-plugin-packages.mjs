@@ -21,6 +21,7 @@ const allowedPermissions = new Set([
   "private-key",
   "background-refresh",
   "push-webhook",
+  "user-configured-domains",
   "write-actions",
   "local-notification-suggestion"
 ]);
@@ -162,7 +163,11 @@ function validateManifest(manifest, sourceName) {
   if (!Array.isArray(manifest.domains)) {
     fail(`${sourceName}: manifest.domains must be an array`);
   }
-  if (manifest.permissions.includes("network") && manifest.domains.length === 0) {
+  if (
+    manifest.permissions.includes("network") &&
+    manifest.permissions.includes("user-configured-domains") === false &&
+    manifest.domains.length === 0
+  ) {
     fail(`${sourceName}: network plugins must declare domains`);
   }
   for (const domain of manifest.domains) {

@@ -37,6 +37,28 @@ import Testing
     }
 }
 
+@Test func userConfiguredDomainPluginsMayUseTemplatedHosts() throws {
+    let manifest = PluginManifest(
+        id: "com.status.website",
+        name: "Website Uptime",
+        version: "1.0.0",
+        author: "Status",
+        category: "Monitoring",
+        description: "Checks websites chosen by the user.",
+        minCoreVersion: "1.0.0",
+        platforms: [.macOS, .iOS],
+        permissions: [.network, .userConfiguredDomains, .backgroundRefresh],
+        domains: []
+    )
+    let request = PluginRequestDefinition(
+        id: "check_site",
+        method: "GET",
+        url: try #require(URL(string: "https://example.com"))
+    )
+
+    try PluginManifestValidator.validate(PluginValidationInput(manifest: manifest, requests: [request]))
+}
+
 @Test func writeActionsRequireExplicitPermission() {
     let manifest = appStoreConnectManifest()
     let action = PluginActionDeclaration(

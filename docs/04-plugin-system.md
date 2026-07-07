@@ -72,6 +72,7 @@ api-key
 private-key
 background-refresh
 push-webhook
+user-configured-domains
 write-actions
 local-notification-suggestion
 ```
@@ -83,6 +84,7 @@ Permissions should be shown before install and again during account setup.
 Plugins must declare every domain they intend to call.
 
 The request engine must reject undeclared domains.
+Plugins that call hosts entered by the user, such as Website Uptime, must request `user-configured-domains` in addition to `network`. The setup flow must show the chosen host before the first request, and the runtime request engine must only call hosts stored in that account/resource configuration.
 
 Example:
 
