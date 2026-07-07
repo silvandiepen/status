@@ -195,10 +195,14 @@ Goal: move from local plugins to installable plugins.
 
 Deliverables:
 
-- hosted registry index;
+- Cloudflare Pages marketing site and public plugin directory;
+- Cloudflare R2 bucket for immutable signed plugin packages;
+- Cloudflare Worker registry API;
+- hosted registry index and static fallback;
 - plugin ZIP package format;
 - hash verification;
 - signature verification;
+- revocation/blocklist endpoint;
 - install/update/uninstall UI;
 - compatibility checks;
 - revocation list.
@@ -207,6 +211,7 @@ Acceptance:
 
 - app can browse registry;
 - app can install plugin;
+- app downloads plugin packages from Cloudflare-hosted URLs;
 - app rejects invalid package;
 - app can update plugin;
 - app can remove plugin.

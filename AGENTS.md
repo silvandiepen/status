@@ -2,6 +2,17 @@
 
 This repository is documentation-first. Agents should preserve the product doctrine and make implementation decisions that follow the canonical specification.
 
+## Repository status
+
+This repository currently contains documentation only. There is no code, build system, or test suite yet. Code, when added, must follow the docs — not redefine the product. When build tooling is added, document the build/test commands here.
+
+## Read in this order
+
+1. This file — work rules, non-negotiables, definition of done, decision hierarchy.
+2. `DOCTRINE.md` — non-negotiable product beliefs.
+3. `SPEC.md` — canonical product and technical spec: the core pipeline (`Trigger → Job → Event → Rule → Action → Notification → Audit log`), the common object model all plugins normalize into, storage, and MVP scope.
+4. `docs/01`–`docs/12` — detailed docs (architecture in `03`, plugin system in `04`, events/automation in `05`).
+
 ## Mission
 
 Build Status as a native macOS and iOS event-based personal operations hub.

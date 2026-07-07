@@ -195,11 +195,32 @@ Secrets are never stored in the database. Store only references to Keychain entr
 
 ## Plugin registry
 
-The registry can start as static JSON plus signed ZIP packages.
+The registry will be hosted on Cloudflare. The initial shape is static registry metadata plus signed ZIP packages, with a Cloudflare Worker providing the registry API.
 
 ```txt
-https://plugins.status.app/index.json
-https://plugins.status.app/plugins/{pluginId}/{version}/plugin.zip
+Cloudflare Pages
+→ marketing website
+→ public plugin directory
+→ developer docs
+
+Cloudflare R2
+→ immutable signed plugin ZIP packages
+→ package signatures/checksums
+→ registry snapshots
+
+Cloudflare Workers
+→ registry API
+→ compatibility filtering
+→ revocation/blocklist API
+```
+
+Canonical public endpoints:
+
+```txt
+https://plugins.status.app/v1/plugins
+https://plugins.status.app/v1/plugins/{pluginId}
+https://plugins.status.app/v1/revocations
+https://plugins.status.app/plugins/{pluginId}/{version}/{pluginId}-{version}.statusplugin.zip
 ```
 
 The app should verify:
@@ -212,6 +233,10 @@ The app should verify:
 - revocation status;
 - requested permissions;
 - declared domains.
+
+Cloudflare helps distribute plugins, but the native app still makes the local trust decision. Package verification must not depend only on a Worker response.
+
+See `docs/19-cloudflare-platform.md` for the hosting plan.
 
 ## Relay architecture
 

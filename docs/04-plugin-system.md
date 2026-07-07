@@ -351,6 +351,33 @@ Example:
 
 ## Plugin registry
 
+Status uses Cloudflare for hosted plugin distribution:
+
+```txt
+Cloudflare Pages
+→ marketing site and public plugin directory
+
+Cloudflare R2
+→ immutable signed plugin ZIP packages
+
+Cloudflare Workers
+→ registry API, compatibility metadata, revocations
+```
+
+The registry API is the app-facing source of plugin metadata. R2 is the package source. The app must verify every downloaded package locally.
+
+Public plugin publishing is review-based. v1 should not allow arbitrary public upload directly into the registry. Third-party plugins should start as pull requests against the official plugin source repository, pass validation, receive maintainer/security review, then be signed and published by Status.
+
+Plugin trust levels:
+
+```txt
+official
+verified-third-party
+local-dev
+```
+
+Only signed `official` and `verified-third-party` packages should appear in the hosted registry. `local-dev` packages are installed through Developer Mode with clear warnings.
+
 Registry entry example:
 
 ```json
@@ -360,7 +387,8 @@ Registry entry example:
   "latestVersion": "1.0.0",
   "platforms": ["macOS", "iOS"],
   "minCoreVersion": "1.0.0",
-  "downloadUrl": "https://plugins.status.app/plugins/youtube/1.0.0/plugin.zip",
+  "trustLevel": "official",
+  "downloadUrl": "https://plugins.status.app/plugins/com.status.youtube/1.0.0/com.status.youtube-1.0.0.statusplugin.zip",
   "sha256": "...",
   "signature": "...",
   "verified": true,
@@ -375,8 +403,10 @@ Open Integrations
 → Browse plugin store
 → Select plugin
 → Check compatibility
-→ Download package
+→ Fetch version metadata from registry Worker
+→ Download package from R2-backed URL
 → Verify hash and signature
+→ Check revocation list
 → Show permissions
 → Install package
 → Render setup form
@@ -384,6 +414,8 @@ Open Integrations
 → Run first sync
 → Show status
 ```
+
+See `docs/19-cloudflare-platform.md` for endpoint and hosting details.
 
 ## Developer mode
 
@@ -397,6 +429,29 @@ Developer mode should support:
 - export signed package later.
 
 Developer mode should show warnings for unsigned plugins.
+
+## Third-party plugins
+
+Third-party plugin support should be staged.
+
+### v1
+
+- no public upload form;
+- no self-service registry publishing;
+- local Developer Mode only;
+- official examples are open source;
+- accepted third-party plugins go through pull request review.
+
+### Later
+
+- developer accounts;
+- package upload intake;
+- automated validation;
+- manual review before public listing;
+- verified-third-party badge;
+- optional marketplace features.
+
+Third-party plugins must follow the same v1 restrictions as official plugins: declarative files only, declared domains, explicit permissions, no custom UI, no arbitrary code, and no direct Keychain access.
 
 ## v1 restrictions
 

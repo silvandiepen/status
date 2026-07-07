@@ -64,6 +64,10 @@ Detailed docs:
 - [Monetization](docs/09-monetization.md)
 - [Domains and brand](docs/10-domains-brand.md)
 - [Roadmap](docs/11-roadmap.md)
+- [Ideas backlog](docs/12-ideas-backlog.md)
+- [Implementation plan](docs/13-implementation-plan.md)
+- [Documentation checkup](docs/14-documentation-checkup.md)
+- [Cloudflare platform](docs/19-cloudflare-platform.md)
 
 ## Suggested MVP
 
