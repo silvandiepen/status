@@ -52,6 +52,7 @@ public final class PluginInstaller {
             version: version,
             revocations: revocations
         )
+        let packageDefinition = try PluginPackageDefinition.decode(from: packageData)
 
         let installDirectory = installRoot
             .appendingPathComponent(manifest.id, isDirectory: true)
@@ -70,6 +71,7 @@ public final class PluginInstaller {
             packagePath: packageURL.path,
             verification: verification,
             signature: version.signature,
+            packageDefinition: packageDefinition,
             installedAt: installedAt
         )
         try store.installPlugin(record)

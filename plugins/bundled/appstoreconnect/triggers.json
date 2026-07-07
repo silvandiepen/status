@@ -1,0 +1,17 @@
+{
+  "triggers": [
+    {
+      "id": "poll_app_versions",
+      "type": "cron",
+      "label": "Check app review status",
+      "defaultSchedule": "*/20 * * * *",
+      "request": "list_app_store_versions"
+    },
+    {
+      "id": "refresh_apps",
+      "type": "manual",
+      "label": "Refresh apps",
+      "request": "list_apps"
+    }
+  ]
+}

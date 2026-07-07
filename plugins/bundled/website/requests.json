@@ -1,0 +1,9 @@
+{
+  "requests": {
+    "check_site": {
+      "method": "GET",
+      "url": "https://{{host}}",
+      "timeoutSeconds": 15
+    }
+  }
+}

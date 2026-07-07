@@ -1,0 +1,33 @@
+{
+  "resources": [
+    {
+      "type": "website",
+      "request": "check_site",
+      "id": "{{host}}",
+      "name": "{{host}}",
+      "actionUrl": "https://{{host}}"
+    }
+  ],
+  "events": [
+    {
+      "type": "website.down",
+      "request": "check_site",
+      "when": "$.statusCode >= 500 || $.reachable == false",
+      "resourceId": "{{host}}",
+      "title": "Website down",
+      "summary": "{{host}} is not responding normally.",
+      "severity": "critical",
+      "actionUrl": "https://{{host}}"
+    },
+    {
+      "type": "website.recovered",
+      "request": "check_site",
+      "when": "$.previousHealthy == false && $.reachable == true",
+      "resourceId": "{{host}}",
+      "title": "Website recovered",
+      "summary": "{{host}} is healthy again.",
+      "severity": "ok",
+      "actionUrl": "https://{{host}}"
+    }
+  ]
+}

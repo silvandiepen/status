@@ -1,0 +1,20 @@
+{
+  "presets": [
+    {
+      "name": "Notify when a website is down",
+      "description": "Shows a local notification and adds an inbox item when a monitored website is down.",
+      "when": {
+        "eventType": "website.down",
+        "provider": "com.status.website"
+      },
+      "then": [
+        {
+          "action": "notification.show"
+        },
+        {
+          "action": "status.inbox.add"
+        }
+      ]
+    }
+  ]
+}

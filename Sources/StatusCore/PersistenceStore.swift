@@ -493,6 +493,12 @@ public final class StatusPersistenceStore {
                 grantedAt: nil
             )
         }
+
+        try installPluginPackageDefinition(
+            record.packageDefinition,
+            pluginID: record.manifest.id,
+            installedAt: record.installedAt
+        )
     }
 
     public func installedPlugin(id: String) throws -> InstalledPlugin? {
@@ -559,6 +565,64 @@ public final class StatusPersistenceStore {
 
     private func pluginPermissionID(pluginID: String, permission: PluginPermission) -> String {
         "plp_\(pluginID.replacingOccurrences(of: ".", with: "_"))_\(permission.rawValue.replacingOccurrences(of: "-", with: "_"))"
+    }
+
+    private func installPluginPackageDefinition(_ definition: PluginPackageDefinition, pluginID: String, installedAt: Date) throws {
+        for trigger in definition.triggers {
+            try upsertTrigger(
+                TriggerDefinition(
+                    id: pluginScopedID(prefix: "trg", pluginID: pluginID, localID: trigger.id),
+                    pluginID: pluginID,
+                    kind: trigger.type,
+                    label: trigger.label,
+                    enabled: true,
+                    intervalSeconds: trigger.defaultSchedule.flatMap(cronIntervalSeconds)
+                ),
+                updatedAt: installedAt
+            )
+        }
+
+        for preset in definition.rulePresets {
+            try upsertRule(
+                Rule(
+                    id: pluginScopedID(prefix: "rule", pluginID: pluginID, localID: preset.name),
+                    name: preset.name,
+                    enabled: false,
+                    provider: preset.when.provider ?? pluginID,
+                    eventType: preset.when.eventType,
+                    conditions: preset.conditions.map {
+                        RuleCondition(field: $0.field, operation: $0.operation, value: $0.value)
+                    },
+                    actions: preset.actions.map {
+                        RuleActionDefinition(action: $0.action, parameters: $0.parameters)
+                    }
+                ),
+                updatedAt: installedAt
+            )
+        }
+    }
+
+    private func pluginScopedID(prefix: String, pluginID: String, localID: String) -> String {
+        let pluginPart = pluginID.replacingOccurrences(of: ".", with: "_")
+        let localPart = localID
+            .lowercased()
+            .replacingOccurrences(of: #"[^a-z0-9_]+"#, with: "_", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "_"))
+        return "\(prefix)_\(pluginPart)_\(localPart.isEmpty ? "default" : localPart)"
+    }
+
+    private func cronIntervalSeconds(_ expression: String) -> TimeInterval? {
+        let fields = expression.split(separator: " ")
+        guard fields.count == 5 else { return nil }
+
+        let minute = String(fields[0])
+        if minute == "*" {
+            return 60
+        }
+        if minute.hasPrefix("*/"), let minutes = Int(minute.dropFirst(2)), minutes > 0 {
+            return TimeInterval(minutes * 60)
+        }
+        return nil
     }
 
     private func installedPlugin(from row: [String: SQLiteValue]) throws -> InstalledPlugin {

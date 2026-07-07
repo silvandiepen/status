@@ -1,0 +1,24 @@
+{
+  "presets": [
+    {
+      "name": "Immediate review rejection alert",
+      "description": "Shows a local notification and adds an inbox item when App Review rejects a version.",
+      "when": {
+        "eventType": "app.review.rejected",
+        "provider": "com.status.appstoreconnect"
+      },
+      "then": [
+        {
+          "action": "notification.show"
+        },
+        {
+          "action": "status.inbox.add"
+        },
+        {
+          "action": "url.open",
+          "url": "{{actionURL}}"
+        }
+      ]
+    }
+  ]
+}

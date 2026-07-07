@@ -1,0 +1,19 @@
+{
+  "requests": {
+    "list_repository_activity": {
+      "method": "GET",
+      "url": "https://api.github.com/repos/{{owner}}/{{repo}}/events",
+      "auth": "default",
+      "timeoutSeconds": 30
+    },
+    "list_workflow_runs": {
+      "method": "GET",
+      "url": "https://api.github.com/repos/{{owner}}/{{repo}}/actions/runs",
+      "auth": "default",
+      "query": {
+        "per_page": "25"
+      },
+      "timeoutSeconds": 30
+    }
+  }
+}

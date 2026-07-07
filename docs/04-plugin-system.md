@@ -376,9 +376,10 @@ Current native implementation status:
 - Registry trust labels are metadata only. A version is locally installable only after the installer verifies package hash, signature material, and revocation state.
 - `PluginPackageVerifier` now enforces package SHA-256 matches, signature metadata presence, and registry revocation checks before a package can be treated as installable. Full cryptographic signature verification is still planned before public distribution.
 - Verified install records persist plugin metadata, version integrity data, and permission grant defaults to SQLite; install is rejected if verification metadata does not match the manifest id/version.
-- `PluginInstaller` orchestrates registry metadata lookup, revocation fetch, package/manifest download, package verification, local file writes, and SQLite install recording.
+- `PluginInstaller` orchestrates registry metadata lookup, revocation fetch, package/manifest download, package verification, package definition decoding, local file writes, and SQLite install recording.
+- Installed package definitions materialize into local runtime records: `triggers.json` becomes enabled trigger definitions and `rules.presets.json` becomes disabled suggested rules. Presets are never enabled automatically.
 - The shared native integrations screen loads installed plugins from SQLite, fetches compatible registry entries from `status-registry.hakobs.com`, shows requested domains and permissions, and installs through `PluginInstaller`.
-- Bundled plugin source lives in `plugins/bundled/*`. `npm run plugins:build` validates each manifest, builds deterministic `.statusplugin.zip` artifacts, computes registry SHA-256 values, and refreshes Worker metadata/artifacts; `npm run plugins:check` fails when generated registry data is stale.
+- Bundled plugin source lives in `plugins/bundled/*`. Each bundled plugin ships declarative package files such as `requests.json`, `triggers.json`, `events.json`, `mappings.json`, and `rules.presets.json`. `npm run plugins:build` validates each manifest, builds deterministic `.statusplugin.zip` artifacts, computes registry SHA-256 values, and refreshes Worker metadata/artifacts; `npm run plugins:check` fails when generated registry data is stale.
 
 Public plugin publishing is review-based. v1 should not allow arbitrary public upload directly into the registry. Third-party plugins should start as pull requests against the official plugin source repository, pass validation, receive maintainer/security review, then be signed and published by Status.
 
@@ -423,6 +424,8 @@ Open Integrations
 → Check revocation list
 → Show permissions
 → Install package
+→ Register triggers
+→ Store suggested rules disabled
 → Render setup form
 → Store secrets in Keychain
 → Run first sync

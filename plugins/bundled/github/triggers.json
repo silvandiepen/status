@@ -1,0 +1,17 @@
+{
+  "triggers": [
+    {
+      "id": "poll_workflows",
+      "type": "cron",
+      "label": "Check workflow runs",
+      "defaultSchedule": "*/15 * * * *",
+      "request": "list_workflow_runs"
+    },
+    {
+      "id": "refresh_activity",
+      "type": "manual",
+      "label": "Refresh repository activity",
+      "request": "list_repository_activity"
+    }
+  ]
+}

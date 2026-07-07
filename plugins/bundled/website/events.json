@@ -1,0 +1,20 @@
+{
+  "events": [
+    {
+      "type": "website.down",
+      "label": "Website down",
+      "description": "A tracked website did not return a healthy response.",
+      "resourceType": "website",
+      "defaultSeverity": "critical",
+      "notificationDefault": "immediate"
+    },
+    {
+      "type": "website.recovered",
+      "label": "Website recovered",
+      "description": "A tracked website returned to a healthy response.",
+      "resourceType": "website",
+      "defaultSeverity": "ok",
+      "notificationDefault": "digest"
+    }
+  ]
+}

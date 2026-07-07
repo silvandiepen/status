@@ -1,0 +1,17 @@
+{
+  "triggers": [
+    {
+      "id": "poll_site",
+      "type": "cron",
+      "label": "Check website uptime",
+      "defaultSchedule": "*/5 * * * *",
+      "request": "check_site"
+    },
+    {
+      "id": "refresh_site",
+      "type": "manual",
+      "label": "Refresh website status",
+      "request": "check_site"
+    }
+  ]
+}

@@ -28,8 +28,8 @@
           ],
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.appstoreconnect/0.1.0/com.status.appstoreconnect-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.appstoreconnect/0.1.0/manifest.json",
-          "sha256": "81a6a47c3dc7e963b5afd60cca027095e2673e66b2fad8387412535e4f46870e",
-          "signature": "dev-signature:81a6a47c3dc7e963b5afd60cca027095e2673e66b2fad8387412535e4f46870e",
+          "sha256": "a62f2833f98683a1001ae134e759ebfcfa605ebaa031e79df3fa89b3e7b8a7ef",
+          "signature": "dev-signature:a62f2833f98683a1001ae134e759ebfcfa605ebaa031e79df3fa89b3e7b8a7ef",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-07T12:00:00Z"
         }
@@ -61,8 +61,8 @@
           ],
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.github/0.1.0/com.status.github-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.github/0.1.0/manifest.json",
-          "sha256": "994fe6e3771127a1a4c539edffed5b0126725b4c108741f7b0ced35e67b18c98",
-          "signature": "dev-signature:994fe6e3771127a1a4c539edffed5b0126725b4c108741f7b0ced35e67b18c98",
+          "sha256": "a69d0387e5ee0b721fcd3ddbfe6632af178245a6af4be868d0b32d83c4a87702",
+          "signature": "dev-signature:a69d0387e5ee0b721fcd3ddbfe6632af178245a6af4be868d0b32d83c4a87702",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-07T12:00:00Z"
         }
@@ -88,8 +88,8 @@
           ],
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.website/0.1.0/com.status.website-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.website/0.1.0/manifest.json",
-          "sha256": "dcd7de980855e6630f0c6fdee173e78f7e0087dd15d6e17fc79d89bcfe27a614",
-          "signature": "dev-signature:dcd7de980855e6630f0c6fdee173e78f7e0087dd15d6e17fc79d89bcfe27a614",
+          "sha256": "87d93665d2b72d50edda4ef5b4eb6539e766f302fb7bd9d5c521c98ef08944a5",
+          "signature": "dev-signature:87d93665d2b72d50edda4ef5b4eb6539e766f302fb7bd9d5c521c98ef08944a5",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-07T12:00:00Z"
         }

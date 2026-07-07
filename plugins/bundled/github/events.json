@@ -1,0 +1,20 @@
+{
+  "events": [
+    {
+      "type": "github.workflow.failed",
+      "label": "Workflow failed",
+      "description": "A GitHub Actions workflow run completed with a failure.",
+      "resourceType": "repository",
+      "defaultSeverity": "warning",
+      "notificationDefault": "dashboard-only"
+    },
+    {
+      "type": "github.pull_request.opened",
+      "label": "Pull request opened",
+      "description": "A pull request was opened on a tracked repository.",
+      "resourceType": "repository",
+      "defaultSeverity": "notice",
+      "notificationDefault": "digest"
+    }
+  ]
+}

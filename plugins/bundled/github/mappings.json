@@ -1,0 +1,37 @@
+{
+  "resources": [
+    {
+      "type": "repository",
+      "request": "list_repository_activity",
+      "id": "$.repo.id",
+      "name": "$.repo.name",
+      "actionUrl": "https://github.com/{{name}}"
+    }
+  ],
+  "events": [
+    {
+      "type": "github.workflow.failed",
+      "request": "list_workflow_runs",
+      "items": "$.workflow_runs[*]",
+      "when": "$.conclusion == 'failure'",
+      "resourceId": "$.repository.id",
+      "title": "Workflow failed",
+      "summary": "{{name}} failed on {{head_branch}}.",
+      "severity": "warning",
+      "actionUrl": "{{html_url}}",
+      "timestamp": "$.updated_at"
+    },
+    {
+      "type": "github.pull_request.opened",
+      "request": "list_repository_activity",
+      "items": "$[*]",
+      "when": "$.type == 'PullRequestEvent' && $.payload.action == 'opened'",
+      "resourceId": "$.repo.id",
+      "title": "Pull request opened",
+      "summary": "{{actor.login}} opened a pull request.",
+      "severity": "notice",
+      "actionUrl": "$.payload.pull_request.html_url",
+      "timestamp": "$.created_at"
+    }
+  ]
+}

@@ -109,6 +109,7 @@ public struct PluginInstallRecord: Equatable, Sendable {
     public var packagePath: String?
     public var verification: PluginPackageVerificationResult
     public var signature: String?
+    public var packageDefinition: PluginPackageDefinition
     public var installedAt: Date
 
     public init(
@@ -118,6 +119,7 @@ public struct PluginInstallRecord: Equatable, Sendable {
         packagePath: String? = nil,
         verification: PluginPackageVerificationResult,
         signature: String? = nil,
+        packageDefinition: PluginPackageDefinition = PluginPackageDefinition(),
         installedAt: Date
     ) {
         self.manifest = manifest
@@ -126,6 +128,7 @@ public struct PluginInstallRecord: Equatable, Sendable {
         self.packagePath = packagePath
         self.verification = verification
         self.signature = signature
+        self.packageDefinition = packageDefinition
         self.installedAt = installedAt
     }
 }

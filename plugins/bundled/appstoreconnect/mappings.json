@@ -1,0 +1,40 @@
+{
+  "resources": [
+    {
+      "type": "app",
+      "request": "list_apps",
+      "items": "$.data[*]",
+      "id": "$.id",
+      "name": "$.attributes.name",
+      "fields": {
+        "bundleId": "$.attributes.bundleId",
+        "sku": "$.attributes.sku"
+      },
+      "actionUrl": "https://appstoreconnect.apple.com/apps/{{id}}/appstore"
+    }
+  ],
+  "events": [
+    {
+      "type": "app.review.rejected",
+      "request": "list_app_store_versions",
+      "items": "$.data[*]",
+      "when": "$.attributes.appStoreState == 'REJECTED'",
+      "resourceId": "$.relationships.app.data.id",
+      "title": "App review rejected",
+      "summary": "Version {{attributes.versionString}} needs attention in App Store Connect.",
+      "severity": "critical",
+      "actionUrl": "https://appstoreconnect.apple.com/apps/{{resourceId}}/appstore"
+    },
+    {
+      "type": "app.version.ready_for_sale",
+      "request": "list_app_store_versions",
+      "items": "$.data[*]",
+      "when": "$.attributes.appStoreState == 'READY_FOR_SALE'",
+      "resourceId": "$.relationships.app.data.id",
+      "title": "Version ready for sale",
+      "summary": "Version {{attributes.versionString}} is ready for sale.",
+      "severity": "ok",
+      "actionUrl": "https://appstoreconnect.apple.com/apps/{{resourceId}}/appstore"
+    }
+  ]
+}

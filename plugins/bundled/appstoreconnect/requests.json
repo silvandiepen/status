@@ -1,0 +1,21 @@
+{
+  "requests": {
+    "list_apps": {
+      "method": "GET",
+      "url": "https://api.appstoreconnect.apple.com/v1/apps",
+      "auth": "default",
+      "pagination": {
+        "type": "jsonapi-next-link",
+        "path": "$.links.next",
+        "maxPages": 5
+      },
+      "timeoutSeconds": 30
+    },
+    "list_app_store_versions": {
+      "method": "GET",
+      "url": "https://api.appstoreconnect.apple.com/v1/apps/{{appId}}/appStoreVersions",
+      "auth": "default",
+      "timeoutSeconds": 30
+    }
+  }
+}

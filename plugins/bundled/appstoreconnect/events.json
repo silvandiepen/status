@@ -1,0 +1,20 @@
+{
+  "events": [
+    {
+      "type": "app.review.rejected",
+      "label": "App review rejected",
+      "description": "An App Store version moved into a rejected review state.",
+      "resourceType": "app",
+      "defaultSeverity": "critical",
+      "notificationDefault": "immediate"
+    },
+    {
+      "type": "app.version.ready_for_sale",
+      "label": "Version ready for sale",
+      "description": "An App Store version is ready for sale.",
+      "resourceType": "app",
+      "defaultSeverity": "ok",
+      "notificationDefault": "digest"
+    }
+  ]
+}
