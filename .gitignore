@@ -11,6 +11,7 @@ web/dist/
 # Cloudflare / Wrangler local state
 .wrangler/
 .dev.vars
+workers/registry/dist/
 
 # System/editor noise
 .DS_Store

@@ -1,4 +1,5 @@
 import { registry, revocations } from "./registry-data.js";
+import { pluginArtifacts } from "./plugin-artifacts.js";
 
 const generatedAt = new Date().toISOString();
 
@@ -38,6 +39,22 @@ function methodNotAllowed() {
     },
     { status: 405, headers: { "cache-control": "no-store" } }
   );
+}
+
+function artifact(pathname, method) {
+  const item = pluginArtifacts[pathname];
+  if (!item) {
+    return undefined;
+  }
+
+  const bytes = Uint8Array.from(atob(item.bodyBase64), (character) => character.charCodeAt(0));
+  return new Response(method === "HEAD" ? null : bytes, {
+    headers: {
+      "content-type": item.contentType,
+      "cache-control": "public, max-age=31536000, immutable",
+      ...corsHeaders
+    }
+  });
 }
 
 function pluginByID(pluginID) {
@@ -107,6 +124,11 @@ export function route(request) {
   }
   if (request.method !== "GET" && request.method !== "HEAD") {
     return methodNotAllowed();
+  }
+
+  const artifactResponse = artifact(url.pathname, request.method);
+  if (artifactResponse) {
+    return artifactResponse;
   }
 
   if (url.pathname === "/" || url.pathname === "/health") {

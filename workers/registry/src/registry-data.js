@@ -1,85 +1,108 @@
 export const registry = {
-  schemaVersion: "1.0.0",
-  plugins: [
+  "schemaVersion": "1.0.0",
+  "plugins": [
     {
-      id: "com.status.appstoreconnect",
-      name: "App Store Connect",
-      summary: "Track app review, builds, and release status.",
-      description: "Read-only App Store Connect status events for apps, review state, build processing, and release readiness.",
-      category: "developer",
-      author: "Status Foundry",
-      trustLevel: "official",
-      permissions: ["network"],
-      domains: ["api.appstoreconnect.apple.com"],
-      versions: [
+      "id": "com.status.appstoreconnect",
+      "name": "App Store Connect",
+      "summary": "Track app review, builds, and release status.",
+      "description": "Read-only App Store Connect status events for apps, review state, build processing, and release readiness.",
+      "category": "developer",
+      "author": "Status Foundry",
+      "trustLevel": "official",
+      "permissions": [
+        "network",
+        "keychain",
+        "private-key",
+        "background-refresh"
+      ],
+      "domains": [
+        "api.appstoreconnect.apple.com"
+      ],
+      "versions": [
         {
-          version: "0.1.0",
-          minCoreVersion: "0.1.0",
-          platforms: ["macOS", "iOS"],
-          packageUrl: "https://status-registry.hakobs.com/plugins/com.status.appstoreconnect/0.1.0/com.status.appstoreconnect-0.1.0.statusplugin.zip",
-          manifestUrl: "https://status-registry.hakobs.com/plugins/com.status.appstoreconnect/0.1.0/manifest.json",
-          sha256: "b6a9d31fb02f91c6a384d9960f3b35f4b54a2f838f4d7a4e6a4a0d96fca94232",
-          signature: null,
-          signedBy: "status-foundry-dev",
-          releasedAt: "2026-07-07T12:00:00Z"
+          "version": "0.1.0",
+          "minCoreVersion": "0.1.0",
+          "platforms": [
+            "macOS",
+            "iOS"
+          ],
+          "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.appstoreconnect/0.1.0/com.status.appstoreconnect-0.1.0.statusplugin.zip",
+          "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.appstoreconnect/0.1.0/manifest.json",
+          "sha256": "81a6a47c3dc7e963b5afd60cca027095e2673e66b2fad8387412535e4f46870e",
+          "signature": "dev-signature:81a6a47c3dc7e963b5afd60cca027095e2673e66b2fad8387412535e4f46870e",
+          "signedBy": "status-foundry-dev",
+          "releasedAt": "2026-07-07T12:00:00Z"
         }
       ]
     },
     {
-      id: "com.status.github",
-      name: "GitHub",
-      summary: "Track workflow failures, pull requests, and issue activity.",
-      description: "Read-only GitHub repository events with future reviewed write actions for issue creation.",
-      category: "developer",
-      author: "Status Foundry",
-      trustLevel: "official",
-      permissions: ["network"],
-      domains: ["api.github.com"],
-      versions: [
+      "id": "com.status.github",
+      "name": "GitHub",
+      "summary": "Track workflow failures, pull requests, and issue activity.",
+      "description": "Read-only GitHub repository events for workflow failures, pull requests, and issue activity.",
+      "category": "developer",
+      "author": "Status Foundry",
+      "trustLevel": "official",
+      "permissions": [
+        "network",
+        "keychain",
+        "background-refresh"
+      ],
+      "domains": [
+        "api.github.com"
+      ],
+      "versions": [
         {
-          version: "0.1.0",
-          minCoreVersion: "0.1.0",
-          platforms: ["macOS", "iOS"],
-          packageUrl: "https://status-registry.hakobs.com/plugins/com.status.github/0.1.0/com.status.github-0.1.0.statusplugin.zip",
-          manifestUrl: "https://status-registry.hakobs.com/plugins/com.status.github/0.1.0/manifest.json",
-          sha256: "dcd4260b527a28d62ad2a956b00c4f5616416b2fdc0506e6fe5f6b616f5df5aa",
-          signature: null,
-          signedBy: "status-foundry-dev",
-          releasedAt: "2026-07-07T12:00:00Z"
+          "version": "0.1.0",
+          "minCoreVersion": "0.1.0",
+          "platforms": [
+            "macOS",
+            "iOS"
+          ],
+          "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.github/0.1.0/com.status.github-0.1.0.statusplugin.zip",
+          "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.github/0.1.0/manifest.json",
+          "sha256": "994fe6e3771127a1a4c539edffed5b0126725b4c108741f7b0ced35e67b18c98",
+          "signature": "dev-signature:994fe6e3771127a1a4c539edffed5b0126725b4c108741f7b0ced35e67b18c98",
+          "signedBy": "status-foundry-dev",
+          "releasedAt": "2026-07-07T12:00:00Z"
         }
       ]
     },
     {
-      id: "com.status.website",
-      name: "Website Uptime",
-      summary: "Track website health and response status.",
-      description: "Declarative uptime checks for sites and endpoints the user chooses to track.",
-      category: "monitoring",
-      author: "Status Foundry",
-      trustLevel: "official",
-      permissions: ["network"],
-      domains: [],
-      versions: [
+      "id": "com.status.website",
+      "name": "Website Uptime",
+      "summary": "Track website health and response status.",
+      "description": "Declarative uptime checks for sites and endpoints the user chooses to track.",
+      "category": "monitoring",
+      "author": "Status Foundry",
+      "trustLevel": "official",
+      "permissions": [],
+      "domains": [],
+      "versions": [
         {
-          version: "0.1.0",
-          minCoreVersion: "0.1.0",
-          platforms: ["macOS", "iOS"],
-          packageUrl: "https://status-registry.hakobs.com/plugins/com.status.website/0.1.0/com.status.website-0.1.0.statusplugin.zip",
-          manifestUrl: "https://status-registry.hakobs.com/plugins/com.status.website/0.1.0/manifest.json",
-          sha256: "c9ca60fa6c38bb6f38fc097a080ef0a993cc67f198af86b7fb9e21f87c8fcb09",
-          signature: null,
-          signedBy: "status-foundry-dev",
-          releasedAt: "2026-07-07T12:00:00Z"
+          "version": "0.1.0",
+          "minCoreVersion": "0.1.0",
+          "platforms": [
+            "macOS",
+            "iOS"
+          ],
+          "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.website/0.1.0/com.status.website-0.1.0.statusplugin.zip",
+          "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.website/0.1.0/manifest.json",
+          "sha256": "dcd7de980855e6630f0c6fdee173e78f7e0087dd15d6e17fc79d89bcfe27a614",
+          "signature": "dev-signature:dcd7de980855e6630f0c6fdee173e78f7e0087dd15d6e17fc79d89bcfe27a614",
+          "signedBy": "status-foundry-dev",
+          "releasedAt": "2026-07-07T12:00:00Z"
         }
       ]
     }
   ]
 };
 
+
 export const revocations = {
-  schemaVersion: "1.0.0",
-  revokedPlugins: [],
-  revokedVersions: [],
-  revokedHashes: [],
-  revokedSigningKeys: []
+  "schemaVersion": "1.0.0",
+  "revokedPlugins": [],
+  "revokedVersions": [],
+  "revokedHashes": [],
+  "revokedSigningKeys": []
 };

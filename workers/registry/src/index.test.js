@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 import { route } from "./index.js";
 
@@ -42,6 +43,25 @@ test("plugin detail and versions endpoints return package metadata", async () =>
   assert.equal(version.status, 200);
   assert.equal(versionBody.pluginId, "com.status.github");
   assert.match(versionBody.packageUrl, /com\.status\.github-0\.1\.0\.statusplugin\.zip$/);
+  assert.match(versionBody.signature, /^dev-signature:/);
+});
+
+test("plugin package and manifest artifacts are downloadable and match registry hash", async () => {
+  const version = await get("/v1/plugins/com.status.github/versions/0.1.0");
+  const versionBody = await version.json();
+  const packageURL = new URL(versionBody.packageUrl);
+  const manifestURL = new URL(versionBody.manifestUrl);
+  const packageResponse = await get(packageURL.pathname);
+  const manifestResponse = await get(manifestURL.pathname);
+  const packageData = Buffer.from(await packageResponse.arrayBuffer());
+  const manifest = await manifestResponse.json();
+
+  assert.equal(packageResponse.status, 200);
+  assert.equal(packageResponse.headers.get("content-type"), "application/zip");
+  assert.equal(createHash("sha256").update(packageData).digest("hex"), versionBody.sha256);
+  assert.equal(manifestResponse.status, 200);
+  assert.equal(manifest.id, "com.status.github");
+  assert.equal(manifest.version, "0.1.0");
 });
 
 test("compatibility filters remove unsupported versions", async () => {

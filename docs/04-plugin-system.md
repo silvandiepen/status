@@ -378,6 +378,7 @@ Current native implementation status:
 - Verified install records persist plugin metadata, version integrity data, and permission grant defaults to SQLite; install is rejected if verification metadata does not match the manifest id/version.
 - `PluginInstaller` orchestrates registry metadata lookup, revocation fetch, package/manifest download, package verification, local file writes, and SQLite install recording.
 - The shared native integrations screen loads installed plugins from SQLite, fetches compatible registry entries from `status-registry.hakobs.com`, shows requested domains and permissions, and installs through `PluginInstaller`.
+- Bundled plugin source lives in `plugins/bundled/*`. `npm run plugins:build` validates each manifest, builds deterministic `.statusplugin.zip` artifacts, computes registry SHA-256 values, and refreshes Worker metadata/artifacts; `npm run plugins:check` fails when generated registry data is stale.
 
 Public plugin publishing is review-based. v1 should not allow arbitrary public upload directly into the registry. Third-party plugins should start as pull requests against the official plugin source repository, pass validation, receive maintainer/security review, then be signed and published by Status.
 

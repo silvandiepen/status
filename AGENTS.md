@@ -13,6 +13,7 @@ Current commands:
 ```txt
 npm install
 npm ci
+npm run plugins:build
 npm run check
 npm run web:build
 npm run registry:check
@@ -29,7 +30,8 @@ npm run pages:deploy
 npm run registry:deploy
 ```
 
-`npm run check` currently runs TypeScript checks, builds the Vue/Sass website, and runs a Wrangler dry-run for the registry Worker.
+`npm run plugins:build` validates bundled plugin source, builds deterministic package artifacts, and refreshes the generated registry metadata used by the Worker.
+`npm run check` currently validates plugin package drift, runs TypeScript checks, builds the Vue/Sass website, runs registry Worker tests, and runs a Wrangler dry-run.
 `swift test` validates the shared native package. `xcodegen generate` creates the local Xcode project from `project.yml`; the generated project is intentionally ignored.
 
 ## Read in this order
