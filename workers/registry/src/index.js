@@ -1,8 +1,6 @@
 import { registry, revocations } from "./registry-data.js";
 import { pluginArtifacts } from "./plugin-artifacts.js";
 
-const generatedAt = new Date().toISOString();
-
 const corsHeaders = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET, HEAD, OPTIONS",
@@ -135,21 +133,21 @@ export function route(request) {
     return json({
       service: "status-registry",
       ok: true,
-      generatedAt
+      generatedAt: new Date().toISOString()
     });
   }
 
   if (url.pathname === "/v1/registry") {
     return json({
       ...registry,
-      generatedAt
+      generatedAt: new Date().toISOString()
     });
   }
 
   if (url.pathname === "/v1/revocations") {
     return json({
       ...revocations,
-      generatedAt
+      generatedAt: new Date().toISOString()
     });
   }
 
@@ -159,7 +157,7 @@ export function route(request) {
       .map(pluginSummary);
     return json({
       schemaVersion: registry.schemaVersion,
-      generatedAt,
+      generatedAt: new Date().toISOString(),
       plugins
     });
   }
