@@ -255,6 +255,58 @@ public final class StatusPersistenceStore {
         ).map(auditEntry(from:))
     }
 
+    public func upsertResource(_ resource: Resource, externalID: String, fields: [String: String] = [:], seenAt: Date) throws {
+        try database.execute(
+            """
+            INSERT INTO resources
+            (id, account_id, plugin_id, type, external_id, name, fields_json, action_url, first_seen_at, last_seen_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              name = excluded.name,
+              fields_json = excluded.fields_json,
+              action_url = excluded.action_url,
+              archived = 0,
+              last_seen_at = excluded.last_seen_at
+            """,
+            bindings: [
+                .text(resource.id),
+                .text(resource.accountID),
+                .text(resource.pluginID),
+                .text(resource.type),
+                .text(externalID),
+                .text(resource.name),
+                .text(try jsonString(fields)),
+                resource.actionURL.map { .text($0.absoluteString) } ?? .null,
+                .text(ISO8601.string(from: seenAt)),
+                .text(ISO8601.string(from: seenAt))
+            ]
+        )
+        try database.execute(
+            """
+            INSERT INTO account_resources
+            (id, account_id, resource_id, tracked, created_at, updated_at)
+            VALUES (?, ?, ?, 1, ?, ?)
+            ON CONFLICT(account_id, resource_id) DO UPDATE SET
+              tracked = 1,
+              updated_at = excluded.updated_at
+            """,
+            bindings: [
+                .text("acr_\(resource.id.replacingOccurrences(of: ":", with: "_"))"),
+                .text(resource.accountID),
+                .text(resource.id),
+                .text(ISO8601.string(from: seenAt)),
+                .text(ISO8601.string(from: seenAt))
+            ]
+        )
+    }
+
+    public func resource(id: String) throws -> Resource? {
+        guard let row = try database.query("SELECT * FROM resources WHERE id = ?", bindings: [.text(id)]).first else {
+            return nil
+        }
+        return try resource(from: row)
+    }
+
     public func upsertResourceStateSnapshot(_ snapshot: ResourceStateSnapshot) throws {
         let stateJSON = try String(decoding: stateEncoder.encode(snapshot.state), as: UTF8.self)
         try database.execute(
@@ -719,6 +771,17 @@ public final class StatusPersistenceStore {
             value: row.requiredText("value"),
             delta: row.optionalText("delta"),
             severity: Severity(rawValue: row.requiredText("severity")) ?? .notice
+        )
+    }
+
+    private func resource(from row: [String: SQLiteValue]) throws -> Resource {
+        try Resource(
+            id: row.requiredText("id"),
+            accountID: row.requiredText("account_id"),
+            pluginID: row.requiredText("plugin_id"),
+            type: row.requiredText("type"),
+            name: row.requiredText("name"),
+            actionURL: row.optionalURL("action_url")
         )
     }
 
