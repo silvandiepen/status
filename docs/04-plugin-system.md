@@ -370,6 +370,11 @@ Cloudflare Workers
 
 The registry API is the app-facing source of plugin metadata. R2 is the package source. The app must verify every downloaded package locally.
 
+Current native implementation status:
+
+- `PluginRegistryClient` can fetch plugin lists, plugin details, versions, registry snapshots, and revocations from the Worker API.
+- Registry trust labels are metadata only. A version is locally installable only after the installer verifies package hash, signature material, and revocation state.
+
 Public plugin publishing is review-based. v1 should not allow arbitrary public upload directly into the registry. Third-party plugins should start as pull requests against the official plugin source repository, pass validation, receive maintainer/security review, then be signed and published by Status.
 
 Plugin trust levels:
