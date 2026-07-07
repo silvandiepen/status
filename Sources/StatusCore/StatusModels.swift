@@ -1,0 +1,231 @@
+import Foundation
+
+public enum Severity: String, Codable, CaseIterable, Sendable, Comparable {
+    case ok
+    case notice
+    case warning
+    case critical
+
+    private var rank: Int {
+        switch self {
+        case .ok: 0
+        case .notice: 1
+        case .warning: 2
+        case .critical: 3
+        }
+    }
+
+    public static func < (lhs: Severity, rhs: Severity) -> Bool {
+        lhs.rank < rhs.rank
+    }
+}
+
+public enum StatusItemState: String, Codable, CaseIterable, Sendable {
+    case open
+    case snoozed
+    case resolved
+    case dismissed
+}
+
+public enum NotificationMode: String, Codable, CaseIterable, Sendable {
+    case immediate
+    case digest
+    case dashboardOnly
+    case silentAutomation
+    case disabled
+}
+
+public struct Account: Identifiable, Codable, Equatable, Sendable {
+    public var id: String
+    public var pluginID: String
+    public var provider: String
+    public var displayName: String
+
+    public init(id: String, pluginID: String, provider: String, displayName: String) {
+        self.id = id
+        self.pluginID = pluginID
+        self.provider = provider
+        self.displayName = displayName
+    }
+}
+
+public struct Resource: Identifiable, Codable, Equatable, Sendable {
+    public var id: String
+    public var accountID: String
+    public var pluginID: String
+    public var type: String
+    public var name: String
+    public var actionURL: URL?
+
+    public init(id: String, accountID: String, pluginID: String, type: String, name: String, actionURL: URL? = nil) {
+        self.id = id
+        self.accountID = accountID
+        self.pluginID = pluginID
+        self.type = type
+        self.name = name
+        self.actionURL = actionURL
+    }
+}
+
+public struct ActionLink: Identifiable, Codable, Equatable, Sendable {
+    public var id: String
+    public var label: String
+    public var url: URL
+
+    public init(id: String, label: String, url: URL) {
+        self.id = id
+        self.label = label
+        self.url = url
+    }
+}
+
+public struct Event: Identifiable, Codable, Equatable, Sendable {
+    public var id: String
+    public var provider: String
+    public var type: String
+    public var resourceID: String
+    public var resourceName: String
+    public var severity: Severity
+    public var title: String
+    public var summary: String
+    public var timestamp: Date
+    public var actionURL: URL?
+    public var fingerprint: String
+
+    public init(
+        id: String,
+        provider: String,
+        type: String,
+        resourceID: String,
+        resourceName: String,
+        severity: Severity,
+        title: String,
+        summary: String,
+        timestamp: Date,
+        actionURL: URL? = nil,
+        fingerprint: String
+    ) {
+        self.id = id
+        self.provider = provider
+        self.type = type
+        self.resourceID = resourceID
+        self.resourceName = resourceName
+        self.severity = severity
+        self.title = title
+        self.summary = summary
+        self.timestamp = timestamp
+        self.actionURL = actionURL
+        self.fingerprint = fingerprint
+    }
+}
+
+public struct StatusItem: Identifiable, Codable, Equatable, Sendable {
+    public var id: String
+    public var resourceID: String
+    public var severity: Severity
+    public var title: String
+    public var summary: String
+    public var state: StatusItemState
+    public var updatedAt: Date
+    public var actionLink: ActionLink?
+
+    public init(
+        id: String,
+        resourceID: String,
+        severity: Severity,
+        title: String,
+        summary: String,
+        state: StatusItemState,
+        updatedAt: Date,
+        actionLink: ActionLink? = nil
+    ) {
+        self.id = id
+        self.resourceID = resourceID
+        self.severity = severity
+        self.title = title
+        self.summary = summary
+        self.state = state
+        self.updatedAt = updatedAt
+        self.actionLink = actionLink
+    }
+}
+
+public struct Metric: Identifiable, Codable, Equatable, Sendable {
+    public var id: String
+    public var resourceID: String
+    public var label: String
+    public var value: String
+    public var delta: String?
+    public var severity: Severity
+
+    public init(id: String, resourceID: String, label: String, value: String, delta: String? = nil, severity: Severity) {
+        self.id = id
+        self.resourceID = resourceID
+        self.label = label
+        self.value = value
+        self.delta = delta
+        self.severity = severity
+    }
+}
+
+public struct AuditEntry: Identifiable, Codable, Equatable, Sendable {
+    public var id: String
+    public var title: String
+    public var detail: String
+    public var timestamp: Date
+    public var status: String
+
+    public init(id: String, title: String, detail: String, timestamp: Date, status: String) {
+        self.id = id
+        self.title = title
+        self.detail = detail
+        self.timestamp = timestamp
+        self.status = status
+    }
+}
+
+public struct IntegrationSummary: Identifiable, Codable, Equatable, Sendable {
+    public var id: String
+    public var name: String
+    public var provider: String
+    public var state: String
+    public var severity: Severity
+    public var lastSyncDescription: String
+
+    public init(id: String, name: String, provider: String, state: String, severity: Severity, lastSyncDescription: String) {
+        self.id = id
+        self.name = name
+        self.provider = provider
+        self.state = state
+        self.severity = severity
+        self.lastSyncDescription = lastSyncDescription
+    }
+}
+
+public struct DashboardSnapshot: Codable, Equatable, Sendable {
+    public var headline: String
+    public var summary: String
+    public var statusItems: [StatusItem]
+    public var recentEvents: [Event]
+    public var metrics: [Metric]
+    public var integrations: [IntegrationSummary]
+    public var auditEntries: [AuditEntry]
+
+    public init(
+        headline: String,
+        summary: String,
+        statusItems: [StatusItem],
+        recentEvents: [Event],
+        metrics: [Metric],
+        integrations: [IntegrationSummary],
+        auditEntries: [AuditEntry]
+    ) {
+        self.headline = headline
+        self.summary = summary
+        self.statusItems = statusItems
+        self.recentEvents = recentEvents
+        self.metrics = metrics
+        self.integrations = integrations
+        self.auditEntries = auditEntries
+    }
+}

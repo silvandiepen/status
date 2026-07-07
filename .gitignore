@@ -1,5 +1,10 @@
 node_modules/
 
+# Swift/Xcode generated state
+.build/
+Status.xcodeproj/
+DerivedData/
+
 # Web builds
 web/dist/
 

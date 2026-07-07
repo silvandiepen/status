@@ -1,0 +1,55 @@
+name: Status
+options:
+  bundleIdPrefix: com.statusfoundry
+  deploymentTarget:
+    macOS: "14.0"
+    iOS: "17.0"
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+    SWIFT_VERSION: "6.0"
+packages:
+  StatusPackage:
+    path: .
+targets:
+  StatusMac:
+    type: application
+    platform: macOS
+    sources:
+      - Apps/StatusMac
+    dependencies:
+      - package: StatusPackage
+        product: StatusUI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.statusfoundry.status.mac
+        PRODUCT_NAME: Status
+        INFOPLIST_FILE: Apps/StatusMac/Info.plist
+  StatusiOS:
+    type: application
+    platform: iOS
+    sources:
+      - Apps/StatusiOS
+    dependencies:
+      - package: StatusPackage
+        product: StatusUI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.statusfoundry.status.ios
+        PRODUCT_NAME: Status
+        INFOPLIST_FILE: Apps/StatusiOS/Info.plist
+schemes:
+  StatusMac:
+    build:
+      targets:
+        StatusMac: all
+    run:
+      config: Debug
+  StatusiOS:
+    build:
+      targets:
+        StatusiOS: all
+    run:
+      config: Debug

@@ -16,6 +16,10 @@ npm ci
 npm run check
 npm run web:build
 npm run registry:check
+swift test
+xcodegen generate
+xcodebuild -project Status.xcodeproj -scheme StatusMac -destination 'platform=macOS' -derivedDataPath /tmp/status-mac-derived build
+xcodebuild -project Status.xcodeproj -scheme StatusiOS -destination 'generic/platform=iOS' -derivedDataPath /tmp/status-ios-derived CODE_SIGNING_ALLOWED=NO build
 ```
 
 Deployment commands, only when intentionally deploying:
@@ -26,6 +30,7 @@ npm run registry:deploy
 ```
 
 `npm run check` currently runs TypeScript checks, builds the Vue/Sass website, and runs a Wrangler dry-run for the registry Worker.
+`swift test` validates the shared native package. `xcodegen generate` creates the local Xcode project from `project.yml`; the generated project is intentionally ignored.
 
 ## Read in this order
 
