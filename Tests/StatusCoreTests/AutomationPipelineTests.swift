@@ -57,6 +57,35 @@ import Testing
     #expect(try store.auditEntryCount() == 0)
 }
 
+@Test func automationPipelineCanEvaluateStoredRules() throws {
+    let database = try temporaryDatabase()
+    try StatusDatabaseMigrator.migrate(database)
+    let store = StatusPersistenceStore(database: database)
+    let event = workflowFailedEvent()
+    let rule = Rule(
+        id: "rul_notify",
+        name: "Notify workflow failure",
+        enabled: true,
+        provider: "github",
+        eventType: "github.workflow.failed",
+        conditions: [],
+        actions: [
+            RuleActionDefinition(action: "notification.show")
+        ]
+    )
+    try store.upsertRule(rule, updatedAt: event.timestamp)
+    let pipeline = AutomationPipeline(
+        store: store,
+        actionRunner: ActionRunner(now: { Date(timeIntervalSince1970: 1_783_433_530) })
+    )
+
+    let result = try pipeline.processStoredRules(for: event)
+
+    #expect(result.matches.map(\.rule.id) == ["rul_notify"])
+    #expect(result.actionResults.first?.actionRun.action == "notification.show")
+    #expect(try store.actionRun(id: "run_rul_notify_evt_01workflowfailed_0")?.status == .success)
+}
+
 private func workflowFailedEvent() -> Event {
     Event(
         id: "evt_01workflowfailed",

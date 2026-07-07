@@ -153,6 +153,34 @@ import Testing
     #expect(try store.actionRun(id: actionRun.id) == actionRun)
 }
 
+@Test func ruleRoundTripsThroughSQLite() throws {
+    let database = try temporaryDatabase()
+    try StatusDatabaseMigrator.migrate(database)
+    let store = StatusPersistenceStore(database: database)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let rule = Rule(
+        id: "rul_notify",
+        name: "Notify workflow failure",
+        enabled: true,
+        provider: "github",
+        eventType: "github.workflow.failed",
+        conditions: [
+            RuleCondition(field: "severity", operation: .matchesSeverity, value: .string("warning")),
+            RuleCondition(field: "resourceName", operation: .contains, value: .string("status"))
+        ],
+        actions: [
+            RuleActionDefinition(action: "notification.show", parameters: ["title": "Build failed"])
+        ]
+    )
+
+    try store.upsertRule(rule, updatedAt: now)
+
+    #expect(try store.rule(id: rule.id) == rule)
+    #expect(try store.rules() == [rule])
+    #expect(try store.rules(eventType: "github.workflow.failed") == [rule])
+    #expect(try store.rules(eventType: "app.review.rejected").isEmpty)
+}
+
 @Test func resourceStateSnapshotRoundTripsThroughSQLite() throws {
     let database = try temporaryDatabase()
     try StatusDatabaseMigrator.migrate(database)

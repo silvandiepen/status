@@ -39,4 +39,8 @@ public final class AutomationPipeline {
             actionResults: actionResults
         )
     }
+
+    public func processStoredRules(for event: Event) throws -> AutomationPipelineResult {
+        try process(event: event, rules: store.rules(eventType: event.type))
+    }
 }

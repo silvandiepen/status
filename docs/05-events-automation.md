@@ -38,6 +38,7 @@ The same pipeline is used for:
 - Audit entries can now attach job, event, and action-run provenance; persisted event ingestion and job lifecycle audit rows use those references.
 - The core action runner executes safe built-in local actions, records deterministic action-run rows, and denies review-required or unsupported actions until explicit permission/provider support exists.
 - `AutomationPipeline` evaluates inserted events against rules, runs matching actions, and persists both action-run records and audit entries.
+- Rules persist to SQLite with structured condition/action JSON, and the automation pipeline can evaluate the stored local rule set for an event.
 
 Background timers, retry execution, timeouts, and platform delivery adapters for local notifications/open-URL remain planned work.
 

@@ -195,6 +195,46 @@ public final class StatusPersistenceStore {
         return try actionRun(from: row)
     }
 
+    public func upsertRule(_ rule: Rule, updatedAt: Date) throws {
+        try database.execute(
+            """
+            INSERT OR REPLACE INTO rules
+            (id, name, enabled, provider, event_type, conditions_json, actions_json, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM rules WHERE id = ?), ?), ?)
+            """,
+            bindings: [
+                .text(rule.id),
+                .text(rule.name),
+                .integer(rule.enabled ? 1 : 0),
+                rule.provider.map { .text($0) } ?? .null,
+                .text(rule.eventType),
+                .text(try jsonString(rule.conditions)),
+                .text(try jsonString(rule.actions)),
+                .text(rule.id),
+                .text(ISO8601.string(from: updatedAt)),
+                .text(ISO8601.string(from: updatedAt))
+            ]
+        )
+    }
+
+    public func rule(id: String) throws -> Rule? {
+        guard let row = try database.query("SELECT * FROM rules WHERE id = ?", bindings: [.text(id)]).first else {
+            return nil
+        }
+        return try rule(from: row)
+    }
+
+    public func rules() throws -> [Rule] {
+        try database.query("SELECT * FROM rules ORDER BY id").map(rule(from:))
+    }
+
+    public func rules(eventType: String) throws -> [Rule] {
+        try database.query(
+            "SELECT * FROM rules WHERE event_type = ? ORDER BY id",
+            bindings: [.text(eventType)]
+        ).map(rule(from:))
+    }
+
     public func auditEntry(id: String) throws -> AuditEntry? {
         guard let row = try database.query("SELECT * FROM audit_entries WHERE id = ?", bindings: [.text(id)]).first else {
             return nil
@@ -398,6 +438,20 @@ public final class StatusPersistenceStore {
             error: row.optionalText("error"),
             startedAt: ISO8601.date(from: row.requiredText("started_at")),
             finishedAt: try row.optionalText("finished_at").map(ISO8601.date(from:))
+        )
+    }
+
+    private func rule(from row: [String: SQLiteValue]) throws -> Rule {
+        let conditions = try optionalJSON([RuleCondition].self, from: row.optionalText("conditions_json")) ?? []
+        let actions = try optionalJSON([RuleActionDefinition].self, from: row.optionalText("actions_json")) ?? []
+        return Rule(
+            id: try row.requiredText("id"),
+            name: try row.requiredText("name"),
+            enabled: row.optionalInteger("enabled") != 0,
+            provider: row.optionalText("provider"),
+            eventType: try row.requiredText("event_type"),
+            conditions: conditions,
+            actions: actions
         )
     }
 
