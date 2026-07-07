@@ -12,7 +12,7 @@ Related documents:
 
 ## Implementation status
 
-`StatusCore` currently includes `MappingConditionEvaluator`, a small evaluator for single mapping conditions and AND groups over normalized resource state. It supports the plain operators and the transition operators (`changed`, `changed_to`, `changed_from`) against current and previous resource snapshots. `StatusCore` also includes the first mapping runtime primitives: a JSON selector parser/resolver, wildcard-tail source iteration, and scalar template rendering with the documented scopes. It does not yet include full request-to-resource/event mapping execution, shorthand condition parsing, severity mapping, pagination runtime, or developer-mode mapping warnings.
+`StatusCore` currently includes `MappingConditionEvaluator`, a small evaluator for single mapping conditions and AND groups over normalized resource state. It supports the plain operators and the transition operators (`changed`, `changed_to`, `changed_from`) against current and previous resource snapshots. `StatusCore` also includes the first package mapping runtime: `mappings.json` decoding, JSON selector parsing/resolution, wildcard-tail source iteration, scalar template rendering with the documented scopes, bundled-style shorthand condition parsing, and pure request-payload execution into normalized resources/events. It does not yet include persistence/job wiring for mapping outputs, mapped severity tables, metrics, pagination runtime, canonical JSON-form condition execution, or developer-mode mapping warnings.
 
 ## Design rules
 
@@ -131,19 +131,25 @@ This keeps parsing trivial: a `when` value is a single condition object, an arra
 
 ### Shorthand string form
 
-For the common single-comparison case, `when` may be a string:
+For the common comparison case, `when` may be a string:
 
 ```txt
 <selector> <op> <literal>
 ```
 
-where `<op>` is one of `==`, `!=`, `>`, `<`, mapping to `equals`, `not_equals`, `greater_than`, `less_than`. Literals in the string form are single-quoted strings, bare numbers, `true`, `false`, or `null`.
+where `<op>` is one of `==`, `!=`, `>`, `<`, `>=`, `<=`, mapping to equality and numeric comparisons. Literals in the string form are single-quoted strings, bare numbers, `true`, `false`, or `null`.
 
 ```json
 "when": "$.attributes.appStoreState == 'REJECTED'"
 ```
 
-All other operators, and any combination of conditions, require the JSON form. The shorthand is sugar; it desugars to exactly one canonical condition object.
+Shorthand conditions may combine comparisons with `&&` and `||`, surrounded by spaces:
+
+```json
+"when": "$.statusCode >= 500 || $.reachable == false"
+```
+
+`&&` binds tighter than `||`. Parentheses are not supported. All other operators require the JSON form.
 
 ### Operators
 

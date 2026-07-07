@@ -2,10 +2,16 @@ import Foundation
 
 public struct PluginPackageDefinition: Equatable, Sendable {
     public var triggers: [PackagedPluginTrigger]
+    public var mappings: PackagedPluginMappings
     public var rulePresets: [PackagedRulePreset]
 
-    public init(triggers: [PackagedPluginTrigger] = [], rulePresets: [PackagedRulePreset] = []) {
+    public init(
+        triggers: [PackagedPluginTrigger] = [],
+        mappings: PackagedPluginMappings = PackagedPluginMappings(),
+        rulePresets: [PackagedRulePreset] = []
+    ) {
         self.triggers = triggers
+        self.mappings = mappings
         self.rulePresets = rulePresets
     }
 
@@ -17,11 +23,15 @@ public struct PluginPackageDefinition: Equatable, Sendable {
             try decoder.decode(PackagedPluginTriggersFile.self, from: data).triggers
         } ?? []
 
+        let mappings = try archive.file(named: "mappings.json").map { data in
+            try decoder.decode(PackagedPluginMappings.self, from: data)
+        } ?? PackagedPluginMappings()
+
         let presets = try archive.file(named: "rules.presets.json").map { data in
             try decoder.decode(PackagedRulePresetsFile.self, from: data).presets
         } ?? []
 
-        return PluginPackageDefinition(triggers: triggers, rulePresets: presets)
+        return PluginPackageDefinition(triggers: triggers, mappings: mappings, rulePresets: presets)
     }
 }
 
@@ -50,6 +60,161 @@ public struct PackagedPluginTrigger: Decodable, Equatable, Sendable {
         self.request = request
         self.path = path
         self.eventType = eventType
+    }
+}
+
+public struct PackagedPluginMappings: Decodable, Equatable, Sendable {
+    public var resources: [PackagedResourceMapping]
+    public var events: [PackagedEventMapping]
+
+    public init(resources: [PackagedResourceMapping] = [], events: [PackagedEventMapping] = []) {
+        self.resources = resources
+        self.events = events
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: DynamicCodingKey.self)
+        resources = try container.decodeIfPresent([PackagedResourceMapping].self, forKey: DynamicCodingKey("resources")) ?? []
+        events = try container.decodeIfPresent([PackagedEventMapping].self, forKey: DynamicCodingKey("events")) ?? []
+    }
+}
+
+public struct PackagedResourceMapping: Decodable, Equatable, Sendable {
+    public var type: String
+    public var request: String
+    public var source: String?
+    public var id: String
+    public var name: String
+    public var fields: [String: String]
+    public var actionURL: String?
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case request
+        case source
+        case items
+        case id
+        case name
+        case fields
+        case actionURL = "actionUrl"
+    }
+
+    public init(
+        type: String,
+        request: String,
+        source: String? = nil,
+        id: String,
+        name: String,
+        fields: [String: String] = [:],
+        actionURL: String? = nil
+    ) {
+        self.type = type
+        self.request = request
+        self.source = source
+        self.id = id
+        self.name = name
+        self.fields = fields
+        self.actionURL = actionURL
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        type = try container.decode(String.self, forKey: .type)
+        request = try container.decode(String.self, forKey: .request)
+        source = try container.decodeIfPresent(String.self, forKey: .source)
+            ?? container.decodeIfPresent(String.self, forKey: .items)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        fields = try container.decodeIfPresent([String: String].self, forKey: .fields) ?? [:]
+        actionURL = try container.decodeIfPresent(String.self, forKey: .actionURL)
+    }
+}
+
+public struct PackagedEventMapping: Decodable, Equatable, Sendable {
+    public var type: String
+    public var request: String
+    public var source: String?
+    public var when: PackagedMappingCondition?
+    public var resourceID: String
+    public var title: String
+    public var summary: String
+    public var severity: PackagedEventSeverity
+    public var actionURL: String?
+    public var timestamp: String?
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case request
+        case source
+        case items
+        case when
+        case resourceID = "resourceId"
+        case title
+        case summary
+        case severity
+        case actionURL = "actionUrl"
+        case timestamp
+    }
+
+    public init(
+        type: String,
+        request: String,
+        source: String? = nil,
+        when: PackagedMappingCondition? = nil,
+        resourceID: String,
+        title: String,
+        summary: String,
+        severity: PackagedEventSeverity,
+        actionURL: String? = nil,
+        timestamp: String? = nil
+    ) {
+        self.type = type
+        self.request = request
+        self.source = source
+        self.when = when
+        self.resourceID = resourceID
+        self.title = title
+        self.summary = summary
+        self.severity = severity
+        self.actionURL = actionURL
+        self.timestamp = timestamp
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        type = try container.decode(String.self, forKey: .type)
+        request = try container.decode(String.self, forKey: .request)
+        source = try container.decodeIfPresent(String.self, forKey: .source)
+            ?? container.decodeIfPresent(String.self, forKey: .items)
+        when = try container.decodeIfPresent(PackagedMappingCondition.self, forKey: .when)
+        resourceID = try container.decode(String.self, forKey: .resourceID)
+        title = try container.decode(String.self, forKey: .title)
+        summary = try container.decode(String.self, forKey: .summary)
+        severity = try container.decode(PackagedEventSeverity.self, forKey: .severity)
+        actionURL = try container.decodeIfPresent(String.self, forKey: .actionURL)
+        timestamp = try container.decodeIfPresent(String.self, forKey: .timestamp)
+    }
+}
+
+public enum PackagedMappingCondition: Decodable, Equatable, Sendable {
+    case shorthand(String)
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = .shorthand(try container.decode(String.self))
+    }
+}
+
+public enum PackagedEventSeverity: Decodable, Equatable, Sendable {
+    case fixed(Severity)
+
+    public init(_ severity: Severity) {
+        self = .fixed(severity)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = .fixed(try container.decode(Severity.self))
     }
 }
 
