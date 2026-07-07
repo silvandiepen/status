@@ -376,6 +376,7 @@ Current native implementation status:
 - Registry trust labels are metadata only. A version is locally installable only after the installer verifies package hash, signature material, and revocation state.
 - `PluginPackageVerifier` now enforces package SHA-256 matches, signature metadata presence, and registry revocation checks before a package can be treated as installable. Full cryptographic signature verification is still planned for the installer slice.
 - Verified install records persist plugin metadata, version integrity data, and permission grant defaults to SQLite; install is rejected if verification metadata does not match the manifest id/version.
+- `PluginInstaller` orchestrates registry metadata lookup, revocation fetch, package/manifest download, package verification, local file writes, and SQLite install recording.
 
 Public plugin publishing is review-based. v1 should not allow arbitrary public upload directly into the registry. Third-party plugins should start as pull requests against the official plugin source repository, pass validation, receive maintainer/security review, then be signed and published by Status.
 
