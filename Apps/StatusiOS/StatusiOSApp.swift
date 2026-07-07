@@ -23,7 +23,7 @@ private struct IOSRootView: View {
             }
 
             NavigationStack {
-                DashboardContainerView(viewModel: makeDashboardViewModel())
+                AlertsView(items: loadOpenAlerts())
                     .navigationTitle("Alerts")
             }
             .tabItem {
@@ -39,7 +39,19 @@ private struct IOSRootView: View {
             }
 
             NavigationStack {
-                Text("Settings")
+                RulesListView(rules: loadRules())
+                    .navigationTitle("Rules")
+            }
+            .tabItem {
+                Label("Rules", systemImage: "slider.horizontal.3")
+            }
+
+            NavigationStack {
+                StatusSettingsView(
+                    registryURL: registryBaseURL,
+                    databasePath: applicationDatabasePath(),
+                    pluginInstallPath: applicationPluginInstallPath()
+                )
                     .navigationTitle("Settings")
             }
             .tabItem {
@@ -79,6 +91,23 @@ private struct IOSRootView: View {
 
     private var registryBaseURL: URL {
         URL(string: "https://status-registry.hakobs.com")!
+    }
+
+    private func loadOpenAlerts() -> [StatusItem] {
+        ((try? LocalStatusStore.openApplicationSupportStore().statusItems(limit: 50)) ?? [])
+            .filter { $0.severity >= .warning }
+    }
+
+    private func loadRules() -> [Rule] {
+        (try? LocalStatusStore.openApplicationSupportStore().rules()) ?? []
+    }
+
+    private func applicationDatabasePath() -> String {
+        (try? LocalStatusStore.applicationSupportDatabaseURL().path) ?? "Unavailable"
+    }
+
+    private func applicationPluginInstallPath() -> String {
+        (try? pluginInstallRoot().path) ?? "Unavailable"
     }
 
     private func pluginInstallRoot() throws -> URL {

@@ -24,6 +24,9 @@ private struct MacRootView: View {
                 NavigationLink(value: MacSection.integrations) {
                     Label("Integrations", systemImage: "puzzlepiece.extension")
                 }
+                NavigationLink(value: MacSection.rules) {
+                    Label("Rules", systemImage: "slider.horizontal.3")
+                }
                 NavigationLink(value: MacSection.audit) {
                     Label("Audit Log", systemImage: "list.bullet.rectangle")
                 }
@@ -40,11 +43,18 @@ private struct MacRootView: View {
             case .integrations:
                 PluginStoreContainerView(viewModel: makePluginStoreViewModel(platform: .macOS))
                     .navigationTitle("Integrations")
+            case .rules:
+                RulesListView(rules: loadRules())
+                    .navigationTitle("Rules")
             case .audit:
-                DashboardContainerView(viewModel: makeDashboardViewModel())
+                AuditLogView(entries: loadAuditEntries())
                     .navigationTitle("Audit Log")
             case .settings:
-                Text("Settings")
+                StatusSettingsView(
+                    registryURL: registryBaseURL,
+                    databasePath: applicationDatabasePath(),
+                    pluginInstallPath: applicationPluginInstallPath()
+                )
                     .navigationTitle("Settings")
             }
         }
@@ -83,6 +93,22 @@ private struct MacRootView: View {
         URL(string: "https://status-registry.hakobs.com")!
     }
 
+    private func loadRules() -> [Rule] {
+        (try? LocalStatusStore.openApplicationSupportStore().rules()) ?? []
+    }
+
+    private func loadAuditEntries() -> [AuditEntry] {
+        (try? LocalStatusStore.openApplicationSupportStore().auditEntries(limit: 50)) ?? []
+    }
+
+    private func applicationDatabasePath() -> String {
+        (try? LocalStatusStore.applicationSupportDatabaseURL().path) ?? "Unavailable"
+    }
+
+    private func applicationPluginInstallPath() -> String {
+        (try? pluginInstallRoot().path) ?? "Unavailable"
+    }
+
     private func pluginInstallRoot() throws -> URL {
         let databaseURL = try LocalStatusStore.applicationSupportDatabaseURL()
         let directory = databaseURL.deletingLastPathComponent().appendingPathComponent("Plugins", isDirectory: true)
@@ -94,6 +120,7 @@ private struct MacRootView: View {
 private enum MacSection: Hashable {
     case overview
     case integrations
+    case rules
     case audit
     case settings
 }
