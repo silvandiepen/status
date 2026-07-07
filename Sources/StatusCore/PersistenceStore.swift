@@ -428,6 +428,98 @@ public final class StatusPersistenceStore {
         )
     }
 
+    public func installPlugin(_ record: PluginInstallRecord) throws {
+        try PluginManifestValidator.validate(PluginValidationInput(manifest: record.manifest))
+        guard record.verification.pluginID == record.manifest.id else {
+            throw PluginInstallationError.verificationPluginMismatch(
+                expected: record.manifest.id,
+                actual: record.verification.pluginID
+            )
+        }
+        guard record.verification.version == record.manifest.version else {
+            throw PluginInstallationError.verificationVersionMismatch(
+                expected: record.manifest.version,
+                actual: record.verification.version
+            )
+        }
+        try database.execute(
+            """
+            INSERT OR REPLACE INTO plugins
+            (id, name, author, description, category, icon_path, trust_level, installed_version, install_path, enabled, installed_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, COALESCE((SELECT installed_at FROM plugins WHERE id = ?), ?), ?)
+            """,
+            bindings: [
+                .text(record.manifest.id),
+                .text(record.manifest.name),
+                .text(record.manifest.author),
+                .text(record.manifest.description),
+                .text(record.manifest.category),
+                record.manifest.icon.map { .text($0) } ?? .null,
+                .text(record.trustLevel.rawValue),
+                .text(record.manifest.version),
+                .text(record.installPath),
+                .text(record.manifest.id),
+                .text(ISO8601.string(from: record.installedAt)),
+                .text(ISO8601.string(from: record.installedAt))
+            ]
+        )
+
+        try database.execute(
+            """
+            INSERT OR REPLACE INTO plugin_versions
+            (id, plugin_id, version, min_core_version, platforms_json, domains_json, sha256, signature, manifest_json, package_path, revoked, installed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+            """,
+            bindings: [
+                .text(pluginVersionID(pluginID: record.manifest.id, version: record.manifest.version)),
+                .text(record.manifest.id),
+                .text(record.manifest.version),
+                .text(record.manifest.minCoreVersion),
+                .text(try jsonString(record.manifest.platforms.map(\.rawValue))),
+                .text(try jsonString(record.manifest.domains)),
+                .text(record.verification.sha256),
+                record.signature.map { .text($0) } ?? .null,
+                .text(try jsonString(record.manifest)),
+                record.packagePath.map { .text($0) } ?? .null,
+                .text(ISO8601.string(from: record.installedAt))
+            ]
+        )
+
+        for permission in record.manifest.permissions {
+            try upsertPluginPermission(
+                pluginID: record.manifest.id,
+                permission: permission,
+                granted: false,
+                grantedAt: nil
+            )
+        }
+    }
+
+    public func installedPlugin(id: String) throws -> InstalledPlugin? {
+        guard let row = try database.query("SELECT * FROM plugins WHERE id = ?", bindings: [.text(id)]).first else {
+            return nil
+        }
+        return try installedPlugin(from: row)
+    }
+
+    public func installedPlugins() throws -> [InstalledPlugin] {
+        try database.query("SELECT * FROM plugins ORDER BY name ASC, id ASC").map(installedPlugin(from:))
+    }
+
+    public func installedPluginVersions(pluginID: String) throws -> [InstalledPluginVersion] {
+        try database.query(
+            "SELECT * FROM plugin_versions WHERE plugin_id = ? ORDER BY installed_at DESC, version DESC",
+            bindings: [.text(pluginID)]
+        ).map(installedPluginVersion(from:))
+    }
+
+    public func pluginPermissions(pluginID: String) throws -> [InstalledPluginPermission] {
+        try database.query(
+            "SELECT * FROM plugin_permissions WHERE plugin_id = ? ORDER BY permission ASC",
+            bindings: [.text(pluginID)]
+        ).map(installedPluginPermission(from:))
+    }
+
     public func statusItemCount() throws -> Int {
         try count("status_items")
     }
@@ -442,6 +534,90 @@ public final class StatusPersistenceStore {
             return 0
         }
         return Int(count)
+    }
+
+    private func upsertPluginPermission(pluginID: String, permission: PluginPermission, granted: Bool, grantedAt: Date?) throws {
+        try database.execute(
+            """
+            INSERT OR IGNORE INTO plugin_permissions
+            (id, plugin_id, permission, granted, granted_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            bindings: [
+                .text(pluginPermissionID(pluginID: pluginID, permission: permission)),
+                .text(pluginID),
+                .text(permission.rawValue),
+                .integer(granted ? 1 : 0),
+                grantedAt.map { .text(ISO8601.string(from: $0)) } ?? .null
+            ]
+        )
+    }
+
+    private func pluginVersionID(pluginID: String, version: String) -> String {
+        "plv_\(pluginID.replacingOccurrences(of: ".", with: "_"))_\(version.replacingOccurrences(of: ".", with: "_"))"
+    }
+
+    private func pluginPermissionID(pluginID: String, permission: PluginPermission) -> String {
+        "plp_\(pluginID.replacingOccurrences(of: ".", with: "_"))_\(permission.rawValue.replacingOccurrences(of: "-", with: "_"))"
+    }
+
+    private func installedPlugin(from row: [String: SQLiteValue]) throws -> InstalledPlugin {
+        try InstalledPlugin(
+            id: row.requiredText("id"),
+            name: row.requiredText("name"),
+            author: row.requiredText("author"),
+            description: row.requiredText("description"),
+            category: row.requiredText("category"),
+            iconPath: row.optionalText("icon_path"),
+            trustLevel: PluginTrustLevel(rawValue: row.requiredText("trust_level")) ?? .localDev,
+            installedVersion: row.requiredText("installed_version"),
+            installPath: row.requiredText("install_path"),
+            enabled: row.optionalInteger("enabled") != 0,
+            installedAt: ISO8601.date(from: row.requiredText("installed_at")),
+            updatedAt: ISO8601.date(from: row.requiredText("updated_at"))
+        )
+    }
+
+    private func installedPluginVersion(from row: [String: SQLiteValue]) throws -> InstalledPluginVersion {
+        let platformStrings = try optionalJSON([String].self, from: row.optionalText("platforms_json")) ?? []
+        let platforms = platformStrings.compactMap(PluginPlatform.init(rawValue:))
+        let domains = try optionalJSON([String].self, from: row.optionalText("domains_json")) ?? []
+        let manifest = try optionalJSON(PluginManifest.self, from: row.optionalText("manifest_json")) ?? PluginManifest(
+            id: row.requiredText("plugin_id"),
+            name: row.requiredText("plugin_id"),
+            version: row.requiredText("version"),
+            author: "Unknown",
+            category: "unknown",
+            description: "Missing manifest",
+            minCoreVersion: row.requiredText("min_core_version"),
+            platforms: platforms,
+            permissions: [],
+            domains: domains
+        )
+        return try InstalledPluginVersion(
+            id: row.requiredText("id"),
+            pluginID: row.requiredText("plugin_id"),
+            version: row.requiredText("version"),
+            minCoreVersion: row.requiredText("min_core_version"),
+            platforms: platforms,
+            domains: domains,
+            sha256: row.requiredText("sha256"),
+            signature: row.optionalText("signature"),
+            manifest: manifest,
+            packagePath: row.optionalText("package_path"),
+            revoked: row.optionalInteger("revoked") != 0,
+            installedAt: ISO8601.date(from: row.requiredText("installed_at"))
+        )
+    }
+
+    private func installedPluginPermission(from row: [String: SQLiteValue]) throws -> InstalledPluginPermission {
+        try InstalledPluginPermission(
+            id: row.requiredText("id"),
+            pluginID: row.requiredText("plugin_id"),
+            permission: PluginPermission(rawValue: row.requiredText("permission")) ?? .network,
+            granted: row.optionalInteger("granted") != 0,
+            grantedAt: try row.optionalText("granted_at").map(ISO8601.date(from:))
+        )
     }
 
     private func statusItem(from row: [String: SQLiteValue]) throws -> StatusItem {
