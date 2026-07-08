@@ -552,6 +552,36 @@ public final class StatusPersistenceStore {
         )
     }
 
+    public func syncState(ownerType: String, ownerID: String) throws -> String? {
+        try database.query(
+            "SELECT cursor FROM sync_state WHERE id = ?",
+            bindings: [.text(syncStateID(ownerType: ownerType, ownerID: ownerID))]
+        ).first?.optionalText("cursor")
+    }
+
+    public func upsertSyncState(ownerType: String, ownerID: String, cursor: String?, updatedAt: Date, metadata: [String: String] = [:]) throws {
+        try database.execute(
+            """
+            INSERT INTO sync_state
+            (id, owner_type, owner_id, cursor, last_success_at, metadata_json)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              cursor = excluded.cursor,
+              last_success_at = excluded.last_success_at,
+              metadata_json = excluded.metadata_json,
+              error = NULL
+            """,
+            bindings: [
+                .text(syncStateID(ownerType: ownerType, ownerID: ownerID)),
+                .text(ownerType),
+                .text(ownerID),
+                cursor.map { .text($0) } ?? .null,
+                .text(ISO8601.string(from: updatedAt)),
+                .text(try jsonString(metadata))
+            ]
+        )
+    }
+
     public func accountConfiguration(accountID: String) throws -> PluginAccountConfiguration? {
         guard let row = try database.query(
             """
@@ -939,6 +969,24 @@ public final class StatusPersistenceStore {
         )
     }
 
+    public func uninstallPlugin(id pluginID: String) throws {
+        let rulePrefix = "rule_\(pluginID.replacingOccurrences(of: ".", with: "_"))_%"
+        try database.execute(
+            """
+            DELETE FROM sync_state
+            WHERE owner_type = 'account-configuration'
+              AND owner_id IN (SELECT id FROM accounts WHERE plugin_id = ?)
+            """,
+            bindings: [.text(pluginID)]
+        )
+        try database.execute("DELETE FROM triggers WHERE plugin_id = ?", bindings: [.text(pluginID)])
+        try database.execute(
+            "DELETE FROM rules WHERE provider = ? OR id LIKE ?",
+            bindings: [.text(pluginID), .text(rulePrefix)]
+        )
+        try database.execute("DELETE FROM plugins WHERE id = ?", bindings: [.text(pluginID)])
+    }
+
     public func installedPlugin(id: String) throws -> InstalledPlugin? {
         guard let row = try database.query("SELECT * FROM plugins WHERE id = ?", bindings: [.text(id)]).first else {
             return nil
@@ -1003,6 +1051,10 @@ public final class StatusPersistenceStore {
 
     private func pluginPermissionID(pluginID: String, permission: PluginPermission) -> String {
         "plp_\(pluginID.replacingOccurrences(of: ".", with: "_"))_\(permission.rawValue.replacingOccurrences(of: "-", with: "_"))"
+    }
+
+    private func syncStateID(ownerType: String, ownerID: String) -> String {
+        "sync_\(ownerType.replacingOccurrences(of: #"[^a-zA-Z0-9_]+"#, with: "_", options: .regularExpression))_\(ownerID.replacingOccurrences(of: #"[^a-zA-Z0-9_]+"#, with: "_", options: .regularExpression))"
     }
 
     private func installPluginPackageDefinition(_ definition: PluginPackageDefinition, pluginID: String, installedAt: Date) throws {

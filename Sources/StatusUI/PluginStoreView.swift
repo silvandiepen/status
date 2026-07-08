@@ -16,6 +16,7 @@ public final class PluginStoreViewModel: ObservableObject {
     @Published public private(set) var catalog: PluginStoreCatalog
     @Published public private(set) var loadError: String?
     @Published public private(set) var installingPluginID: String?
+    @Published public private(set) var removingPluginID: String?
     @Published public private(set) var runningPluginID: String?
     @Published public private(set) var runResults: [String: String]
     @Published public private(set) var runErrors: [String: String]
@@ -27,6 +28,7 @@ public final class PluginStoreViewModel: ObservableObject {
     private let loadInstalled: () throws -> [InstalledPlugin]
     private let loadAvailable: () async throws -> [RegistryPluginSummary]
     private let installPlugin: (RegistryPluginSummary) async throws -> Void
+    private let removePlugin: (InstalledPlugin) async throws -> Void
     private let canRunPlugin: (InstalledPlugin) -> Bool
     private let runPlugin: (InstalledPlugin) async throws -> String
     private let canConfigurePlugin: (InstalledPlugin) -> Bool
@@ -38,6 +40,7 @@ public final class PluginStoreViewModel: ObservableObject {
         loadInstalled: @escaping () throws -> [InstalledPlugin],
         loadAvailable: @escaping () async throws -> [RegistryPluginSummary],
         installPlugin: @escaping (RegistryPluginSummary) async throws -> Void,
+        removePlugin: @escaping (InstalledPlugin) async throws -> Void = { _ in },
         canRunPlugin: @escaping (InstalledPlugin) -> Bool = { _ in false },
         runPlugin: @escaping (InstalledPlugin) async throws -> String = { _ in "" },
         canConfigurePlugin: @escaping (InstalledPlugin) -> Bool = { _ in false },
@@ -53,6 +56,7 @@ public final class PluginStoreViewModel: ObservableObject {
         self.loadInstalled = loadInstalled
         self.loadAvailable = loadAvailable
         self.installPlugin = installPlugin
+        self.removePlugin = removePlugin
         self.canRunPlugin = canRunPlugin
         self.runPlugin = runPlugin
         self.canConfigurePlugin = canConfigurePlugin
@@ -87,6 +91,24 @@ public final class PluginStoreViewModel: ObservableObject {
 
         do {
             try await installPlugin(plugin)
+            await reload()
+        } catch {
+            loadError = error.localizedDescription
+        }
+    }
+
+    public func remove(_ plugin: InstalledPlugin) async {
+        guard removingPluginID == nil else { return }
+        removingPluginID = plugin.id
+        runResults[plugin.id] = nil
+        runErrors[plugin.id] = nil
+        setupResults[plugin.id] = nil
+        setupErrors[plugin.id] = nil
+        defer { removingPluginID = nil }
+
+        do {
+            try await removePlugin(plugin)
+            setupValues[plugin.id] = nil
             await reload()
         } catch {
             loadError = error.localizedDescription
@@ -165,6 +187,7 @@ public struct PluginStoreContainerView: View {
         PluginStoreView(
             catalog: viewModel.catalog,
             installingPluginID: viewModel.installingPluginID,
+            removingPluginID: viewModel.removingPluginID,
             runningPluginID: viewModel.runningPluginID,
             runResults: viewModel.runResults,
             runErrors: viewModel.runErrors,
@@ -195,6 +218,11 @@ public struct PluginStoreContainerView: View {
                 Task {
                     await viewModel.install(plugin)
                 }
+            },
+            remove: { plugin in
+                Task {
+                    await viewModel.remove(plugin)
+                }
             }
         )
         .overlay(alignment: .bottom) {
@@ -220,6 +248,7 @@ public struct PluginStoreContainerView: View {
 public struct PluginStoreView: View {
     private let catalog: PluginStoreCatalog
     private let installingPluginID: String?
+    private let removingPluginID: String?
     private let runningPluginID: String?
     private let runResults: [String: String]
     private let runErrors: [String: String]
@@ -233,10 +262,13 @@ public struct PluginStoreView: View {
     private let canRun: (InstalledPlugin) -> Bool
     private let run: (InstalledPlugin) -> Void
     private let install: (RegistryPluginSummary) -> Void
+    private let remove: (InstalledPlugin) -> Void
+    @State private var pluginPendingRemoval: InstalledPlugin?
 
     public init(
         catalog: PluginStoreCatalog,
         installingPluginID: String? = nil,
+        removingPluginID: String? = nil,
         runningPluginID: String? = nil,
         runResults: [String: String] = [:],
         runErrors: [String: String] = [:],
@@ -249,10 +281,12 @@ public struct PluginStoreView: View {
         saveSetup: @escaping (InstalledPlugin) -> Void = { _ in },
         canRun: @escaping (InstalledPlugin) -> Bool = { _ in false },
         run: @escaping (InstalledPlugin) -> Void = { _ in },
-        install: @escaping (RegistryPluginSummary) -> Void = { _ in }
+        install: @escaping (RegistryPluginSummary) -> Void = { _ in },
+        remove: @escaping (InstalledPlugin) -> Void = { _ in }
     ) {
         self.catalog = catalog
         self.installingPluginID = installingPluginID
+        self.removingPluginID = removingPluginID
         self.runningPluginID = runningPluginID
         self.runResults = runResults
         self.runErrors = runErrors
@@ -266,6 +300,7 @@ public struct PluginStoreView: View {
         self.canRun = canRun
         self.run = run
         self.install = install
+        self.remove = remove
     }
 
     public var body: some View {
@@ -285,7 +320,9 @@ public struct PluginStoreView: View {
                     updateSetupValue: updateSetupValue,
                     saveSetup: saveSetup,
                     canRun: canRun,
-                    run: run
+                    run: run,
+                    removingPluginID: removingPluginID,
+                    requestRemoval: { pluginPendingRemoval = $0 }
                 )
                 AvailablePluginSection(
                     plugins: catalog.available,
@@ -298,6 +335,27 @@ public struct PluginStoreView: View {
             .frame(maxWidth: 1120, alignment: .leading)
         }
         .background(Color.statusBackground)
+        .confirmationDialog(
+            "Remove plugin?",
+            isPresented: Binding(
+                get: { pluginPendingRemoval != nil },
+                set: { isPresented in
+                    if isPresented == false {
+                        pluginPendingRemoval = nil
+                    }
+                }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let pluginPendingRemoval {
+                Button("Remove \(pluginPendingRemoval.name)", role: .destructive) {
+                    remove(pluginPendingRemoval)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Status will delete this plugin's local configuration, schedules, suggested rules, permissions, and resources. Historical events and audit entries stay in place.")
+        }
     }
 }
 
@@ -332,6 +390,8 @@ private struct InstalledPluginSection: View {
     let saveSetup: (InstalledPlugin) -> Void
     let canRun: (InstalledPlugin) -> Bool
     let run: (InstalledPlugin) -> Void
+    let removingPluginID: String?
+    let requestRemoval: (InstalledPlugin) -> Void
 
     var body: some View {
         PluginSection(title: "Installed") {
@@ -356,7 +416,9 @@ private struct InstalledPluginSection: View {
                             isRunning: runningPluginID == plugin.id,
                             runResult: runResults[plugin.id],
                             runError: runErrors[plugin.id],
-                            run: run
+                            run: run,
+                            isRemoving: removingPluginID == plugin.id,
+                            requestRemoval: requestRemoval
                         )
                     }
                 }
@@ -408,6 +470,8 @@ private struct InstalledPluginRow: View {
     let runResult: String?
     let runError: String?
     let run: (InstalledPlugin) -> Void
+    let isRemoving: Bool
+    let requestRemoval: (InstalledPlugin) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -432,6 +496,18 @@ private struct InstalledPluginRow: View {
                 Spacer(minLength: 12)
                 VStack(alignment: .trailing, spacing: 8) {
                     PluginTrustLabel(trustLevel: plugin.trustLevel)
+                    Button(role: .destructive) {
+                        requestRemoval(plugin)
+                    } label: {
+                        if isRemoving {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Label("Remove", systemImage: "trash")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isRemoving || isRunning || isSavingSetup)
                     if canRun {
                         Button {
                             run(plugin)

@@ -413,6 +413,120 @@ import Testing
     #expect(try store.pluginPermissions(pluginID: manifest.id).allSatisfy { $0.granted == false })
 }
 
+@Test func pluginUninstallRemovesActivePluginDataAndKeepsHistory() throws {
+    let database = try temporaryDatabase()
+    try StatusDatabaseMigrator.migrate(database)
+    let store = StatusPersistenceStore(database: database)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let manifest = PluginManifest(
+        id: "com.status.github",
+        name: "GitHub",
+        version: "0.1.0",
+        author: "Status Foundry",
+        category: "developer",
+        description: "Read-only GitHub status events.",
+        minCoreVersion: "0.1.0",
+        platforms: [.macOS, .iOS],
+        permissions: [.network, .backgroundRefresh],
+        domains: ["api.github.com"]
+    )
+    let packageDefinition = PluginPackageDefinition(
+        triggers: [
+            PackagedPluginTrigger(
+                id: "manual",
+                type: .manual,
+                label: "Run GitHub check",
+                request: "repos"
+            )
+        ],
+        rulePresets: [
+            PackagedRulePreset(
+                name: "GitHub failures",
+                when: PackagedRuleWhen(eventType: "github.workflow.failed", provider: manifest.id),
+                conditions: [PackagedRuleCondition(field: "severity", operation: .equals, value: .string("critical"))],
+                actions: [PackagedRuleAction(action: "notification", parameters: ["title": "Workflow failed"])]
+            )
+        ]
+    )
+
+    try store.installPlugin(
+        PluginInstallRecord(
+            manifest: manifest,
+            trustLevel: .official,
+            installPath: "/Application Support/Status/Plugins/com.status.github",
+            verification: PluginPackageVerificationResult(
+                pluginID: manifest.id,
+                version: manifest.version,
+                sha256: "dcd4260b527a28d62ad2a956b00c4f5616416b2fdc0506e6fe5f6b616f5df5aa",
+                signedBy: "status-foundry-dev"
+            ),
+            packageDefinition: packageDefinition,
+            installedAt: now
+        )
+    )
+    try store.upsertAccountConfiguration(
+        PluginAccountConfiguration(
+            id: "acc_github",
+            pluginID: manifest.id,
+            accountName: "Status",
+            variables: ["owner": "statusfoundry"],
+            authType: "none"
+        ),
+        updatedAt: now
+    )
+    let event = Event(
+        id: "evt_history",
+        provider: manifest.id,
+        type: "github.workflow.failed",
+        resourceID: "res_status_repo",
+        resourceName: "status",
+        severity: .critical,
+        title: "Workflow failed",
+        summary: "CI failed on main.",
+        timestamp: now,
+        fingerprint: "github:workflow.failed:res_status_repo:failure"
+    )
+    let auditEntry = AuditEntry(
+        id: "aud_history",
+        title: "Plugin ran",
+        detail: "GitHub check emitted an event.",
+        timestamp: now,
+        status: "success",
+        eventID: event.id
+    )
+    try store.insertEvent(event)
+    try store.insertAuditEntry(auditEntry)
+
+    #expect(try store.installedPlugin(id: manifest.id) != nil)
+    #expect(try store.triggers().map(\.pluginID) == [manifest.id])
+    #expect(try store.rules().map(\.provider) == [manifest.id])
+    #expect(try store.accountConfigurations(pluginID: manifest.id).map(\.id) == ["acc_github"])
+
+    try store.uninstallPlugin(id: manifest.id)
+
+    #expect(try store.installedPlugin(id: manifest.id) == nil)
+    #expect(try store.installedPluginVersions(pluginID: manifest.id).isEmpty)
+    #expect(try store.pluginPermissions(pluginID: manifest.id).isEmpty)
+    #expect(try store.accountConfigurations(pluginID: manifest.id).isEmpty)
+    #expect(try store.triggers().isEmpty)
+    #expect(try store.rules().isEmpty)
+    #expect(try store.event(id: event.id) == event)
+    #expect(try store.auditEntry(id: auditEntry.id) == auditEntry)
+}
+
+@Test func genericSyncStatePersistsBootstrapMarkers() throws {
+    let database = try temporaryDatabase()
+    try StatusDatabaseMigrator.migrate(database)
+    let store = StatusPersistenceStore(database: database)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+
+    #expect(try store.syncState(ownerType: "app", ownerID: "bundled-plugins") == nil)
+    try store.upsertSyncState(ownerType: "app", ownerID: "bundled-plugins", cursor: "installed", updatedAt: now)
+    #expect(try store.syncState(ownerType: "app", ownerID: "bundled-plugins") == "installed")
+    try store.upsertSyncState(ownerType: "app", ownerID: "bundled-plugins", cursor: "refreshed", updatedAt: now.addingTimeInterval(60))
+    #expect(try store.syncState(ownerType: "app", ownerID: "bundled-plugins") == "refreshed")
+}
+
 @Test func pluginInstallRejectsVerificationMismatch() throws {
     let database = try temporaryDatabase()
     try StatusDatabaseMigrator.migrate(database)

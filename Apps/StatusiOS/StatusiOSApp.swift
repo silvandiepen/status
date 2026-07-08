@@ -94,6 +94,8 @@ private struct IOSRootView: View {
                 version: latestVersion,
                 trustLevel: plugin.trustLevel
             )
+        } removePlugin: { plugin in
+            try LocalStatusStore.openApplicationSupportStore().uninstallPlugin(id: plugin.id)
         } canRunPlugin: { plugin in
             canRunConfiguredPlugin(pluginID: plugin.id)
         } runPlugin: { plugin in
@@ -242,8 +244,17 @@ private struct IOSRootView: View {
 
     private func bootstrapBundledPlugins() throws {
         let store = try LocalStatusStore.openApplicationSupportStore()
+        guard try store.syncState(ownerType: "app", ownerID: "bundled-plugins") != "installed" else {
+            return
+        }
         let installer = BundledPluginInstaller(store: store, installRoot: try pluginInstallRoot())
         try installer.installAll()
+        try store.upsertSyncState(
+            ownerType: "app",
+            ownerID: "bundled-plugins",
+            cursor: "installed",
+            updatedAt: Date()
+        )
     }
 
     private func reopenExpiredSnoozedItems() throws {
