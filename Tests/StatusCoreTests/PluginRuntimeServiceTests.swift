@@ -341,7 +341,7 @@ import Testing
           "description": "Configure one host.",
           "fields": [
             {
-              "id": "host",
+              "key": "host",
               "label": "Host",
               "type": "hostname",
               "placeholder": "status-registry.hakobs.com",
@@ -368,6 +368,59 @@ import Testing
     ])
 }
 
+@Test func pluginPackageDefinitionDecodesCanonicalSetupFields() throws {
+    let packageData = runtimeStoredZip(files: [
+        ("setup.schema.json", Data("""
+        {
+          "title": "Repository",
+          "fields": [
+            {
+              "key": "owner",
+              "label": "Owner",
+              "type": "text",
+              "required": true,
+              "default": "statusfoundry"
+            },
+            {
+              "key": "visibility",
+              "label": "Visibility",
+              "type": "select",
+              "required": true,
+              "default": "public",
+              "options": [
+                { "value": "public", "label": "Public" },
+                { "value": "private", "label": "Private" }
+              ]
+            }
+          ]
+        }
+        """.utf8))
+    ])
+
+    let definition = try PluginPackageDefinition.decode(from: packageData)
+
+    #expect(definition.setup?.fields == [
+        PackagedPluginSetupField(
+            id: "owner",
+            label: "Owner",
+            type: .text,
+            required: true,
+            defaultValue: "statusfoundry"
+        ),
+        PackagedPluginSetupField(
+            id: "visibility",
+            label: "Visibility",
+            type: .select,
+            required: true,
+            defaultValue: "public",
+            options: [
+                PackagedPluginSetupFieldOption(value: "public", label: "Public"),
+                PackagedPluginSetupFieldOption(value: "private", label: "Private")
+            ]
+        )
+    ])
+}
+
 @Test func websitePluginSetupNormalizesAndSavesHostConfiguration() throws {
     let database = try temporaryRuntimeDatabase()
     try insertRuntimePluginFixture(database, pluginID: WebsitePluginSetup.pluginID)
@@ -387,6 +440,50 @@ import Testing
         accountName: "status-registry.hakobs.com",
         variables: ["host": "status-registry.hakobs.com"]
     ))
+}
+
+@Test func genericPluginSetupSavesPlainConfigurationValues() throws {
+    let database = try temporaryRuntimeDatabase()
+    try insertRuntimePluginFixture(database, pluginID: WebsitePluginSetup.pluginID)
+    let store = StatusPersistenceStore(database: database)
+    let service = PluginRuntimeService(store: store)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let plugin = InstalledPlugin(
+        id: WebsitePluginSetup.pluginID,
+        name: "Website Uptime",
+        author: "Status Foundry",
+        description: "Check a site.",
+        category: "monitoring",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/plugin",
+        setup: PackagedPluginSetup(
+            title: "Website",
+            fields: [
+                PackagedPluginSetupField(
+                    id: "host",
+                    label: "Host",
+                    type: .hostname,
+                    required: true
+                )
+            ]
+        ),
+        installedAt: now,
+        updatedAt: now
+    )
+
+    let message = try PluginSetupConfiguration.saveValues(
+        ["host": " HTTPS://Status-Registry.Hakobs.Com/ "],
+        for: plugin,
+        service: service,
+        now: now
+    )
+
+    #expect(message == "Saved status-registry.hakobs.com.")
+    #expect(try PluginSetupConfiguration.configuredValues(pluginID: WebsitePluginSetup.pluginID, store: store) == [
+        "host": "status-registry.hakobs.com"
+    ])
+    #expect(try store.accountConfigurations(pluginID: WebsitePluginSetup.pluginID).first?.id == "acct_com_status_website_status_registry_hakobs_com")
 }
 
 @Test func websitePluginSetupRejectsInvalidHosts() throws {

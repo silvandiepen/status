@@ -19,7 +19,7 @@ public final class PluginStoreViewModel: ObservableObject {
     @Published public private(set) var runningPluginID: String?
     @Published public private(set) var runResults: [String: String]
     @Published public private(set) var runErrors: [String: String]
-    @Published public private(set) var setupValues: [String: String]
+    @Published public private(set) var setupValues: [String: [String: String]]
     @Published public private(set) var savingSetupPluginID: String?
     @Published public private(set) var setupResults: [String: String]
     @Published public private(set) var setupErrors: [String: String]
@@ -30,8 +30,8 @@ public final class PluginStoreViewModel: ObservableObject {
     private let canRunPlugin: (InstalledPlugin) -> Bool
     private let runPlugin: (InstalledPlugin) async throws -> String
     private let canConfigurePlugin: (InstalledPlugin) -> Bool
-    private let loadConfigurationValue: (InstalledPlugin) throws -> String?
-    private let saveConfigurationValue: (InstalledPlugin, String) async throws -> String
+    private let loadConfigurationValues: (InstalledPlugin) throws -> [String: String]
+    private let saveConfigurationValues: (InstalledPlugin, [String: String]) async throws -> String
 
     public init(
         initialCatalog: PluginStoreCatalog = PluginStoreCatalog(),
@@ -41,8 +41,8 @@ public final class PluginStoreViewModel: ObservableObject {
         canRunPlugin: @escaping (InstalledPlugin) -> Bool = { _ in false },
         runPlugin: @escaping (InstalledPlugin) async throws -> String = { _ in "" },
         canConfigurePlugin: @escaping (InstalledPlugin) -> Bool = { _ in false },
-        loadConfigurationValue: @escaping (InstalledPlugin) throws -> String? = { _ in nil },
-        saveConfigurationValue: @escaping (InstalledPlugin, String) async throws -> String = { _, _ in "" }
+        loadConfigurationValues: @escaping (InstalledPlugin) throws -> [String: String] = { _ in [:] },
+        saveConfigurationValues: @escaping (InstalledPlugin, [String: String]) async throws -> String = { _, _ in "" }
     ) {
         self.catalog = initialCatalog
         self.runResults = [:]
@@ -56,8 +56,8 @@ public final class PluginStoreViewModel: ObservableObject {
         self.canRunPlugin = canRunPlugin
         self.runPlugin = runPlugin
         self.canConfigurePlugin = canConfigurePlugin
-        self.loadConfigurationValue = loadConfigurationValue
-        self.saveConfigurationValue = saveConfigurationValue
+        self.loadConfigurationValues = loadConfigurationValues
+        self.saveConfigurationValues = saveConfigurationValues
     }
 
     public func reload() async {
@@ -101,22 +101,24 @@ public final class PluginStoreViewModel: ObservableObject {
         canConfigurePlugin(plugin)
     }
 
-    public func updateSetupValue(_ plugin: InstalledPlugin, value: String) {
-        setupValues[plugin.id] = value
+    public func updateSetupValue(_ plugin: InstalledPlugin, fieldID: String, value: String) {
+        var values = setupValues[plugin.id, default: defaultSetupValues(for: plugin)]
+        values[fieldID] = value
+        setupValues[plugin.id] = values
         setupResults[plugin.id] = nil
         setupErrors[plugin.id] = nil
     }
 
     public func saveSetup(_ plugin: InstalledPlugin) async {
         guard savingSetupPluginID == nil else { return }
-        let value = setupValues[plugin.id, default: ""]
+        let values = setupValues[plugin.id, default: defaultSetupValues(for: plugin)]
         savingSetupPluginID = plugin.id
         setupResults[plugin.id] = nil
         setupErrors[plugin.id] = nil
         defer { savingSetupPluginID = nil }
 
         do {
-            setupResults[plugin.id] = try await saveConfigurationValue(plugin, value)
+            setupResults[plugin.id] = try await saveConfigurationValues(plugin, values)
             await reload()
         } catch {
             setupErrors[plugin.id] = error.localizedDescription
@@ -140,10 +142,15 @@ public final class PluginStoreViewModel: ObservableObject {
 
     private func refreshSetupValues(for plugins: [InstalledPlugin]) {
         for plugin in plugins where canConfigurePlugin(plugin) {
-            if let value = try? loadConfigurationValue(plugin) {
-                setupValues[plugin.id] = value
-            }
+            let loaded = (try? loadConfigurationValues(plugin)) ?? [:]
+            setupValues[plugin.id] = defaultSetupValues(for: plugin).merging(loaded) { _, loaded in loaded }
         }
+    }
+
+    private func defaultSetupValues(for plugin: InstalledPlugin) -> [String: String] {
+        Dictionary(uniqueKeysWithValues: (plugin.setup?.fields ?? []).map { field in
+            (field.id, field.defaultValue ?? "")
+        })
     }
 }
 
@@ -168,8 +175,8 @@ public struct PluginStoreContainerView: View {
             canConfigure: { plugin in
                 viewModel.canConfigure(plugin)
             },
-            updateSetupValue: { plugin, value in
-                viewModel.updateSetupValue(plugin, value: value)
+            updateSetupValue: { plugin, fieldID, value in
+                viewModel.updateSetupValue(plugin, fieldID: fieldID, value: value)
             },
             saveSetup: { plugin in
                 Task {
@@ -216,12 +223,12 @@ public struct PluginStoreView: View {
     private let runningPluginID: String?
     private let runResults: [String: String]
     private let runErrors: [String: String]
-    private let setupValues: [String: String]
+    private let setupValues: [String: [String: String]]
     private let savingSetupPluginID: String?
     private let setupResults: [String: String]
     private let setupErrors: [String: String]
     private let canConfigure: (InstalledPlugin) -> Bool
-    private let updateSetupValue: (InstalledPlugin, String) -> Void
+    private let updateSetupValue: (InstalledPlugin, String, String) -> Void
     private let saveSetup: (InstalledPlugin) -> Void
     private let canRun: (InstalledPlugin) -> Bool
     private let run: (InstalledPlugin) -> Void
@@ -233,12 +240,12 @@ public struct PluginStoreView: View {
         runningPluginID: String? = nil,
         runResults: [String: String] = [:],
         runErrors: [String: String] = [:],
-        setupValues: [String: String] = [:],
+        setupValues: [String: [String: String]] = [:],
         savingSetupPluginID: String? = nil,
         setupResults: [String: String] = [:],
         setupErrors: [String: String] = [:],
         canConfigure: @escaping (InstalledPlugin) -> Bool = { _ in false },
-        updateSetupValue: @escaping (InstalledPlugin, String) -> Void = { _, _ in },
+        updateSetupValue: @escaping (InstalledPlugin, String, String) -> Void = { _, _, _ in },
         saveSetup: @escaping (InstalledPlugin) -> Void = { _ in },
         canRun: @escaping (InstalledPlugin) -> Bool = { _ in false },
         run: @escaping (InstalledPlugin) -> Void = { _ in },
@@ -316,12 +323,12 @@ private struct InstalledPluginSection: View {
     let runningPluginID: String?
     let runResults: [String: String]
     let runErrors: [String: String]
-    let setupValues: [String: String]
+    let setupValues: [String: [String: String]]
     let savingSetupPluginID: String?
     let setupResults: [String: String]
     let setupErrors: [String: String]
     let canConfigure: (InstalledPlugin) -> Bool
-    let updateSetupValue: (InstalledPlugin, String) -> Void
+    let updateSetupValue: (InstalledPlugin, String, String) -> Void
     let saveSetup: (InstalledPlugin) -> Void
     let canRun: (InstalledPlugin) -> Bool
     let run: (InstalledPlugin) -> Void
@@ -339,7 +346,7 @@ private struct InstalledPluginSection: View {
                         InstalledPluginRow(
                             plugin: plugin,
                             canConfigure: canConfigure(plugin),
-                            setupValue: setupValues[plugin.id, default: ""],
+                            setupValues: setupValues[plugin.id, default: [:]],
                             isSavingSetup: savingSetupPluginID == plugin.id,
                             setupResult: setupResults[plugin.id],
                             setupError: setupErrors[plugin.id],
@@ -390,11 +397,11 @@ private struct AvailablePluginSection: View {
 private struct InstalledPluginRow: View {
     let plugin: InstalledPlugin
     let canConfigure: Bool
-    let setupValue: String
+    let setupValues: [String: String]
     let isSavingSetup: Bool
     let setupResult: String?
     let setupError: String?
-    let updateSetupValue: (InstalledPlugin, String) -> Void
+    let updateSetupValue: (InstalledPlugin, String, String) -> Void
     let saveSetup: (InstalledPlugin) -> Void
     let canRun: Bool
     let isRunning: Bool
@@ -447,29 +454,24 @@ private struct InstalledPluginRow: View {
                         Text(setup.title)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
-                    }
-                    HStack(spacing: 10) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            if let field = primarySetupField {
-                                Text(field.label)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            TextField(
-                                primarySetupField?.placeholder ?? "Configuration value",
-                                text: Binding(
-                                    get: { setupValue },
-                                    set: { updateSetupValue(plugin, $0) }
-                                )
-                            )
-                            .textFieldStyle(.roundedBorder)
-                            .disableAutocorrection(true)
-                            #if os(iOS)
-                            .textInputAutocapitalization(.never)
-                            .keyboardType(primarySetupField?.type == .hostname || primarySetupField?.type == .url ? .URL : .default)
-                            #endif
+                        if let description = setup.description {
+                            Text(description)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
-
+                    }
+                    VStack(spacing: 10) {
+                        ForEach(setupFields, id: \.id) { field in
+                            PluginSetupFieldRow(
+                                field: field,
+                                value: setupValues[field.id, default: field.defaultValue ?? ""],
+                                updateValue: { updateSetupValue(plugin, field.id, $0) }
+                            )
+                        }
+                    }
+                    HStack {
+                        Spacer()
                         Button {
                             saveSetup(plugin)
                         } label: {
@@ -481,10 +483,7 @@ private struct InstalledPluginRow: View {
                             }
                         }
                         .buttonStyle(.bordered)
-                        .disabled(
-                            isSavingSetup ||
-                            (primarySetupField?.required == true && setupValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        )
+                        .disabled(isSavingSetup || hasMissingRequiredSetupValue)
                     }
                 }
             }
@@ -514,8 +513,83 @@ private struct InstalledPluginRow: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
-    private var primarySetupField: PackagedPluginSetupField? {
-        plugin.setup?.fields.first
+    private var setupFields: [PackagedPluginSetupField] {
+        plugin.setup?.fields.filter { $0.type.isLocallyPersistableSetupField } ?? []
+    }
+
+    private var hasMissingRequiredSetupValue: Bool {
+        setupFields.contains { field in
+            field.required && setupValues[field.id, default: ""].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+}
+
+private struct PluginSetupFieldRow: View {
+    let field: PackagedPluginSetupField
+    let value: String
+    let updateValue: (String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(field.label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            switch field.type {
+            case .toggle:
+                Toggle(
+                    field.label,
+                    isOn: Binding(
+                        get: { value == "true" },
+                        set: { updateValue($0 ? "true" : "false") }
+                    )
+                )
+                .labelsHidden()
+            case .select:
+                Picker(
+                    field.label,
+                    selection: Binding(
+                        get: { value },
+                        set: { updateValue($0) }
+                    )
+                ) {
+                    ForEach(field.options, id: \.value) { option in
+                        Text(option.label).tag(option.value)
+                    }
+                }
+                .pickerStyle(.menu)
+            default:
+                TextField(
+                    field.placeholder ?? field.label,
+                    text: Binding(
+                        get: { value },
+                        set: { updateValue($0) }
+                    )
+                )
+                .textFieldStyle(.roundedBorder)
+                .disableAutocorrection(true)
+                #if os(iOS)
+                .textInputAutocapitalization(.never)
+                .keyboardType(field.type == .hostname || field.type == .url ? .URL : field.type == .number ? .decimalPad : .default)
+                #endif
+            }
+            if let help = field.help {
+                Text(help)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+private extension PackagedPluginSetupFieldType {
+    var isLocallyPersistableSetupField: Bool {
+        switch self {
+        case .text, .url, .hostname, .number, .toggle, .select:
+            true
+        case .secret, .secretFile:
+            false
+        }
     }
 }
 

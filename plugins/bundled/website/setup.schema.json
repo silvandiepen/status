@@ -3,7 +3,7 @@
   "description": "Configure one host that Status will check from this device.",
   "fields": [
     {
-      "id": "host",
+      "key": "host",
       "label": "Host",
       "type": "hostname",
       "placeholder": "status-registry.hakobs.com",

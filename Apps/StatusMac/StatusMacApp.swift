@@ -97,11 +97,11 @@ private struct MacRootView: View {
         } runPlugin: { plugin in
             try await runConfiguredWebsiteCheck(pluginID: plugin.id)
         } canConfigurePlugin: { plugin in
-            plugin.id == WebsitePluginSetup.pluginID
-        } loadConfigurationValue: { plugin in
-            try configuredWebsiteHost(pluginID: plugin.id)
-        } saveConfigurationValue: { plugin, value in
-            try saveWebsiteHost(pluginID: plugin.id, value: value)
+            plugin.setup?.fields.contains(where: \.type.isPlainConfigurationField) == true
+        } loadConfigurationValues: { plugin in
+            try configuredPluginValues(pluginID: plugin.id)
+        } saveConfigurationValues: { plugin, values in
+            try savePluginSetup(plugin: plugin, values: values)
         }
     }
 
@@ -166,15 +166,15 @@ private struct MacRootView: View {
         return "\(configuration.variables["host", default: configuration.accountName]): \(result.mappingOutput.resources.count) resource stored, \(result.mappingOutput.events.count) events processed."
     }
 
-    private func configuredWebsiteHost(pluginID: String) throws -> String? {
+    private func configuredPluginValues(pluginID: String) throws -> [String: String] {
         let store = try LocalStatusStore.openApplicationSupportStore()
-        return try WebsitePluginSetup.configuredHost(pluginID: pluginID, store: store)
+        return try PluginSetupConfiguration.configuredValues(pluginID: pluginID, store: store)
     }
 
-    private func saveWebsiteHost(pluginID: String, value: String) throws -> String {
+    private func savePluginSetup(plugin: InstalledPlugin, values: [String: String]) throws -> String {
         let store = try LocalStatusStore.openApplicationSupportStore()
         let service = PluginRuntimeService(store: store)
-        return try WebsitePluginSetup.saveHost(value, pluginID: pluginID, service: service)
+        return try PluginSetupConfiguration.saveValues(values, for: plugin, service: service)
     }
 
     private func runBackgroundPluginLoop() async {

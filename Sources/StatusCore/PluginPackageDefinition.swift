@@ -69,15 +69,19 @@ public struct PackagedPluginSetupField: Codable, Equatable, Sendable {
     public var help: String?
     public var required: Bool
     public var defaultValue: String?
+    public var options: [PackagedPluginSetupFieldOption]
 
     enum CodingKeys: String, CodingKey {
         case id
+        case key
         case label
         case type
         case placeholder
         case help
         case required
+        case `default`
         case defaultValue
+        case options
     }
 
     public init(
@@ -87,7 +91,8 @@ public struct PackagedPluginSetupField: Codable, Equatable, Sendable {
         placeholder: String? = nil,
         help: String? = nil,
         required: Bool = false,
-        defaultValue: String? = nil
+        defaultValue: String? = nil,
+        options: [PackagedPluginSetupFieldOption] = []
     ) {
         self.id = id
         self.label = label
@@ -96,24 +101,57 @@ public struct PackagedPluginSetupField: Codable, Equatable, Sendable {
         self.help = help
         self.required = required
         self.defaultValue = defaultValue
+        self.options = options
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(String.self, forKey: .id)
+        id = try container.decodeIfPresent(String.self, forKey: .key)
+            ?? container.decode(String.self, forKey: .id)
         label = try container.decode(String.self, forKey: .label)
         type = try container.decode(PackagedPluginSetupFieldType.self, forKey: .type)
         placeholder = try container.decodeIfPresent(String.self, forKey: .placeholder)
         help = try container.decodeIfPresent(String.self, forKey: .help)
         required = try container.decodeIfPresent(Bool.self, forKey: .required) ?? false
-        defaultValue = try container.decodeIfPresent(String.self, forKey: .defaultValue)
+        defaultValue = try container.decodeIfPresent(PluginJSONValue.self, forKey: .default)?.stringValue
+            ?? container.decodeIfPresent(String.self, forKey: .defaultValue)
+        options = try container.decodeIfPresent([PackagedPluginSetupFieldOption].self, forKey: .options) ?? []
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .key)
+        try container.encode(label, forKey: .label)
+        try container.encode(type, forKey: .type)
+        try container.encodeIfPresent(placeholder, forKey: .placeholder)
+        try container.encodeIfPresent(help, forKey: .help)
+        try container.encode(required, forKey: .required)
+        try container.encodeIfPresent(defaultValue, forKey: .default)
+        if options.isEmpty == false {
+            try container.encode(options, forKey: .options)
+        }
     }
 }
 
 public enum PackagedPluginSetupFieldType: String, Codable, Equatable, Sendable {
     case text
+    case secret
+    case secretFile = "secret-file"
     case url
     case hostname
+    case number
+    case toggle
+    case select
+}
+
+public struct PackagedPluginSetupFieldOption: Codable, Equatable, Sendable {
+    public var value: String
+    public var label: String
+
+    public init(value: String, label: String) {
+        self.value = value
+        self.label = label
+    }
 }
 
 public struct PackagedPluginTrigger: Decodable, Equatable, Sendable {
