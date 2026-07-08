@@ -1,0 +1,20 @@
+{
+  "title": "Repository to watch",
+  "description": "Configure one GitHub repository for read-only workflow and activity checks.",
+  "fields": [
+    {
+      "key": "owner",
+      "label": "Owner",
+      "type": "text",
+      "placeholder": "statusfoundry",
+      "required": true
+    },
+    {
+      "key": "repo",
+      "label": "Repository",
+      "type": "text",
+      "placeholder": "status",
+      "required": true
+    }
+  ]
+}

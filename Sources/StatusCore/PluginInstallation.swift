@@ -11,6 +11,7 @@ public struct InstalledPlugin: Codable, Equatable, Sendable, Identifiable {
     public var installedVersion: String
     public var installPath: String
     public var enabled: Bool
+    public var auth: PackagedPluginAuth?
     public var setup: PackagedPluginSetup?
     public var installedAt: Date
     public var updatedAt: Date
@@ -26,6 +27,7 @@ public struct InstalledPlugin: Codable, Equatable, Sendable, Identifiable {
         installedVersion: String,
         installPath: String,
         enabled: Bool = true,
+        auth: PackagedPluginAuth? = nil,
         setup: PackagedPluginSetup? = nil,
         installedAt: Date,
         updatedAt: Date
@@ -40,6 +42,7 @@ public struct InstalledPlugin: Codable, Equatable, Sendable, Identifiable {
         self.installedVersion = installedVersion
         self.installPath = installPath
         self.enabled = enabled
+        self.auth = auth
         self.setup = setup
         self.installedAt = installedAt
         self.updatedAt = updatedAt

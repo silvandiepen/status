@@ -297,8 +297,12 @@ public final class StatusPersistenceStore {
                 id: configuration.id,
                 pluginID: configuration.pluginID,
                 provider: configuration.pluginID,
-                displayName: configuration.accountName
+                displayName: configuration.accountName,
+                authType: configuration.authType,
+                credentialRef: configuration.credentialRef
             ),
+            authType: configuration.authType,
+            credentialRef: configuration.credentialRef,
             updatedAt: updatedAt
         )
         let metadata = try jsonString(AccountConfigurationMetadata(
@@ -330,7 +334,7 @@ public final class StatusPersistenceStore {
     public func accountConfiguration(accountID: String) throws -> PluginAccountConfiguration? {
         guard let row = try database.query(
             """
-            SELECT a.plugin_id, a.display_name, s.metadata_json
+            SELECT a.plugin_id, a.display_name, a.auth_type, a.credential_ref, s.metadata_json
             FROM sync_state s
             JOIN accounts a ON a.id = s.owner_id
             WHERE s.id = ? AND s.owner_type = 'account-configuration'
@@ -345,7 +349,7 @@ public final class StatusPersistenceStore {
     public func accountConfigurations(pluginID: String) throws -> [PluginAccountConfiguration] {
         try database.query(
             """
-            SELECT s.owner_id AS account_id, a.plugin_id, a.display_name, s.metadata_json
+            SELECT s.owner_id AS account_id, a.plugin_id, a.display_name, a.auth_type, a.credential_ref, s.metadata_json
             FROM sync_state s
             JOIN accounts a ON a.id = s.owner_id
             WHERE s.owner_type = 'account-configuration' AND a.plugin_id = ?
@@ -795,6 +799,7 @@ public final class StatusPersistenceStore {
             installedVersion: installedVersion,
             installPath: row.requiredText("install_path"),
             enabled: row.optionalInteger("enabled") != 0,
+            auth: installedPluginAuth(pluginID: pluginID, version: installedVersion),
             setup: installedPluginSetup(pluginID: pluginID, version: installedVersion),
             installedAt: ISO8601.date(from: row.requiredText("installed_at")),
             updatedAt: ISO8601.date(from: row.requiredText("updated_at"))
@@ -802,6 +807,14 @@ public final class StatusPersistenceStore {
     }
 
     private func installedPluginSetup(pluginID: String, version: String) -> PackagedPluginSetup? {
+        installedPluginDefinition(pluginID: pluginID, version: version)?.setup
+    }
+
+    private func installedPluginAuth(pluginID: String, version: String) -> PackagedPluginAuth? {
+        installedPluginDefinition(pluginID: pluginID, version: version)?.auth
+    }
+
+    private func installedPluginDefinition(pluginID: String, version: String) -> PluginPackageDefinition? {
         guard let row = try? database.query(
             """
             SELECT package_path FROM plugin_versions
@@ -816,7 +829,7 @@ public final class StatusPersistenceStore {
               let definition = try? PluginPackageDefinition.decode(from: packageData) else {
             return nil
         }
-        return definition.setup
+        return definition
     }
 
     private func installedPluginVersion(from row: [String: SQLiteValue]) throws -> InstalledPluginVersion {
@@ -866,7 +879,9 @@ public final class StatusPersistenceStore {
             id: row.requiredText("id"),
             pluginID: row.requiredText("plugin_id"),
             provider: row.requiredText("provider"),
-            displayName: row.requiredText("display_name")
+            displayName: row.requiredText("display_name"),
+            authType: row.optionalText("auth_type") ?? "none",
+            credentialRef: row.optionalText("credential_ref")
         )
     }
 
@@ -876,7 +891,9 @@ public final class StatusPersistenceStore {
             id: accountID,
             pluginID: metadata?.pluginID ?? row.requiredText("plugin_id"),
             accountName: metadata?.accountName ?? row.requiredText("display_name"),
-            variables: metadata?.variables ?? [:]
+            variables: metadata?.variables ?? [:],
+            authType: row.optionalText("auth_type") ?? "none",
+            credentialRef: row.optionalText("credential_ref")
         )
     }
 

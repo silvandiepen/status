@@ -370,6 +370,19 @@ import Testing
 
 @Test func pluginPackageDefinitionDecodesCanonicalSetupFields() throws {
     let packageData = runtimeStoredZip(files: [
+        ("auth.json", Data("""
+        {
+          "type": "bearer-token",
+          "fields": [
+            {
+              "key": "token",
+              "label": "Personal access token",
+              "type": "secret",
+              "required": true
+            }
+          ]
+        }
+        """.utf8)),
         ("setup.schema.json", Data("""
         {
           "title": "Repository",
@@ -399,6 +412,17 @@ import Testing
 
     let definition = try PluginPackageDefinition.decode(from: packageData)
 
+    #expect(definition.auth == PackagedPluginAuth(
+        type: .bearerToken,
+        fields: [
+            PackagedPluginSetupField(
+                id: "token",
+                label: "Personal access token",
+                type: .secret,
+                required: true
+            )
+        ]
+    ))
     #expect(definition.setup?.fields == [
         PackagedPluginSetupField(
             id: "owner",
@@ -419,6 +443,169 @@ import Testing
             ]
         )
     ])
+}
+
+@Test func genericPluginSetupStoresBearerTokenInCredentialStore() throws {
+    let database = try temporaryRuntimeDatabase()
+    try insertRuntimePluginFixture(database, pluginID: "com.status.github")
+    let store = StatusPersistenceStore(database: database)
+    let service = PluginRuntimeService(store: store, credentialStore: nil)
+    let credentials = InMemoryCredentialStore()
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let plugin = InstalledPlugin(
+        id: "com.status.github",
+        name: "GitHub",
+        author: "Status Foundry",
+        description: "Read-only repository checks.",
+        category: "developer",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/plugin",
+        auth: PackagedPluginAuth(
+            type: .bearerToken,
+            fields: [
+                PackagedPluginSetupField(
+                    id: "token",
+                    label: "Personal access token",
+                    type: .secret,
+                    required: true
+                )
+            ]
+        ),
+        setup: PackagedPluginSetup(
+            title: "Repository",
+            fields: [
+                PackagedPluginSetupField(id: "owner", label: "Owner", type: .text, required: true),
+                PackagedPluginSetupField(id: "repo", label: "Repository", type: .text, required: true)
+            ]
+        ),
+        installedAt: now,
+        updatedAt: now
+    )
+
+    let message = try PluginSetupConfiguration.saveValues(
+        ["token": "github_pat_example", "owner": "statusfoundry", "repo": "status"],
+        for: plugin,
+        service: service,
+        credentialStore: credentials,
+        now: now
+    )
+
+    let configuration = try #require(store.accountConfigurations(pluginID: "com.status.github").first)
+    let credentialRef = try #require(configuration.credentialRef)
+    #expect(message == "Saved statusfoundry/status.")
+    #expect(configuration.authType == "bearer-token")
+    #expect(configuration.variables == ["owner": "statusfoundry", "repo": "status"])
+    #expect(try credentials.read(reference: credentialRef) == Data("github_pat_example".utf8))
+}
+
+@Test func pluginRuntimeServiceInjectsBearerTokenForConfiguredAccount() async throws {
+    let database = try temporaryRuntimeDatabase()
+    let store = StatusPersistenceStore(database: database)
+    let credentials = InMemoryCredentialStore()
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let packageURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("status-runtime-\(UUID().uuidString).statusplugin.zip")
+    let packageData = runtimeStoredZip(files: [
+        ("auth.json", Data("""
+        {
+          "type": "bearer-token",
+          "fields": [
+            { "key": "token", "label": "Token", "type": "secret", "required": true }
+          ]
+        }
+        """.utf8)),
+        ("setup.schema.json", Data("""
+        {
+          "fields": [
+            { "key": "owner", "label": "Owner", "type": "text", "required": true },
+            { "key": "repo", "label": "Repository", "type": "text", "required": true }
+          ]
+        }
+        """.utf8)),
+        ("requests.json", Data("""
+        {
+          "requests": {
+            "list_workflow_runs": {
+              "method": "GET",
+              "url": "https://api.github.com/repos/{{owner}}/{{repo}}/actions/runs",
+              "auth": "default"
+            }
+          }
+        }
+        """.utf8)),
+        ("mappings.json", Data("""
+        {
+          "resources": [],
+          "events": []
+        }
+        """.utf8))
+    ])
+    try packageData.write(to: packageURL)
+    let manifest = PluginManifest(
+        id: "com.status.github",
+        name: "GitHub",
+        version: "0.1.0",
+        author: "Status Foundry",
+        category: "developer",
+        description: "Read-only GitHub checks.",
+        minCoreVersion: "0.1.0",
+        platforms: [.macOS, .iOS],
+        permissions: [.network, .keychain, .backgroundRefresh],
+        domains: ["api.github.com"]
+    )
+    let definition = try PluginPackageDefinition.decode(from: packageData)
+    try store.installPlugin(
+        PluginInstallRecord(
+            manifest: manifest,
+            trustLevel: .official,
+            installPath: packageURL.deletingLastPathComponent().path,
+            packagePath: packageURL.path,
+            verification: PluginPackageVerificationResult(
+                pluginID: manifest.id,
+                version: manifest.version,
+                sha256: PluginPackageVerifier.sha256Hex(packageData),
+                signedBy: "status-foundry-dev"
+            ),
+            signature: "dev-signature",
+            packageDefinition: definition,
+            installedAt: now
+        )
+    )
+    try store.upsertTrigger(
+        TriggerDefinition(
+            id: "trg_com_status_github_refresh",
+            pluginID: manifest.id,
+            kind: .manual,
+            label: "Refresh GitHub",
+            requestID: "list_workflow_runs"
+        ),
+        updatedAt: now
+    )
+    let installed = try #require(try store.installedPlugin(id: manifest.id))
+    let setupService = PluginRuntimeService(store: store, credentialStore: nil)
+    _ = try PluginSetupConfiguration.saveValues(
+        ["token": "github_pat_example", "owner": "statusfoundry", "repo": "status"],
+        for: installed,
+        service: setupService,
+        credentialStore: credentials,
+        now: now
+    )
+    let url = try #require(URL(string: "https://api.github.com/repos/statusfoundry/status/actions/runs"))
+    let service = PluginRuntimeService(
+        store: store,
+        transport: RuntimeHeaderCheckingTransport(
+            response: PluginHTTPResponse(data: Data("{}".utf8), statusCode: 200, url: url),
+            expectedAuthorization: "Bearer github_pat_example"
+        ),
+        credentialStore: credentials
+    )
+    let configuration = try #require(store.accountConfigurations(pluginID: manifest.id).first)
+
+    let job = try service.enqueueManualConfiguredPluginRun(pluginID: manifest.id, accountID: configuration.id, now: now)
+    _ = try await service.runQueuedPluginJob(jobID: job.id, now: now)
+
+    #expect(try store.job(id: job.id)?.status == .success)
 }
 
 @Test func websitePluginSetupNormalizesAndSavesHostConfiguration() throws {
@@ -503,6 +690,16 @@ private struct RuntimeFakeTransport: PluginRequestHTTPTransport {
 
     func response(for request: PluginHTTPRequest) async throws -> PluginHTTPResponse {
         try #require(responses[request.url])
+    }
+}
+
+private struct RuntimeHeaderCheckingTransport: PluginRequestHTTPTransport {
+    var response: PluginHTTPResponse
+    var expectedAuthorization: String
+
+    func response(for request: PluginHTTPRequest) async throws -> PluginHTTPResponse {
+        #expect(request.headers["Authorization"] == expectedAuthorization)
+        return response
     }
 }
 

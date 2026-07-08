@@ -148,7 +148,7 @@ public final class PluginStoreViewModel: ObservableObject {
     }
 
     private func defaultSetupValues(for plugin: InstalledPlugin) -> [String: String] {
-        Dictionary(uniqueKeysWithValues: (plugin.setup?.fields ?? []).map { field in
+        Dictionary(uniqueKeysWithValues: plugin.configurationFields.map { field in
             (field.id, field.defaultValue ?? "")
         })
     }
@@ -514,7 +514,7 @@ private struct InstalledPluginRow: View {
     }
 
     private var setupFields: [PackagedPluginSetupField] {
-        plugin.setup?.fields.filter { $0.type.isLocallyPersistableSetupField } ?? []
+        plugin.configurationFields
     }
 
     private var hasMissingRequiredSetupValue: Bool {
@@ -557,6 +557,19 @@ private struct PluginSetupFieldRow: View {
                     }
                 }
                 .pickerStyle(.menu)
+            case .secret:
+                SecureField(
+                    field.placeholder ?? field.label,
+                    text: Binding(
+                        get: { value },
+                        set: { updateValue($0) }
+                    )
+                )
+                .textFieldStyle(.roundedBorder)
+                .disableAutocorrection(true)
+                #if os(iOS)
+                .textInputAutocapitalization(.never)
+                #endif
             default:
                 TextField(
                     field.placeholder ?? field.label,
@@ -585,11 +598,17 @@ private struct PluginSetupFieldRow: View {
 private extension PackagedPluginSetupFieldType {
     var isLocallyPersistableSetupField: Bool {
         switch self {
-        case .text, .url, .hostname, .number, .toggle, .select:
+        case .text, .url, .hostname, .number, .toggle, .select, .secret:
             true
-        case .secret, .secretFile:
+        case .secretFile:
             false
         }
+    }
+}
+
+private extension InstalledPlugin {
+    var configurationFields: [PackagedPluginSetupField] {
+        ((auth?.fields ?? []) + (setup?.fields ?? [])).filter { $0.type.isLocallyPersistableSetupField }
     }
 }
 

@@ -57,17 +57,20 @@ public enum PluginRuntimeServiceError: Error, Equatable, LocalizedError, Sendabl
 public final class PluginRuntimeService: @unchecked Sendable {
     private let store: StatusPersistenceStore
     private let transport: PluginRequestHTTPTransport
+    private let credentialStore: CredentialStore?
     private let actionRunner: ActionRunner
     private let effectDispatcher: ActionEffectDispatcher
 
     public init(
         store: StatusPersistenceStore,
         transport: PluginRequestHTTPTransport = URLSessionPluginRequestTransport(),
+        credentialStore: CredentialStore? = KeychainCredentialStore(),
         actionRunner: ActionRunner = ActionRunner(),
         effectDispatcher: ActionEffectDispatcher = NoopActionEffectDispatcher()
     ) {
         self.store = store
         self.transport = transport
+        self.credentialStore = credentialStore
         self.actionRunner = actionRunner
         self.effectDispatcher = effectDispatcher
     }
@@ -184,7 +187,7 @@ public final class PluginRuntimeService: @unchecked Sendable {
                 accountID: configuration.id,
                 accountName: configuration.accountName,
                 variables: configuration.variables,
-                headers: headers,
+                headers: try resolvedHeaders(base: headers, configuration: configuration),
                 now: now
             ),
             jobID: job.id,
@@ -211,7 +214,7 @@ public final class PluginRuntimeService: @unchecked Sendable {
                 accountID: configuration.id,
                 accountName: configuration.accountName,
                 variables: configuration.variables,
-                headers: headers,
+                headers: try resolvedHeaders(base: headers, configuration: configuration),
                 now: now
             )
         )
@@ -396,6 +399,26 @@ public final class PluginRuntimeService: @unchecked Sendable {
             return accountID
         }
         return try store.accountConfigurations(pluginID: trigger.pluginID).first?.id
+    }
+
+    private func resolvedHeaders(
+        base headers: [String: String],
+        configuration: PluginAccountConfiguration
+    ) throws -> [String: String] {
+        var resolved = headers
+        guard configuration.authType == AuthKind.bearerToken.rawValue,
+              let credentialRef = configuration.credentialRef,
+              resolved["Authorization"] == nil else {
+            return resolved
+        }
+        guard let credentialStore,
+              let data = try credentialStore.read(reference: credentialRef),
+              let token = String(data: data, encoding: .utf8),
+              token.isEmpty == false else {
+            return resolved
+        }
+        resolved["Authorization"] = "Bearer \(token)"
+        return resolved
     }
 
     private func jobID(pluginID: String, requestID: String, accountID: String, date: Date) -> String {

@@ -32,13 +32,31 @@ public enum PluginSetupConfiguration {
         _ values: [String: String],
         for plugin: InstalledPlugin,
         service: PluginRuntimeService,
+        credentialStore: CredentialStore? = nil,
         now: Date = Date()
     ) throws -> String {
-        guard let setup = plugin.setup else {
+        guard plugin.setup != nil || plugin.auth != nil else {
             throw PluginSetupConfigurationError.setupUnavailable(plugin.id)
         }
         var normalized: [String: String] = [:]
-        for field in setup.fields {
+        var credentialRef: String?
+        var authType = "none"
+
+        if let auth = plugin.auth, auth.type != .none {
+            authType = auth.type.rawValue
+            switch auth.type {
+            case .bearerToken:
+                credentialRef = try storeBearerToken(from: auth.fields, values: values, plugin: plugin, credentialStore: credentialStore)
+            case .none:
+                break
+            case .apiKey, .basicAuth, .jwtAPIKey, .privateKeyJWT:
+                throw PluginSetupConfigurationError.secretFieldRequiresCredentialStore(auth.type.rawValue)
+            case .oauth2:
+                throw PluginSetupConfigurationError.secretFieldRequiresCredentialStore("OAuth2")
+            }
+        }
+
+        for field in plugin.setup?.fields ?? [] {
             let rawValue = values[field.id, default: field.defaultValue ?? ""]
             let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
             if field.required && trimmed.isEmpty {
@@ -59,7 +77,9 @@ public enum PluginSetupConfiguration {
                 id: accountID(pluginID: plugin.id, displayName: displayName),
                 pluginID: plugin.id,
                 accountName: displayName,
-                variables: normalized
+                variables: normalized,
+                authType: authType,
+                credentialRef: credentialRef
             ),
             now: now
         )
@@ -129,6 +149,28 @@ public enum PluginSetupConfiguration {
             return firstValue
         }
         return plugin.name
+    }
+
+    private static func storeBearerToken(
+        from fields: [PackagedPluginSetupField],
+        values: [String: String],
+        plugin: InstalledPlugin,
+        credentialStore: CredentialStore?
+    ) throws -> String? {
+        guard let tokenField = fields.first(where: { $0.type == .secret || $0.type == .text }) else {
+            return nil
+        }
+        let token = values[tokenField.id, default: ""].trimmingCharacters(in: .whitespacesAndNewlines)
+        if tokenField.required && token.isEmpty {
+            throw PluginSetupConfigurationError.missingRequiredField(tokenField.label)
+        }
+        guard token.isEmpty == false else {
+            return nil
+        }
+        guard let credentialStore else {
+            throw PluginSetupConfigurationError.secretFieldRequiresCredentialStore(tokenField.label)
+        }
+        return try credentialStore.store(Data(token.utf8), label: "\(plugin.name) \(tokenField.label)")
     }
 }
 

@@ -97,7 +97,7 @@ private struct MacRootView: View {
         } runPlugin: { plugin in
             try await runConfiguredWebsiteCheck(pluginID: plugin.id)
         } canConfigurePlugin: { plugin in
-            plugin.setup?.fields.contains(where: \.type.isPlainConfigurationField) == true
+            plugin.auth?.fields.isEmpty == false || plugin.setup?.fields.contains(where: \.type.isPlainConfigurationField) == true
         } loadConfigurationValues: { plugin in
             try configuredPluginValues(pluginID: plugin.id)
         } saveConfigurationValues: { plugin, values in
@@ -174,7 +174,12 @@ private struct MacRootView: View {
     private func savePluginSetup(plugin: InstalledPlugin, values: [String: String]) throws -> String {
         let store = try LocalStatusStore.openApplicationSupportStore()
         let service = PluginRuntimeService(store: store)
-        return try PluginSetupConfiguration.saveValues(values, for: plugin, service: service)
+        return try PluginSetupConfiguration.saveValues(
+            values,
+            for: plugin,
+            service: service,
+            credentialStore: KeychainCredentialStore()
+        )
     }
 
     private func runBackgroundPluginLoop() async {

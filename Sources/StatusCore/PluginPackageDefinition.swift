@@ -1,6 +1,7 @@
 import Foundation
 
 public struct PluginPackageDefinition: Equatable, Sendable {
+    public var auth: PackagedPluginAuth?
     public var setup: PackagedPluginSetup?
     public var triggers: [PackagedPluginTrigger]
     public var requests: PackagedPluginRequests
@@ -8,12 +9,14 @@ public struct PluginPackageDefinition: Equatable, Sendable {
     public var rulePresets: [PackagedRulePreset]
 
     public init(
+        auth: PackagedPluginAuth? = nil,
         setup: PackagedPluginSetup? = nil,
         triggers: [PackagedPluginTrigger] = [],
         requests: PackagedPluginRequests = PackagedPluginRequests(),
         mappings: PackagedPluginMappings = PackagedPluginMappings(),
         rulePresets: [PackagedRulePreset] = []
     ) {
+        self.auth = auth
         self.setup = setup
         self.triggers = triggers
         self.requests = requests
@@ -24,6 +27,10 @@ public struct PluginPackageDefinition: Equatable, Sendable {
     public static func decode(from packageData: Data) throws -> PluginPackageDefinition {
         let archive = try StoredZipArchive(data: packageData)
         let decoder = JSONDecoder()
+
+        let auth = try archive.file(named: "auth.json").map { data in
+            try decoder.decode(PackagedPluginAuth.self, from: data)
+        }
 
         let setup = try archive.file(named: "setup.schema.json").map { data in
             try decoder.decode(PackagedPluginSetup.self, from: data)
@@ -45,7 +52,17 @@ public struct PluginPackageDefinition: Equatable, Sendable {
             try decoder.decode(PackagedRulePresetsFile.self, from: data).presets
         } ?? []
 
-        return PluginPackageDefinition(setup: setup, triggers: triggers, requests: requests, mappings: mappings, rulePresets: presets)
+        return PluginPackageDefinition(auth: auth, setup: setup, triggers: triggers, requests: requests, mappings: mappings, rulePresets: presets)
+    }
+}
+
+public struct PackagedPluginAuth: Codable, Equatable, Sendable {
+    public var type: AuthKind
+    public var fields: [PackagedPluginSetupField]
+
+    public init(type: AuthKind, fields: [PackagedPluginSetupField] = []) {
+        self.type = type
+        self.fields = fields
     }
 }
 
@@ -54,10 +71,23 @@ public struct PackagedPluginSetup: Codable, Equatable, Sendable {
     public var description: String?
     public var fields: [PackagedPluginSetupField]
 
+    enum CodingKeys: String, CodingKey {
+        case title
+        case description
+        case fields
+    }
+
     public init(title: String, description: String? = nil, fields: [PackagedPluginSetupField]) {
         self.title = title
         self.description = description
         self.fields = fields
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        title = try container.decodeIfPresent(String.self, forKey: .title) ?? "Setup"
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        fields = try container.decode([PackagedPluginSetupField].self, forKey: .fields)
     }
 }
 

@@ -40,12 +40,23 @@ public struct Account: Identifiable, Codable, Equatable, Sendable {
     public var pluginID: String
     public var provider: String
     public var displayName: String
+    public var authType: String
+    public var credentialRef: String?
 
-    public init(id: String, pluginID: String, provider: String, displayName: String) {
+    public init(
+        id: String,
+        pluginID: String,
+        provider: String,
+        displayName: String,
+        authType: String = "none",
+        credentialRef: String? = nil
+    ) {
         self.id = id
         self.pluginID = pluginID
         self.provider = provider
         self.displayName = displayName
+        self.authType = authType
+        self.credentialRef = credentialRef
     }
 }
 
@@ -54,12 +65,23 @@ public struct PluginAccountConfiguration: Identifiable, Codable, Equatable, Send
     public var pluginID: String
     public var accountName: String
     public var variables: [String: String]
+    public var authType: String
+    public var credentialRef: String?
 
-    public init(id: String, pluginID: String, accountName: String, variables: [String: String]) {
+    public init(
+        id: String,
+        pluginID: String,
+        accountName: String,
+        variables: [String: String],
+        authType: String = "none",
+        credentialRef: String? = nil
+    ) {
         self.id = id
         self.pluginID = pluginID
         self.accountName = accountName
         self.variables = variables
+        self.authType = authType
+        self.credentialRef = credentialRef
     }
 }
 

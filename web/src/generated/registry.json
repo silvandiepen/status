@@ -61,8 +61,8 @@
           ],
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.github/0.1.0/com.status.github-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.github/0.1.0/manifest.json",
-          "sha256": "a69d0387e5ee0b721fcd3ddbfe6632af178245a6af4be868d0b32d83c4a87702",
-          "signature": "dev-signature:a69d0387e5ee0b721fcd3ddbfe6632af178245a6af4be868d0b32d83c4a87702",
+          "sha256": "f2ad68d8b021048bf1e9c52544892744d19c15db42031e717ee373b5645c84c9",
+          "signature": "dev-signature:f2ad68d8b021048bf1e9c52544892744d19c15db42031e717ee373b5645c84c9",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-07T12:00:00Z"
         }
