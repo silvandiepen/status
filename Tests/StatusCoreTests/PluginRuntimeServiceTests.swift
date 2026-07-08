@@ -829,6 +829,16 @@ import Testing
 
 @Test func pluginPackageDefinitionDecodesActions() throws {
     let packageData = runtimeStoredZip(files: [
+        ("requests.json", Data("""
+        {
+          "requests": {
+            "create_issue": {
+              "method": "POST",
+              "url": "https://example.atlassian.net/rest/api/3/issue"
+            }
+          }
+        }
+        """.utf8)),
         ("actions.json", Data("""
         {
           "actions": [
@@ -893,6 +903,27 @@ import Testing
             request: "create_issue"
         )
     ])
+}
+
+@Test func pluginPackageDefinitionRejectsActionWithMissingRequest() throws {
+    let packageData = runtimeStoredZip(files: [
+        ("actions.json", Data("""
+        {
+          "actions": [
+            {
+              "id": "jira.createIssue",
+              "label": "Create Jira issue",
+              "requiresWritePermission": true,
+              "request": "create_issue"
+            }
+          ]
+        }
+        """.utf8))
+    ])
+
+    #expect(throws: PluginPackageDefinitionError.missingActionRequest(actionID: "jira.createIssue", requestID: "create_issue")) {
+        _ = try PluginPackageDefinition.decode(from: packageData)
+    }
 }
 
 @Test func genericPluginSetupStoresBearerTokenInCredentialStore() throws {

@@ -66,7 +66,16 @@ public struct PluginPackageDefinition: Equatable, Sendable {
             try decoder.decode(PackagedRulePresetsFile.self, from: data).presets
         } ?? []
 
+        try validateActionRequests(actions, requests: requests)
+
         return PluginPackageDefinition(auth: auth, setup: setup, triggers: triggers, requests: requests, events: events, actions: actions, mappings: mappings, rulePresets: presets)
+    }
+
+    private static func validateActionRequests(_ actions: [PackagedPluginAction], requests: PackagedPluginRequests) throws {
+        let requestIDs = Set(requests.requests.keys)
+        for action in actions where requestIDs.contains(action.request) == false {
+            throw PluginPackageDefinitionError.missingActionRequest(actionID: action.id, requestID: action.request)
+        }
     }
 }
 
@@ -989,6 +998,7 @@ public enum PluginPackageDefinitionError: Error, Equatable, LocalizedError, Send
     case unsupportedCompression
     case truncatedZipEntry
     case invalidZipEntryName
+    case missingActionRequest(actionID: String, requestID: String)
 
     public var errorDescription: String? {
         switch self {
@@ -1000,6 +1010,8 @@ public enum PluginPackageDefinitionError: Error, Equatable, LocalizedError, Send
             "Plugin package archive is truncated."
         case .invalidZipEntryName:
             "Plugin package contains an invalid file name."
+        case .missingActionRequest(let actionID, let requestID):
+            "Plugin action \(actionID) references missing request \(requestID)."
         }
     }
 }
