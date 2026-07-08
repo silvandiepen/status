@@ -131,10 +131,30 @@ public final class PluginRuntimeService: @unchecked Sendable {
         var jobs: [JobRecord] = []
         for var trigger in try store.triggers() where isDueCronTrigger(trigger, at: now) {
             guard try hasGrantedPermission(pluginID: trigger.pluginID, permission: .backgroundRefresh) else {
+                try insertSkippedTriggerAudit(
+                    trigger,
+                    reason: "background_refresh_permission",
+                    detail: "Status skipped \(trigger.label) because \(trigger.pluginID) does not have background refresh permission.",
+                    at: now
+                )
                 continue
             }
-            guard let requestID = trigger.requestID,
-                  let accountID = try configuredAccountID(for: trigger) else {
+            guard let requestID = trigger.requestID else {
+                try insertSkippedTriggerAudit(
+                    trigger,
+                    reason: "request_missing",
+                    detail: "Status skipped \(trigger.label) because the cron trigger does not declare a plugin request.",
+                    at: now
+                )
+                continue
+            }
+            guard let accountID = try configuredAccountID(for: trigger) else {
+                try insertSkippedTriggerAudit(
+                    trigger,
+                    reason: "account_missing",
+                    detail: "Status skipped \(trigger.label) because no configured account is available for \(trigger.pluginID).",
+                    at: now
+                )
                 continue
             }
             let job = JobRecord(
@@ -361,6 +381,23 @@ public final class PluginRuntimeService: @unchecked Sendable {
         }
     }
 
+    private func insertSkippedTriggerAudit(
+        _ trigger: TriggerDefinition,
+        reason: String,
+        detail: String,
+        at date: Date
+    ) throws {
+        try store.insertAuditEntry(
+            AuditEntry(
+                id: "aud_\(sanitizedIDPart(trigger.id))_skipped_\(reason)",
+                title: "Plugin trigger skipped",
+                detail: detail,
+                timestamp: date,
+                status: "skipped"
+            )
+        )
+    }
+
     private func processAutomation(for result: PluginRequestJobResult) throws {
         let insertedEventIDs = result.commitResult.eventResults.compactMap { ingestionResult -> String? in
             guard case .inserted(let eventID, _) = ingestionResult else {
@@ -532,11 +569,14 @@ public final class PluginRuntimeService: @unchecked Sendable {
 
     private func jobID(pluginID: String, requestID: String, accountID: String, date: Date) -> String {
         let raw = "\(pluginID)_\(requestID)_\(accountID)_\(Int(date.timeIntervalSince1970))"
-        let sanitized = raw
+        return "job_\(sanitizedIDPart(raw))"
+    }
+
+    private func sanitizedIDPart(_ raw: String) -> String {
+        raw
             .lowercased()
             .replacingOccurrences(of: #"[^a-z0-9_]+"#, with: "_", options: .regularExpression)
             .trimmingCharacters(in: CharacterSet(charactersIn: "_"))
-        return "job_\(sanitized)"
     }
 
     private func bundledManualRequestID(pluginID: String) -> String? {

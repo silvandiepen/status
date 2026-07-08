@@ -47,6 +47,7 @@ The same pipeline is used for:
 - macOS and iOS expose app-owned rule toggles so suggested plugin rules remain disabled by default but can be explicitly enabled by the user.
 - macOS and iOS provide first platform adapters for safe runtime effects: local notifications and opening URLs. Notification permission is requested by the app shell, not by plugins.
 - The native shells start an app-alive background loop that asks the core to run due configured plugin jobs every five minutes. Due checks still respect each trigger's stored schedule.
+- Due cron triggers that cannot enqueue because of missing `background-refresh` permission, missing request metadata, or missing account configuration write stable skipped audit rows instead of failing silently.
 
 OS-level background execution, retry execution, request timeouts, richer notification preference controls, and provider-backed write actions remain planned work.
 
