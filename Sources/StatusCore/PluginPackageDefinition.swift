@@ -59,10 +59,31 @@ public struct PluginPackageDefinition: Equatable, Sendable {
 public struct PackagedPluginAuth: Codable, Equatable, Sendable {
     public var type: AuthKind
     public var fields: [PackagedPluginSetupField]
+    public var placement: PackagedPluginAuthPlacement?
 
-    public init(type: AuthKind, fields: [PackagedPluginSetupField] = []) {
+    public init(type: AuthKind, fields: [PackagedPluginSetupField] = [], placement: PackagedPluginAuthPlacement? = nil) {
         self.type = type
         self.fields = fields
+        self.placement = placement
+    }
+}
+
+public struct PackagedPluginAuthPlacement: Codable, Equatable, Sendable {
+    public enum Location: String, Codable, Sendable {
+        case header
+    }
+
+    public var location: Location
+    public var name: String
+
+    enum CodingKeys: String, CodingKey {
+        case location = "in"
+        case name
+    }
+
+    public init(location: Location = .header, name: String) {
+        self.location = location
+        self.name = name
     }
 }
 

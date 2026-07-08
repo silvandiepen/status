@@ -101,7 +101,7 @@ Example:
 
 `setup.schema.json` describes account setup fields that the app renders with native, app-owned controls. Field identifiers use the canonical `key` property; the Swift package decoder also accepts the earlier `id` spelling for compatibility with local development packages. The installed plugin projection exposes this schema to the Integrations UI, so labels, placeholders, defaults, select options, and required state come from the plugin package while validation, persistence, and execution stay in StatusCore.
 
-Current implementation renders and stores plain setup fields (`text`, `url`, `hostname`, `number`, `toggle`, and `select`) as non-secret local account configuration. Bearer-token, basic-auth, and JWT API-key auth fields render as native inputs and store secret material in Keychain; SQLite stores only the `kc_` credential reference on the account row. Multi-account editing, API-key/private-key-JWT injection, and user-facing schedule controls remain planned work.
+Current implementation renders and stores plain setup fields (`text`, `url`, `hostname`, `number`, `toggle`, and `select`) as non-secret local account configuration. Bearer-token, api-key header, basic-auth, and JWT API-key auth fields render as native inputs and store secret material in Keychain; SQLite stores only the `kc_` credential reference on the account row. Multi-account editing, private-key-JWT injection, and user-facing schedule controls remain planned work.
 
 ## Auth
 
@@ -122,6 +122,16 @@ private-key-jwt
 The plugin defines the auth shape. The app renders the setup form and stores secrets in Keychain.
 
 Example:
+
+```json
+{
+  "type": "api-key",
+  "placement": { "in": "header", "name": "X-API-Key" },
+  "fields": [
+    { "key": "apiKey", "label": "API key", "type": "secret", "required": true }
+  ]
+}
+```
 
 ```json
 {

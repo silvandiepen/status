@@ -500,6 +500,62 @@ import Testing
     #expect(try credentials.read(reference: credentialRef) == Data("github_pat_example".utf8))
 }
 
+@Test func genericPluginSetupStoresAPIKeyCredentialBundleInCredentialStore() throws {
+    let database = try temporaryRuntimeDatabase()
+    try insertRuntimePluginFixture(database, pluginID: "com.status.weather")
+    let store = StatusPersistenceStore(database: database)
+    let service = PluginRuntimeService(store: store, credentialStore: nil)
+    let credentials = InMemoryCredentialStore()
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let plugin = InstalledPlugin(
+        id: "com.status.weather",
+        name: "Weather",
+        author: "Status Foundry",
+        description: "Read-only weather checks.",
+        category: "monitoring",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/plugin",
+        auth: PackagedPluginAuth(
+            type: .apiKey,
+            fields: [
+                PackagedPluginSetupField(
+                    id: "apiKey",
+                    label: "API key",
+                    type: .secret,
+                    required: true
+                )
+            ],
+            placement: PackagedPluginAuthPlacement(name: "X-Weather-Key")
+        ),
+        setup: PackagedPluginSetup(
+            title: "Location",
+            fields: [
+                PackagedPluginSetupField(id: "city", label: "City", type: .text, required: true)
+            ]
+        ),
+        installedAt: now,
+        updatedAt: now
+    )
+
+    let message = try PluginSetupConfiguration.saveValues(
+        ["apiKey": "weather-secret", "city": "Valletta"],
+        for: plugin,
+        service: service,
+        credentialStore: credentials,
+        now: now
+    )
+
+    let configuration = try #require(store.accountConfigurations(pluginID: "com.status.weather").first)
+    let credentialRef = try #require(configuration.credentialRef)
+    let credentialData = try #require(try credentials.read(reference: credentialRef))
+    let bundle = try JSONDecoder().decode(PluginAuthCredentialBundle.self, from: credentialData)
+    #expect(message == "Saved Valletta.")
+    #expect(configuration.authType == "api-key")
+    #expect(configuration.variables == ["city": "Valletta"])
+    #expect(bundle.fields["apiKey"] == "weather-secret")
+}
+
 @Test func genericPluginSetupStoresJWTCredentialBundleInCredentialStore() throws {
     let database = try temporaryRuntimeDatabase()
     try insertRuntimePluginFixture(database, pluginID: "com.status.appstoreconnect")
@@ -599,6 +655,116 @@ import Testing
     #expect(configuration.variables == ["site": "example.atlassian.net"])
     #expect(bundle.fields["email"] == "me@example.com")
     #expect(bundle.fields["apiToken"] == "jira-token")
+}
+
+@Test func pluginRuntimeServiceInjectsAPIKeyHeaderForConfiguredAccount() async throws {
+    let database = try temporaryRuntimeDatabase()
+    let store = StatusPersistenceStore(database: database)
+    let credentials = InMemoryCredentialStore()
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let packageURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("status-runtime-\(UUID().uuidString).statusplugin.zip")
+    let packageData = runtimeStoredZip(files: [
+        ("auth.json", Data("""
+        {
+          "type": "api-key",
+          "placement": { "in": "header", "name": "X-Weather-Key" },
+          "fields": [
+            { "key": "apiKey", "label": "API key", "type": "secret", "required": true }
+          ]
+        }
+        """.utf8)),
+        ("setup.schema.json", Data("""
+        {
+          "fields": [
+            { "key": "city", "label": "City", "type": "text", "required": true }
+          ]
+        }
+        """.utf8)),
+        ("requests.json", Data("""
+        {
+          "requests": {
+            "current_weather": {
+              "method": "GET",
+              "url": "https://api.weather.example/current",
+              "query": { "q": "{{city}}" },
+              "auth": "default"
+            }
+          }
+        }
+        """.utf8)),
+        ("mappings.json", Data("""
+        {
+          "resources": [],
+          "events": []
+        }
+        """.utf8))
+    ])
+    try packageData.write(to: packageURL)
+    let manifest = PluginManifest(
+        id: "com.status.weather",
+        name: "Weather",
+        version: "0.1.0",
+        author: "Status Foundry",
+        category: "monitoring",
+        description: "Read-only weather checks.",
+        minCoreVersion: "0.1.0",
+        platforms: [.macOS, .iOS],
+        permissions: [.network, .keychain, .backgroundRefresh],
+        domains: ["api.weather.example"]
+    )
+    let definition = try PluginPackageDefinition.decode(from: packageData)
+    try store.installPlugin(
+        PluginInstallRecord(
+            manifest: manifest,
+            trustLevel: .official,
+            installPath: packageURL.deletingLastPathComponent().path,
+            packagePath: packageURL.path,
+            verification: PluginPackageVerificationResult(
+                pluginID: manifest.id,
+                version: manifest.version,
+                sha256: PluginPackageVerifier.sha256Hex(packageData),
+                signedBy: "status-foundry-dev"
+            ),
+            signature: "dev-signature",
+            packageDefinition: definition,
+            installedAt: now
+        )
+    )
+    try store.upsertTrigger(
+        TriggerDefinition(
+            id: "trg_com_status_weather_current",
+            pluginID: manifest.id,
+            kind: .manual,
+            label: "Refresh weather",
+            requestID: "current_weather"
+        ),
+        updatedAt: now
+    )
+    let installed = try #require(try store.installedPlugin(id: manifest.id))
+    let setupService = PluginRuntimeService(store: store, credentialStore: nil)
+    _ = try PluginSetupConfiguration.saveValues(
+        ["apiKey": "weather-secret", "city": "Valletta"],
+        for: installed,
+        service: setupService,
+        credentialStore: credentials,
+        now: now
+    )
+    let url = try #require(URL(string: "https://api.weather.example/current?q=Valletta"))
+    let service = PluginRuntimeService(
+        store: store,
+        transport: RuntimeHeaderValuesCheckingTransport(
+            response: PluginHTTPResponse(data: Data("{}".utf8), statusCode: 200, url: url),
+            expectedHeaders: ["X-Weather-Key": "weather-secret"]
+        ),
+        credentialStore: credentials
+    )
+    let configuration = try #require(store.accountConfigurations(pluginID: manifest.id).first)
+
+    let job = try service.enqueueManualConfiguredPluginRun(pluginID: manifest.id, accountID: configuration.id, now: now)
+    _ = try await service.runQueuedPluginJob(jobID: job.id, now: now)
+
+    #expect(try store.job(id: job.id)?.status == .success)
 }
 
 @Test func pluginRuntimeServiceInjectsBearerTokenForConfiguredAccount() async throws {
@@ -1019,6 +1185,18 @@ private struct RuntimeHeaderCheckingTransport: PluginRequestHTTPTransport {
 
     func response(for request: PluginHTTPRequest) async throws -> PluginHTTPResponse {
         #expect(request.headers["Authorization"] == expectedAuthorization)
+        return response
+    }
+}
+
+private struct RuntimeHeaderValuesCheckingTransport: PluginRequestHTTPTransport {
+    var response: PluginHTTPResponse
+    var expectedHeaders: [String: String]
+
+    func response(for request: PluginHTTPRequest) async throws -> PluginHTTPResponse {
+        for (name, value) in expectedHeaders {
+            #expect(request.headers[name] == value)
+        }
         return response
     }
 }

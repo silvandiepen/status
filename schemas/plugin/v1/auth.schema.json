@@ -15,9 +15,28 @@
       "type": "array",
       "description": "Credential fields the user must provide during setup.",
       "items": { "$ref": "#/$defs/field" }
+    },
+    "placement": {
+      "$ref": "#/$defs/placement",
+      "description": "Where the request engine injects the credential. Currently used by api-key auth."
     }
   },
   "$defs": {
+    "placement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["in", "name"],
+      "properties": {
+        "in": {
+          "type": "string",
+          "enum": ["header"]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
     "field": {
       "type": "object",
       "additionalProperties": false,

@@ -72,6 +72,12 @@ private-key-jwt
 
 `oauth2` is present in the schema enum so the format is stable, but it is deferred pending the OAuth decision in `docs/07-security-privacy.md` (WP-0.5). The loader should reject `oauth2` plugins until that decision lands.
 
+`api-key` auth may declare `placement` to tell the request engine which header receives the secret:
+
+```json
+{ "placement": { "in": "header", "name": "X-API-Key" } }
+```
+
 ## Cross-file checks the schemas do not cover
 
 JSON Schema validates each file in isolation. The loader must additionally verify:
