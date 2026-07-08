@@ -187,7 +187,7 @@ public final class PluginRuntimeService: @unchecked Sendable {
                 accountID: configuration.id,
                 accountName: configuration.accountName,
                 variables: configuration.variables,
-                headers: try resolvedHeaders(base: headers, configuration: configuration),
+                headers: try resolvedHeaders(base: headers, configuration: configuration, now: now),
                 now: now
             ),
             jobID: job.id,
@@ -214,7 +214,7 @@ public final class PluginRuntimeService: @unchecked Sendable {
                 accountID: configuration.id,
                 accountName: configuration.accountName,
                 variables: configuration.variables,
-                headers: try resolvedHeaders(base: headers, configuration: configuration),
+                headers: try resolvedHeaders(base: headers, configuration: configuration, now: now),
                 now: now
             )
         )
@@ -403,21 +403,32 @@ public final class PluginRuntimeService: @unchecked Sendable {
 
     private func resolvedHeaders(
         base headers: [String: String],
-        configuration: PluginAccountConfiguration
+        configuration: PluginAccountConfiguration,
+        now: Date
     ) throws -> [String: String] {
         var resolved = headers
-        guard configuration.authType == AuthKind.bearerToken.rawValue,
-              let credentialRef = configuration.credentialRef,
-              resolved["Authorization"] == nil else {
+        guard resolved["Authorization"] == nil,
+              let credentialRef = configuration.credentialRef else {
             return resolved
         }
         guard let credentialStore,
-              let data = try credentialStore.read(reference: credentialRef),
-              let token = String(data: data, encoding: .utf8),
-              token.isEmpty == false else {
+              let data = try credentialStore.read(reference: credentialRef) else {
             return resolved
         }
-        resolved["Authorization"] = "Bearer \(token)"
+        switch configuration.authType {
+        case AuthKind.bearerToken.rawValue:
+            guard let token = String(data: data, encoding: .utf8),
+                  token.isEmpty == false else {
+                return resolved
+            }
+            resolved["Authorization"] = "Bearer \(token)"
+        case AuthKind.jwtAPIKey.rawValue:
+            let credentials = try JSONDecoder().decode(PluginAuthCredentialBundle.self, from: data)
+            let token = try PluginJWTSigner.appStoreConnectToken(credentials: credentials, now: now)
+            resolved["Authorization"] = "Bearer \(token)"
+        default:
+            break
+        }
         return resolved
     }
 

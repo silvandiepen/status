@@ -56,7 +56,9 @@ public enum PluginSetupConfiguration {
                 credentialRef = try storeBearerToken(from: auth.fields, values: values, plugin: plugin, credentialStore: credentialStore)
             case .none:
                 break
-            case .apiKey, .basicAuth, .jwtAPIKey, .privateKeyJWT:
+            case .jwtAPIKey:
+                credentialRef = try storeCredentialBundle(from: auth.fields, values: values, plugin: plugin, credentialStore: credentialStore)
+            case .apiKey, .basicAuth, .privateKeyJWT:
                 throw PluginSetupConfigurationError.secretFieldRequiresCredentialStore(auth.type.rawValue)
             case .oauth2:
                 throw PluginSetupConfigurationError.secretFieldRequiresCredentialStore("OAuth2")
@@ -178,6 +180,40 @@ public enum PluginSetupConfiguration {
             throw PluginSetupConfigurationError.secretFieldRequiresCredentialStore(tokenField.label)
         }
         return try credentialStore.store(Data(token.utf8), label: "\(plugin.name) \(tokenField.label)")
+    }
+
+    private static func storeCredentialBundle(
+        from fields: [PackagedPluginSetupField],
+        values: [String: String],
+        plugin: InstalledPlugin,
+        credentialStore: CredentialStore?
+    ) throws -> String? {
+        var credentialFields: [String: String] = [:]
+        for field in fields {
+            let value = values[field.id, default: ""].trimmingCharacters(in: .whitespacesAndNewlines)
+            if field.required && value.isEmpty {
+                throw PluginSetupConfigurationError.missingRequiredField(field.label)
+            }
+            if value.isEmpty == false {
+                credentialFields[field.id] = value
+            }
+        }
+        guard credentialFields.isEmpty == false else {
+            return nil
+        }
+        guard let credentialStore else {
+            throw PluginSetupConfigurationError.secretFieldRequiresCredentialStore(plugin.name)
+        }
+        let data = try JSONEncoder().encode(PluginAuthCredentialBundle(fields: credentialFields))
+        return try credentialStore.store(data, label: "\(plugin.name) credentials")
+    }
+}
+
+public struct PluginAuthCredentialBundle: Codable, Equatable, Sendable {
+    public var fields: [String: String]
+
+    public init(fields: [String: String]) {
+        self.fields = fields
     }
 }
 

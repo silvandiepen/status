@@ -557,7 +557,7 @@ private struct PluginSetupFieldRow: View {
                     }
                 }
                 .pickerStyle(.menu)
-            case .secret:
+            case .secret, .secretFile:
                 SecureField(
                     field.placeholder ?? field.label,
                     text: Binding(
@@ -598,10 +598,8 @@ private struct PluginSetupFieldRow: View {
 private extension PackagedPluginSetupFieldType {
     var isLocallyPersistableSetupField: Bool {
         switch self {
-        case .text, .url, .hostname, .number, .toggle, .select, .secret:
+        case .text, .url, .hostname, .number, .toggle, .select, .secret, .secretFile:
             true
-        case .secretFile:
-            false
         }
     }
 }

@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import Testing
 @testable import StatusCore
 
@@ -499,6 +500,55 @@ import Testing
     #expect(try credentials.read(reference: credentialRef) == Data("github_pat_example".utf8))
 }
 
+@Test func genericPluginSetupStoresJWTCredentialBundleInCredentialStore() throws {
+    let database = try temporaryRuntimeDatabase()
+    try insertRuntimePluginFixture(database, pluginID: "com.status.appstoreconnect")
+    let store = StatusPersistenceStore(database: database)
+    let service = PluginRuntimeService(store: store, credentialStore: nil)
+    let credentials = InMemoryCredentialStore()
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let privateKey = P256.Signing.PrivateKey().pemRepresentation
+    let plugin = InstalledPlugin(
+        id: "com.status.appstoreconnect",
+        name: "App Store Connect",
+        author: "Status Foundry",
+        description: "Read-only app status.",
+        category: "developer",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/plugin",
+        auth: PackagedPluginAuth(
+            type: .jwtAPIKey,
+            fields: [
+                PackagedPluginSetupField(id: "issuerId", label: "Issuer ID", type: .text, required: true),
+                PackagedPluginSetupField(id: "keyId", label: "Key ID", type: .text, required: true),
+                PackagedPluginSetupField(id: "privateKey", label: "Private Key", type: .secretFile, required: true)
+            ]
+        ),
+        installedAt: now,
+        updatedAt: now
+    )
+
+    let message = try PluginSetupConfiguration.saveValues(
+        ["issuerId": "issuer-123", "keyId": "ABC123DEFG", "privateKey": privateKey],
+        for: plugin,
+        service: service,
+        credentialStore: credentials,
+        now: now
+    )
+
+    let configuration = try #require(store.accountConfigurations(pluginID: "com.status.appstoreconnect").first)
+    let credentialRef = try #require(configuration.credentialRef)
+    let credentialData = try #require(try credentials.read(reference: credentialRef))
+    let bundle = try JSONDecoder().decode(PluginAuthCredentialBundle.self, from: credentialData)
+    #expect(message == "Saved App Store Connect.")
+    #expect(configuration.authType == "jwt-api-key")
+    #expect(configuration.variables == [:])
+    #expect(bundle.fields["issuerId"] == "issuer-123")
+    #expect(bundle.fields["keyId"] == "ABC123DEFG")
+    #expect(bundle.fields["privateKey"] == privateKey)
+}
+
 @Test func pluginRuntimeServiceInjectsBearerTokenForConfiguredAccount() async throws {
     let database = try temporaryRuntimeDatabase()
     let store = StatusPersistenceStore(database: database)
@@ -608,6 +658,114 @@ import Testing
     #expect(try store.job(id: job.id)?.status == .success)
 }
 
+@Test func pluginRuntimeServiceInjectsJWTForConfiguredAppStoreConnectAccount() async throws {
+    let database = try temporaryRuntimeDatabase()
+    let store = StatusPersistenceStore(database: database)
+    let credentials = InMemoryCredentialStore()
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let privateKey = P256.Signing.PrivateKey().pemRepresentation
+    let packageURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("status-runtime-\(UUID().uuidString).statusplugin.zip")
+    let packageData = runtimeStoredZip(files: [
+        ("auth.json", Data("""
+        {
+          "type": "jwt-api-key",
+          "fields": [
+            { "key": "issuerId", "label": "Issuer ID", "type": "text", "required": true },
+            { "key": "keyId", "label": "Key ID", "type": "text", "required": true },
+            { "key": "privateKey", "label": "Private Key", "type": "secret-file", "required": true }
+          ]
+        }
+        """.utf8)),
+        ("requests.json", Data("""
+        {
+          "requests": {
+            "list_apps": {
+              "method": "GET",
+              "url": "https://api.appstoreconnect.apple.com/v1/apps",
+              "auth": "default"
+            }
+          }
+        }
+        """.utf8)),
+        ("mappings.json", Data("""
+        {
+          "resources": [],
+          "events": []
+        }
+        """.utf8))
+    ])
+    try packageData.write(to: packageURL)
+    let manifest = PluginManifest(
+        id: "com.status.appstoreconnect",
+        name: "App Store Connect",
+        version: "0.1.0",
+        author: "Status Foundry",
+        category: "developer",
+        description: "Read-only App Store Connect checks.",
+        minCoreVersion: "0.1.0",
+        platforms: [.macOS, .iOS],
+        permissions: [.network, .keychain, .privateKey, .backgroundRefresh],
+        domains: ["api.appstoreconnect.apple.com"]
+    )
+    let definition = try PluginPackageDefinition.decode(from: packageData)
+    try store.installPlugin(
+        PluginInstallRecord(
+            manifest: manifest,
+            trustLevel: .official,
+            installPath: packageURL.deletingLastPathComponent().path,
+            packagePath: packageURL.path,
+            verification: PluginPackageVerificationResult(
+                pluginID: manifest.id,
+                version: manifest.version,
+                sha256: PluginPackageVerifier.sha256Hex(packageData),
+                signedBy: "status-foundry-dev"
+            ),
+            signature: "dev-signature",
+            packageDefinition: definition,
+            installedAt: now
+        )
+    )
+    try store.upsertTrigger(
+        TriggerDefinition(
+            id: "trg_com_status_appstoreconnect_refresh",
+            pluginID: manifest.id,
+            kind: .manual,
+            label: "Refresh apps",
+            requestID: "list_apps"
+        ),
+        updatedAt: now
+    )
+    let installed = try #require(try store.installedPlugin(id: manifest.id))
+    let setupService = PluginRuntimeService(store: store, credentialStore: nil)
+    _ = try PluginSetupConfiguration.saveValues(
+        ["issuerId": "issuer-123", "keyId": "ABC123DEFG", "privateKey": privateKey],
+        for: installed,
+        service: setupService,
+        credentialStore: credentials,
+        now: now
+    )
+    let url = try #require(URL(string: "https://api.appstoreconnect.apple.com/v1/apps"))
+    let service = PluginRuntimeService(
+        store: store,
+        transport: RuntimeAuthorizationCheckingTransport(
+            response: PluginHTTPResponse(data: Data("{}".utf8), statusCode: 200, url: url),
+            validate: { authorization in
+                #expect(authorization?.hasPrefix("Bearer ") == true)
+                let token = try #require(authorization?.dropFirst("Bearer ".count))
+                #expect(token.split(separator: ".").count == 3)
+            }
+        ),
+        credentialStore: credentials
+    )
+    let configuration = try #require(store.accountConfigurations(pluginID: manifest.id).first)
+
+    let job = try service.enqueueManualConfiguredPluginRun(pluginID: manifest.id, accountID: configuration.id, now: now)
+    _ = try await service.runQueuedPluginJob(jobID: job.id, now: now)
+
+    #expect(try store.job(id: job.id)?.status == .success)
+}
+
 @Test func websitePluginSetupNormalizesAndSavesHostConfiguration() throws {
     let database = try temporaryRuntimeDatabase()
     try insertRuntimePluginFixture(database, pluginID: WebsitePluginSetup.pluginID)
@@ -699,6 +857,16 @@ private struct RuntimeHeaderCheckingTransport: PluginRequestHTTPTransport {
 
     func response(for request: PluginHTTPRequest) async throws -> PluginHTTPResponse {
         #expect(request.headers["Authorization"] == expectedAuthorization)
+        return response
+    }
+}
+
+private struct RuntimeAuthorizationCheckingTransport: PluginRequestHTTPTransport {
+    var response: PluginHTTPResponse
+    var validate: @Sendable (String?) throws -> Void
+
+    func response(for request: PluginHTTPRequest) async throws -> PluginHTTPResponse {
+        try validate(request.headers["Authorization"])
         return response
     }
 }

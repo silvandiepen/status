@@ -258,7 +258,7 @@ private-key-jwt
 
 All auth types share the same model: the plugin declares the fields, the app renders the setup form natively, secrets go to Keychain, and the request engine injects credentials at request time. Plugins never read secrets directly.
 
-Current implementation status: bearer-token auth is implemented for installed declarative plugins. The native setup form masks token input, `PluginSetupConfiguration` writes the token bytes to `CredentialStore`, SQLite stores only the `credential_ref`, and `PluginRuntimeService` resolves that reference into an `Authorization: Bearer ...` header at request time. `api-key`, `basic-auth`, `jwt-api-key`, and `private-key-jwt` are still package-decodable/design-approved but not yet injected by the runtime.
+Current implementation status: bearer-token and JWT API-key auth are implemented for installed declarative plugins. The native setup form masks secret input, `PluginSetupConfiguration` writes bearer token bytes or JWT credential bundles to `CredentialStore`, SQLite stores only the `credential_ref`, and `PluginRuntimeService` resolves that reference into an `Authorization: Bearer ...` header at request time. JWT signing currently covers the App Store Connect ES256 API-key flow. `api-key`, `basic-auth`, and OAuth are still package-decodable/design-approved but not yet injected by the runtime.
 
 ### MVP auth paths per integration
 

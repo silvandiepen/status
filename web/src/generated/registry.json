@@ -28,8 +28,8 @@
           ],
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.appstoreconnect/0.1.0/com.status.appstoreconnect-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.appstoreconnect/0.1.0/manifest.json",
-          "sha256": "a62f2833f98683a1001ae134e759ebfcfa605ebaa031e79df3fa89b3e7b8a7ef",
-          "signature": "dev-signature:a62f2833f98683a1001ae134e759ebfcfa605ebaa031e79df3fa89b3e7b8a7ef",
+          "sha256": "39b622d57b4f5634f8dd67e7631d7efe19790bb2830619fdb0986f262c7076bf",
+          "signature": "dev-signature:39b622d57b4f5634f8dd67e7631d7efe19790bb2830619fdb0986f262c7076bf",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-07T12:00:00Z"
         }
