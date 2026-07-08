@@ -94,7 +94,8 @@ private struct MacRootView: View {
                     registryURL: registryBaseURL,
                     databasePath: applicationDatabasePath(),
                     pluginInstallPath: applicationPluginInstallPath(),
-                    runtimeAction: makeRegistryCheckAction()
+                    runtimeAction: makeRegistryCheckAction(),
+                    notificationPreferencesViewModel: makeNotificationPreferencesViewModel()
                 )
                     .navigationTitle("Settings")
             }
@@ -217,6 +218,61 @@ private struct MacRootView: View {
             try bootstrapBundledPlugins()
             return try LocalStatusStore.openApplicationSupportStore().auditEntries(limit: 50)
         }
+    }
+
+    private func makeNotificationPreferencesViewModel() -> NotificationPreferencesViewModel {
+        NotificationPreferencesViewModel {
+            try notificationPreferencePluginGroups()
+        } loadPreferences: {
+            try LocalStatusStore.openApplicationSupportStore().notificationPreferences()
+        } setPreference: { pluginID, eventType, mode in
+            try setNotificationPreference(pluginID: pluginID, eventType: eventType, mode: mode)
+        }
+    }
+
+    private func notificationPreferencePluginGroups() throws -> [NotificationPreferencePluginGroup] {
+        try bootstrapBundledPlugins()
+        let store = try LocalStatusStore.openApplicationSupportStore()
+        return try store.installedPlugins().map { plugin in
+            let definition = try store.installedPluginDefinition(pluginID: plugin.id)
+            let events = (definition?.events ?? [])
+                .sorted { lhs, rhs in lhs.label.localizedCaseInsensitiveCompare(rhs.label) == .orderedAscending }
+                .map { event in
+                    NotificationPreferenceEventRow(
+                        type: event.type,
+                        label: event.label,
+                        defaultMode: event.notificationDefault
+                    )
+                }
+            return NotificationPreferencePluginGroup(id: plugin.id, name: plugin.name, events: events)
+        }
+    }
+
+    private func setNotificationPreference(pluginID: String, eventType: String?, mode: NotificationMode?) throws {
+        let store = try LocalStatusStore.openApplicationSupportStore()
+        let scope: NotificationPreferenceScope = eventType == nil ? .plugin : .event
+        if let mode {
+            try store.upsertNotificationPreference(
+                NotificationPreference(
+                    id: notificationPreferenceID(pluginID: pluginID, eventType: eventType),
+                    scope: scope,
+                    pluginID: pluginID,
+                    eventType: eventType,
+                    mode: mode,
+                    createdAt: Date(),
+                    updatedAt: Date()
+                )
+            )
+        } else {
+            try store.deleteNotificationPreference(pluginID: pluginID, scope: scope, eventType: eventType)
+        }
+    }
+
+    private func notificationPreferenceID(pluginID: String, eventType: String?) -> String {
+        let suffix = ([pluginID, eventType].compactMap { $0 }.joined(separator: "_"))
+            .replacingOccurrences(of: #"[^a-zA-Z0-9_]+"#, with: "_", options: .regularExpression)
+            .lowercased()
+        return "ntp_\(suffix)"
     }
 
     private func applicationDatabasePath() -> String {

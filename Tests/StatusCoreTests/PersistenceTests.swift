@@ -355,6 +355,40 @@ import Testing
     #expect(try store.effectiveNotificationMode(for: otherEvent, defaultMode: .immediate) == .digest)
 }
 
+@Test func notificationPreferencesCanBeDeletedByScope() throws {
+    let database = try temporaryDatabase()
+    try StatusDatabaseMigrator.migrate(database)
+    let store = StatusPersistenceStore(database: database)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let pluginPreference = NotificationPreference(
+        id: "ntp_github",
+        scope: .plugin,
+        pluginID: "github",
+        mode: .digest,
+        createdAt: now,
+        updatedAt: now
+    )
+    let eventPreference = NotificationPreference(
+        id: "ntp_github_workflow_failed",
+        scope: .event,
+        pluginID: "github",
+        eventType: "github.workflow.failed",
+        mode: .disabled,
+        createdAt: now,
+        updatedAt: now
+    )
+    try store.upsertNotificationPreference(pluginPreference)
+    try store.upsertNotificationPreference(eventPreference)
+
+    try store.deleteNotificationPreference(pluginID: "github", scope: .event, eventType: "github.workflow.failed")
+
+    #expect(try store.notificationPreferences(pluginID: "github") == [pluginPreference])
+
+    try store.deleteNotificationPreference(pluginID: "github", scope: .plugin)
+
+    #expect(try store.notificationPreferences(pluginID: "github").isEmpty)
+}
+
 @Test func ruleRoundTripsThroughSQLite() throws {
     let database = try temporaryDatabase()
     try StatusDatabaseMigrator.migrate(database)

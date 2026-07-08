@@ -435,17 +435,115 @@ public struct AuditLogContainerView: View {
     }
 }
 
+public struct NotificationPreferencePluginGroup: Identifiable, Equatable, Sendable {
+    public var id: String
+    public var name: String
+    public var events: [NotificationPreferenceEventRow]
+
+    public init(id: String, name: String, events: [NotificationPreferenceEventRow]) {
+        self.id = id
+        self.name = name
+        self.events = events
+    }
+}
+
+public struct NotificationPreferenceEventRow: Identifiable, Equatable, Sendable {
+    public var id: String { type }
+    public var type: String
+    public var label: String
+    public var defaultMode: NotificationMode
+
+    public init(type: String, label: String, defaultMode: NotificationMode) {
+        self.type = type
+        self.label = label
+        self.defaultMode = defaultMode
+    }
+}
+
+@MainActor
+public final class NotificationPreferencesViewModel: ObservableObject {
+    @Published public private(set) var pluginGroups: [NotificationPreferencePluginGroup]
+    @Published public private(set) var preferences: [NotificationPreference]
+    @Published public private(set) var loadError: String?
+
+    private let loadPluginGroups: () throws -> [NotificationPreferencePluginGroup]
+    private let loadPreferences: () throws -> [NotificationPreference]
+    private let setPreference: (String, String?, NotificationMode?) throws -> Void
+
+    public init(
+        initialPluginGroups: [NotificationPreferencePluginGroup] = [],
+        initialPreferences: [NotificationPreference] = [],
+        loadPluginGroups: @escaping () throws -> [NotificationPreferencePluginGroup],
+        loadPreferences: @escaping () throws -> [NotificationPreference],
+        setPreference: @escaping (String, String?, NotificationMode?) throws -> Void
+    ) {
+        self.pluginGroups = initialPluginGroups
+        self.preferences = initialPreferences
+        self.loadPluginGroups = loadPluginGroups
+        self.loadPreferences = loadPreferences
+        self.setPreference = setPreference
+    }
+
+    public func reload() {
+        do {
+            pluginGroups = try loadPluginGroups()
+            preferences = try loadPreferences()
+            loadError = nil
+        } catch {
+            pluginGroups = []
+            preferences = []
+            loadError = error.localizedDescription
+        }
+    }
+
+    public func explicitMode(pluginID: String, eventType: String? = nil) -> NotificationMode? {
+        preferences.first { preference in
+            preference.pluginID == pluginID &&
+            preference.eventType == eventType &&
+            preference.scope == (eventType == nil ? .plugin : .event)
+        }?.mode
+    }
+
+    public func effectiveMode(pluginID: String, event: NotificationPreferenceEventRow) -> NotificationMode {
+        explicitMode(pluginID: pluginID, eventType: event.type)
+            ?? explicitMode(pluginID: pluginID)
+            ?? event.defaultMode
+    }
+
+    public func setMode(_ mode: NotificationMode?, pluginID: String, eventType: String? = nil) {
+        do {
+            try setPreference(pluginID, eventType, mode)
+            preferences = try loadPreferences()
+            loadError = nil
+        } catch {
+            loadError = error.localizedDescription
+        }
+    }
+}
+
 public struct StatusSettingsView: View {
     private let registryURL: URL
     private let databasePath: String
     private let pluginInstallPath: String
     private let runtimeAction: RuntimeAction?
+    @StateObject private var notificationPreferencesViewModel: NotificationPreferencesViewModel
 
-    public init(registryURL: URL, databasePath: String, pluginInstallPath: String, runtimeAction: RuntimeAction? = nil) {
+    public init(
+        registryURL: URL,
+        databasePath: String,
+        pluginInstallPath: String,
+        runtimeAction: RuntimeAction? = nil,
+        notificationPreferencesViewModel: @autoclosure @escaping () -> NotificationPreferencesViewModel = NotificationPreferencesViewModel(
+            loadPluginGroups: { [] },
+            loadPreferences: { [] },
+            setPreference: { _, _, _ in }
+        )
+    ) {
         self.registryURL = registryURL
         self.databasePath = databasePath
         self.pluginInstallPath = pluginInstallPath
         self.runtimeAction = runtimeAction
+        _notificationPreferencesViewModel = StateObject(wrappedValue: notificationPreferencesViewModel())
     }
 
     public var body: some View {
@@ -460,7 +558,159 @@ public struct StatusSettingsView: View {
             if let runtimeAction {
                 RuntimeActionPanel(action: runtimeAction)
             }
+            NotificationPreferencesPanel(viewModel: notificationPreferencesViewModel)
         }
+        .task {
+            notificationPreferencesViewModel.reload()
+        }
+        .refreshable {
+            notificationPreferencesViewModel.reload()
+        }
+    }
+}
+
+private struct NotificationPreferencesPanel: View {
+    @ObservedObject var viewModel: NotificationPreferencesViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Notifications")
+                    .font(.headline)
+                Text("Plugin defaults and event overrides. Plugins suggest defaults; Status applies these choices before platform delivery.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let loadError = viewModel.loadError {
+                Text(loadError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            if viewModel.pluginGroups.isEmpty {
+                Text("No installed plugins expose notification-worthy events yet.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(viewModel.pluginGroups) { group in
+                        NotificationPreferencePluginCard(group: group, viewModel: viewModel)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct NotificationPreferencePluginCard: View {
+    let group: NotificationPreferencePluginGroup
+    @ObservedObject var viewModel: NotificationPreferencesViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(group.name)
+                        .font(.headline)
+                    Text(group.id)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                Spacer(minLength: 12)
+                NotificationModeMenu(
+                    title: viewModel.explicitMode(pluginID: group.id)?.displayName ?? "Rule defaults",
+                    inheritedTitle: "Use rule defaults",
+                    selectedMode: viewModel.explicitMode(pluginID: group.id),
+                    setMode: { mode in
+                        viewModel.setMode(mode, pluginID: group.id)
+                    }
+                )
+            }
+
+            if group.events.isEmpty {
+                Text("This plugin does not declare event-level notification defaults.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(group.events) { event in
+                        NotificationPreferenceEventControl(
+                            pluginID: group.id,
+                            event: event,
+                            viewModel: viewModel
+                        )
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(Color.statusSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct NotificationPreferenceEventControl: View {
+    let pluginID: String
+    let event: NotificationPreferenceEventRow
+    @ObservedObject var viewModel: NotificationPreferencesViewModel
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(event.label)
+                    .font(.callout.weight(.semibold))
+                Text("\(event.type) - effective \(viewModel.effectiveMode(pluginID: pluginID, event: event).displayName)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 12)
+            NotificationModeMenu(
+                title: viewModel.explicitMode(pluginID: pluginID, eventType: event.type)?.displayName ?? "Inherit",
+                inheritedTitle: "Inherit plugin/default",
+                selectedMode: viewModel.explicitMode(pluginID: pluginID, eventType: event.type),
+                setMode: { mode in
+                    viewModel.setMode(mode, pluginID: pluginID, eventType: event.type)
+                }
+            )
+        }
+    }
+}
+
+private struct NotificationModeMenu: View {
+    let title: String
+    let inheritedTitle: String
+    let selectedMode: NotificationMode?
+    let setMode: (NotificationMode?) -> Void
+
+    var body: some View {
+        Menu {
+            Button(inheritedTitle) {
+                setMode(nil)
+            }
+            Divider()
+            ForEach(NotificationMode.allCases, id: \.self) { mode in
+                Button(mode.displayName) {
+                    setMode(mode)
+                }
+            }
+        } label: {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.secondary.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .menuStyle(.button)
+        .help("Notification mode")
+        .accessibilityLabel(Text(selectedMode?.displayName ?? title))
     }
 }
 
@@ -690,5 +940,22 @@ private extension AuditEntry {
             eventID.map { "event \($0)" },
             actionRunID.map { "action \($0)" }
         ].compactMap { $0 }
+    }
+}
+
+private extension NotificationMode {
+    var displayName: String {
+        switch self {
+        case .immediate:
+            "Immediate"
+        case .digest:
+            "Digest"
+        case .dashboardOnly:
+            "Dashboard only"
+        case .silentAutomation:
+            "Silent automation"
+        case .disabled:
+            "Disabled"
+        }
     }
 }

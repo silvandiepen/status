@@ -520,6 +520,22 @@ public final class StatusPersistenceStore {
         return try rows.map(notificationPreference(from:))
     }
 
+    public func deleteNotificationPreference(pluginID: String, scope: NotificationPreferenceScope, eventType: String? = nil) throws {
+        switch scope {
+        case .plugin:
+            try database.execute(
+                "DELETE FROM notification_preferences WHERE plugin_id = ? AND scope = 'plugin'",
+                bindings: [.text(pluginID)]
+            )
+        case .event:
+            guard let eventType else { return }
+            try database.execute(
+                "DELETE FROM notification_preferences WHERE plugin_id = ? AND scope = 'event' AND event_type = ?",
+                bindings: [.text(pluginID), .text(eventType)]
+            )
+        }
+    }
+
     public func effectiveNotificationMode(for event: Event, defaultMode: NotificationMode) throws -> NotificationMode {
         if let eventPreference = try notificationPreference(
             pluginID: event.provider,

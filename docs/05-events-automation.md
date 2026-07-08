@@ -47,6 +47,7 @@ The same pipeline is used for:
 - macOS and iOS expose app-owned rule toggles so suggested plugin rules remain disabled by default but can be explicitly enabled by the user.
 - macOS and iOS provide first platform adapters for safe runtime effects: local notifications and opening URLs. Notification permission is requested by the app shell, not by plugins. Immediate local notifications are stored before platform dispatch and marked delivered after successful effect dispatch.
 - Notification preferences persist locally as plugin-level defaults and event-type overrides. The automation pipeline resolves them before dispatch; event-level preferences win over plugin defaults, and only `immediate` notifications are sent to the platform dispatcher.
+- macOS and iOS settings expose app-owned notification preference controls for installed plugin defaults and declared event types. Resetting a row removes the override so plugin declarations and rule defaults apply again.
 - The native shells start an app-alive background loop that asks the core to run due configured plugin jobs every five minutes. Due checks still respect each trigger's stored schedule.
 - Unscoped due cron triggers enqueue one job per configured plugin account; account-scoped cron triggers enqueue only for their declared account.
 - Due cron triggers that cannot enqueue because of missing `background-refresh` permission, missing request metadata, or missing account configuration write stable skipped audit rows instead of failing silently.

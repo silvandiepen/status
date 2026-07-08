@@ -62,6 +62,69 @@ import StatusCore
     #expect(viewModel.loadError == "failed")
 }
 
+@MainActor
+@Test func notificationPreferencesViewModelResolvesInheritedAndExplicitModes() throws {
+    let workflowEvent = NotificationPreferenceEventRow(
+        type: "github.workflow.failed",
+        label: "Workflow failed",
+        defaultMode: .dashboardOnly
+    )
+    let group = NotificationPreferencePluginGroup(id: "github", name: "GitHub", events: [workflowEvent])
+    var preferences = [
+        NotificationPreference(
+            id: "ntp_github",
+            scope: .plugin,
+            pluginID: "github",
+            mode: .digest,
+            createdAt: Date(timeIntervalSince1970: 1_783_433_520),
+            updatedAt: Date(timeIntervalSince1970: 1_783_433_520)
+        )
+    ]
+    var saved: [(pluginID: String, eventType: String?, mode: NotificationMode?)] = []
+    let viewModel = NotificationPreferencesViewModel(
+        loadPluginGroups: { [group] },
+        loadPreferences: { preferences },
+        setPreference: { pluginID, eventType, mode in
+            saved.append((pluginID, eventType, mode))
+            if let mode {
+                preferences.append(
+                    NotificationPreference(
+                        id: "ntp_event",
+                        scope: .event,
+                        pluginID: pluginID,
+                        eventType: eventType,
+                        mode: mode,
+                        createdAt: Date(timeIntervalSince1970: 1_783_433_520),
+                        updatedAt: Date(timeIntervalSince1970: 1_783_433_520)
+                    )
+                )
+            } else {
+                preferences.removeAll { $0.pluginID == pluginID && $0.eventType == eventType }
+            }
+        }
+    )
+
+    viewModel.reload()
+
+    #expect(viewModel.pluginGroups == [group])
+    #expect(viewModel.explicitMode(pluginID: "github") == .digest)
+    #expect(viewModel.effectiveMode(pluginID: "github", event: workflowEvent) == .digest)
+
+    viewModel.setMode(.immediate, pluginID: "github", eventType: workflowEvent.type)
+
+    #expect(saved.count == 1)
+    #expect(saved[0].pluginID == "github")
+    #expect(saved[0].eventType == workflowEvent.type)
+    #expect(saved[0].mode == .immediate)
+    #expect(viewModel.effectiveMode(pluginID: "github", event: workflowEvent) == .immediate)
+
+    viewModel.setMode(nil, pluginID: "github", eventType: workflowEvent.type)
+
+    #expect(saved.count == 2)
+    #expect(saved[1].mode == nil)
+    #expect(viewModel.effectiveMode(pluginID: "github", event: workflowEvent) == .digest)
+}
+
 private func statusItem(id: String) -> StatusItem {
     StatusItem(
         id: id,
