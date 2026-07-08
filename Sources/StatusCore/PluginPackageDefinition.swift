@@ -231,6 +231,7 @@ public struct PackagedPluginRequest: Decodable, Equatable, Sendable {
     public var auth: String?
     public var headers: [String: String]
     public var query: [String: String]
+    public var body: PackagedPluginRequestBody?
     public var pagination: PackagedPluginRequestPagination?
     public var timeoutSeconds: TimeInterval?
 
@@ -240,6 +241,7 @@ public struct PackagedPluginRequest: Decodable, Equatable, Sendable {
         case auth
         case headers
         case query
+        case body
         case pagination
         case timeoutSeconds
     }
@@ -250,6 +252,7 @@ public struct PackagedPluginRequest: Decodable, Equatable, Sendable {
         auth: String? = nil,
         headers: [String: String] = [:],
         query: [String: String] = [:],
+        body: PackagedPluginRequestBody? = nil,
         pagination: PackagedPluginRequestPagination? = nil,
         timeoutSeconds: TimeInterval? = nil
     ) {
@@ -258,6 +261,7 @@ public struct PackagedPluginRequest: Decodable, Equatable, Sendable {
         self.auth = auth
         self.headers = headers
         self.query = query
+        self.body = body
         self.pagination = pagination
         self.timeoutSeconds = timeoutSeconds
     }
@@ -269,8 +273,43 @@ public struct PackagedPluginRequest: Decodable, Equatable, Sendable {
         auth = try container.decodeIfPresent(String.self, forKey: .auth)
         headers = try container.decodeIfPresent([String: String].self, forKey: .headers) ?? [:]
         query = try container.decodeIfPresent([String: String].self, forKey: .query) ?? [:]
+        body = try container.decodeIfPresent(PackagedPluginRequestBody.self, forKey: .body)
         pagination = try container.decodeIfPresent(PackagedPluginRequestPagination.self, forKey: .pagination)
         timeoutSeconds = try container.decodeIfPresent(TimeInterval.self, forKey: .timeoutSeconds)
+    }
+}
+
+public enum PackagedPluginRequestBody: Decodable, Equatable, Sendable {
+    case string(String)
+    case object([String: PackagedPluginRequestBody])
+    case array([PackagedPluginRequestBody])
+    case number(Double)
+    case bool(Bool)
+    case null
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            self = .null
+        } else if let value = try? container.decode(Bool.self) {
+            self = .bool(value)
+        } else if let value = try? container.decode(Double.self) {
+            self = .number(value)
+        } else if let value = try? container.decode(String.self) {
+            self = .string(value)
+        } else if let value = try? container.decode([String: PackagedPluginRequestBody].self) {
+            self = .object(value)
+        } else {
+            self = .array(try container.decode([PackagedPluginRequestBody].self))
+        }
+    }
+
+    public init(_ value: String) {
+        self = .string(value)
+    }
+
+    public init(object: [String: PackagedPluginRequestBody]) {
+        self = .object(object)
     }
 }
 

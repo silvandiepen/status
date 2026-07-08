@@ -4,12 +4,20 @@ public struct PluginHTTPRequest: Equatable, Sendable {
     public var method: String
     public var url: URL
     public var headers: [String: String]
+    public var body: Data?
     public var timeoutSeconds: TimeInterval?
 
-    public init(method: String, url: URL, headers: [String: String] = [:], timeoutSeconds: TimeInterval? = nil) {
+    public init(
+        method: String,
+        url: URL,
+        headers: [String: String] = [:],
+        body: Data? = nil,
+        timeoutSeconds: TimeInterval? = nil
+    ) {
         self.method = method
         self.url = url
         self.headers = headers
+        self.body = body
         self.timeoutSeconds = timeoutSeconds
     }
 }
@@ -39,6 +47,7 @@ public struct URLSessionPluginRequestTransport: PluginRequestHTTPTransport {
         for (field, value) in request.headers {
             urlRequest.setValue(value, forHTTPHeaderField: field)
         }
+        urlRequest.httpBody = request.body
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
         let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 200
         return PluginHTTPResponse(data: data, statusCode: statusCode, url: request.url)
@@ -99,6 +108,7 @@ public enum PluginRequestJobRunnerError: Error, Equatable, LocalizedError, Senda
     case missingRequest(String)
     case invalidURL(String)
     case invalidPaginationURL(String)
+    case invalidBody
 
     public var errorDescription: String? {
         switch self {
@@ -108,6 +118,8 @@ public enum PluginRequestJobRunnerError: Error, Equatable, LocalizedError, Senda
             "Plugin request URL is invalid: \(url)"
         case .invalidPaginationURL(let url):
             "Plugin pagination URL is invalid: \(url)"
+        case .invalidBody:
+            "Plugin request body could not be rendered."
         }
     }
 }
@@ -208,11 +220,17 @@ public final class PluginRequestJobRunner {
         for (field, value) in input.headers {
             headers[field] = value
         }
+        let body = try definition.body.map { try renderBody($0, context: context) }
+        if definition.body?.isJSONContainer == true,
+           headers.keys.contains(where: { $0.lowercased() == "content-type" }) == false {
+            headers["Content-Type"] = "application/json"
+        }
 
         return PluginHTTPRequest(
             method: definition.method,
             url: url,
             headers: headers,
+            body: body,
             timeoutSeconds: definition.timeoutSeconds
         )
     }
@@ -229,6 +247,27 @@ public final class PluginRequestJobRunner {
         fields["reachable"] = .bool((200..<500).contains(response.statusCode))
         fields["previousHealthy"] = .null
         return .object(fields)
+    }
+
+    private func renderBody(_ body: PackagedPluginRequestBody, context: MappingTemplateContext) throws -> Data {
+        switch body {
+        case .string(let value):
+            return Data(MappingTemplateRenderer.render(value, context: context).utf8)
+        case .object, .array:
+            guard JSONSerialization.isValidJSONObject(body.renderedJSONObject(context: context)) else {
+                throw PluginRequestJobRunnerError.invalidBody
+            }
+            return try JSONSerialization.data(
+                withJSONObject: body.renderedJSONObject(context: context),
+                options: [.sortedKeys]
+            )
+        case .number(let value):
+            return Data(String(value).utf8)
+        case .bool(let value):
+            return Data((value ? "true" : "false").utf8)
+        case .null:
+            return Data("null".utf8)
+        }
     }
 
     private func paginationNextURL(
@@ -278,5 +317,33 @@ private extension MappingJSONValue {
             }
         }
         return .object(object)
+    }
+}
+
+private extension PackagedPluginRequestBody {
+    var isJSONContainer: Bool {
+        switch self {
+        case .object, .array:
+            true
+        case .string, .number, .bool, .null:
+            false
+        }
+    }
+
+    func renderedJSONObject(context: MappingTemplateContext) -> Any {
+        switch self {
+        case .string(let value):
+            MappingTemplateRenderer.render(value, context: context)
+        case .object(let object):
+            object.mapValues { $0.renderedJSONObject(context: context) }
+        case .array(let values):
+            values.map { $0.renderedJSONObject(context: context) }
+        case .number(let value):
+            value
+        case .bool(let value):
+            value
+        case .null:
+            NSNull()
+        }
     }
 }

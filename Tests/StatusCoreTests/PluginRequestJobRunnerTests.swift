@@ -148,6 +148,42 @@ import Testing
     #expect(try store.resource(id: "acct_asc:app-2")?.name == "Status Two")
 }
 
+@Test func pluginRequestJobRunnerRendersJSONRequestBody() async throws {
+    let database = try temporaryRequestRunnerDatabase()
+    try insertRequestRunnerPluginFixture(database, pluginID: "com.status.github", accountID: "acct_gh", jobID: "job_issue")
+    let store = StatusPersistenceStore(database: database)
+    let responseURL = try #require(URL(string: "https://api.github.com/repos/statusfoundry/status/issues"))
+    let transport = FakePluginRequestTransport(responses: [
+        responseURL: PluginHTTPResponse(data: Data("{}".utf8), statusCode: 201, url: responseURL)
+    ])
+    let runner = PluginRequestJobRunner(
+        transport: transport,
+        committer: PluginMappingOutputCommitter(store: store)
+    )
+
+    let result = try await runner.run(
+        definition: githubIssueDefinition(),
+        input: PluginRequestJobInput(
+            pluginID: "com.status.github",
+            accountID: "acct_gh",
+            provider: "com.status.github",
+            requestID: "create_issue",
+            variables: ["owner": "statusfoundry", "repo": "status", "title": "Workflow failed"],
+            headers: ["Authorization": "Bearer token"],
+            jobID: "job_issue",
+            capturedAt: Date(timeIntervalSince1970: 1_783_433_520)
+        )
+    )
+
+    let bodyData = try #require(result.request.body)
+    let body = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+    #expect(result.request.method == "POST")
+    #expect(result.request.headers["Content-Type"] == "application/json")
+    #expect(body["title"] as? String == "Workflow failed")
+    #expect(body["body"] as? String == "Created by Status for statusfoundry/status.")
+    #expect(body["labels"] as? [String] == ["status"])
+}
+
 private struct FakePluginRequestTransport: PluginRequestHTTPTransport {
     var responses: [URL: PluginHTTPResponse]
 
@@ -212,6 +248,25 @@ private func appStoreConnectDefinition() -> PluginPackageDefinition {
                 fields: ["bundleId": "$.attributes.bundleId"]
             )
         ])
+    )
+}
+
+private func githubIssueDefinition() -> PluginPackageDefinition {
+    PluginPackageDefinition(
+        requests: PackagedPluginRequests(requests: [
+            "create_issue": PackagedPluginRequest(
+                method: "POST",
+                url: "https://api.github.com/repos/{{owner}}/{{repo}}/issues",
+                auth: "default",
+                body: .object([
+                    "body": .string("Created by Status for {{owner}}/{{repo}}."),
+                    "labels": .array([.string("status")]),
+                    "title": .string("{{title}}")
+                ]),
+                timeoutSeconds: 30
+            )
+        ]),
+        mappings: PackagedPluginMappings()
     )
 }
 
