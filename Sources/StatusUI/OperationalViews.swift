@@ -102,6 +102,58 @@ public struct AlertsView: View {
     }
 }
 
+@MainActor
+public final class AlertsViewModel: ObservableObject {
+    @Published public private(set) var items: [StatusItem]
+    @Published public private(set) var loadError: String?
+
+    private let loadItems: () throws -> [StatusItem]
+
+    public init(initialItems: [StatusItem] = [], loadItems: @escaping () throws -> [StatusItem]) {
+        self.items = initialItems
+        self.loadItems = loadItems
+    }
+
+    public func reload() {
+        do {
+            items = try loadItems()
+            loadError = nil
+        } catch {
+            items = []
+            loadError = error.localizedDescription
+        }
+    }
+}
+
+public struct AlertsContainerView: View {
+    @StateObject private var viewModel: AlertsViewModel
+
+    public init(viewModel: @autoclosure @escaping () -> AlertsViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel())
+    }
+
+    public var body: some View {
+        AlertsView(items: viewModel.items)
+            .overlay(alignment: .bottom) {
+                if let loadError = viewModel.loadError {
+                    Text(loadError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .padding(10)
+                        .background(.thinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .padding()
+                }
+            }
+            .task {
+                viewModel.reload()
+            }
+            .refreshable {
+                viewModel.reload()
+            }
+    }
+}
+
 public struct RulesListView: View {
     private let rules: [Rule]
     private let setRuleEnabled: ((Rule, Bool) -> Void)?
@@ -220,6 +272,58 @@ public struct AuditLogView: View {
                 }
             }
         }
+    }
+}
+
+@MainActor
+public final class AuditLogViewModel: ObservableObject {
+    @Published public private(set) var entries: [AuditEntry]
+    @Published public private(set) var loadError: String?
+
+    private let loadEntries: () throws -> [AuditEntry]
+
+    public init(initialEntries: [AuditEntry] = [], loadEntries: @escaping () throws -> [AuditEntry]) {
+        self.entries = initialEntries
+        self.loadEntries = loadEntries
+    }
+
+    public func reload() {
+        do {
+            entries = try loadEntries()
+            loadError = nil
+        } catch {
+            entries = []
+            loadError = error.localizedDescription
+        }
+    }
+}
+
+public struct AuditLogContainerView: View {
+    @StateObject private var viewModel: AuditLogViewModel
+
+    public init(viewModel: @autoclosure @escaping () -> AuditLogViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel())
+    }
+
+    public var body: some View {
+        AuditLogView(entries: viewModel.entries)
+            .overlay(alignment: .bottom) {
+                if let loadError = viewModel.loadError {
+                    Text(loadError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .padding(10)
+                        .background(.thinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .padding()
+                }
+            }
+            .task {
+                viewModel.reload()
+            }
+            .refreshable {
+                viewModel.reload()
+            }
     }
 }
 

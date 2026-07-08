@@ -49,7 +49,7 @@ private struct MacRootView: View {
                 RulesContainerView(viewModel: makeRulesViewModel())
                     .navigationTitle("Rules")
             case .audit:
-                AuditLogView(entries: loadAuditEntries())
+                AuditLogContainerView(viewModel: makeAuditLogViewModel())
                     .navigationTitle("Audit Log")
             case .settings:
                 StatusSettingsView(
@@ -117,8 +117,10 @@ private struct MacRootView: View {
         }
     }
 
-    private func loadAuditEntries() -> [AuditEntry] {
-        (try? LocalStatusStore.openApplicationSupportStore().auditEntries(limit: 50)) ?? []
+    private func makeAuditLogViewModel() -> AuditLogViewModel {
+        AuditLogViewModel {
+            try LocalStatusStore.openApplicationSupportStore().auditEntries(limit: 50)
+        }
     }
 
     private func applicationDatabasePath() -> String {

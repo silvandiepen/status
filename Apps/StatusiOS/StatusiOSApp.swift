@@ -25,7 +25,7 @@ private struct IOSRootView: View {
             }
 
             NavigationStack {
-                AlertsView(items: loadOpenAlerts())
+                AlertsContainerView(viewModel: makeAlertsViewModel())
                     .navigationTitle("Alerts")
             }
             .tabItem {
@@ -109,9 +109,12 @@ private struct IOSRootView: View {
         URL(string: "https://status-registry.hakobs.com")!
     }
 
-    private func loadOpenAlerts() -> [StatusItem] {
-        ((try? LocalStatusStore.openApplicationSupportStore().statusItems(limit: 50)) ?? [])
-            .filter { $0.severity >= .warning }
+    private func makeAlertsViewModel() -> AlertsViewModel {
+        AlertsViewModel {
+            try LocalStatusStore.openApplicationSupportStore()
+                .statusItems(limit: 50)
+                .filter { $0.severity >= .warning }
+        }
     }
 
     private func makeRulesViewModel() -> RulesViewModel {
