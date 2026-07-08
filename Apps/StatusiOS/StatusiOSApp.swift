@@ -248,6 +248,7 @@ private struct IOSRootView: View {
 
     private func runBackgroundPluginLoop() async {
         try? bootstrapBundledPlugins()
+        await applyRegistryRevocations()
         await runDueConfiguredPluginJobs()
         while Task.isCancelled == false {
             do {
@@ -255,7 +256,17 @@ private struct IOSRootView: View {
             } catch {
                 return
             }
+            await applyRegistryRevocations()
             await runDueConfiguredPluginJobs()
+        }
+    }
+
+    private func applyRegistryRevocations() async {
+        do {
+            let revocations = try await PluginRegistryClient(baseURL: registryBaseURL).revocations()
+            _ = try LocalStatusStore.openApplicationSupportStore().applyPluginRevocations(revocations)
+        } catch {
+            // Already-installed plugins continue against the last successfully fetched list.
         }
     }
 
