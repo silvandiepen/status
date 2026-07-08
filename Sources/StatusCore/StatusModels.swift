@@ -179,6 +179,10 @@ public struct StatusItem: Identifiable, Codable, Equatable, Sendable {
     public var summary: String
     public var state: StatusItemState
     public var updatedAt: Date
+    public var resolvedAt: Date?
+    public var snoozeUntil: Date?
+    public var dismissedReason: String?
+    public var stuck: Bool
     public var actionLink: ActionLink?
 
     public init(
@@ -189,6 +193,10 @@ public struct StatusItem: Identifiable, Codable, Equatable, Sendable {
         summary: String,
         state: StatusItemState,
         updatedAt: Date,
+        resolvedAt: Date? = nil,
+        snoozeUntil: Date? = nil,
+        dismissedReason: String? = nil,
+        stuck: Bool = false,
         actionLink: ActionLink? = nil
     ) {
         self.id = id
@@ -198,6 +206,10 @@ public struct StatusItem: Identifiable, Codable, Equatable, Sendable {
         self.summary = summary
         self.state = state
         self.updatedAt = updatedAt
+        self.resolvedAt = resolvedAt
+        self.snoozeUntil = snoozeUntil
+        self.dismissedReason = dismissedReason
+        self.stuck = stuck
         self.actionLink = actionLink
     }
 }

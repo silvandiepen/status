@@ -100,6 +100,68 @@ import Testing
     #expect(try store.auditEntry(id: auditEntry.id) == auditEntry)
 }
 
+@Test func statusItemLifecycleVerbsPersistAndFilterInboxItems() throws {
+    let database = try temporaryDatabase()
+    try StatusDatabaseMigrator.migrate(database)
+    let store = StatusPersistenceStore(database: database)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let snoozeUntil = now.addingTimeInterval(3_600)
+    let item = StatusItem(
+        id: "sti_lifecycle",
+        resourceID: "res_status_repo",
+        severity: .warning,
+        title: "Workflow failed",
+        summary: "The build failed.",
+        state: .open,
+        updatedAt: now
+    )
+
+    try store.insertStatusItem(item)
+    try store.snoozeStatusItem(id: item.id, until: snoozeUntil, at: now.addingTimeInterval(60))
+
+    let snoozed = try #require(try store.statusItem(id: item.id))
+    #expect(snoozed.state == .snoozed)
+    #expect(snoozed.snoozeUntil == snoozeUntil)
+    #expect(try store.statusItems().map(\.id) == [item.id])
+
+    let reopened = try store.reopenExpiredSnoozedItems(at: snoozeUntil.addingTimeInterval(1))
+    #expect(reopened.map(\.id) == [item.id])
+    let open = try #require(try store.statusItem(id: item.id))
+    #expect(open.state == .open)
+    #expect(open.snoozeUntil == nil)
+
+    try store.resolveStatusItem(id: item.id, at: snoozeUntil.addingTimeInterval(120))
+    let resolved = try #require(try store.statusItem(id: item.id))
+    #expect(resolved.state == .resolved)
+    #expect(resolved.resolvedAt == snoozeUntil.addingTimeInterval(120))
+    #expect(try store.statusItems().isEmpty)
+}
+
+@Test func dismissStatusItemPersistsReasonAndLeavesInbox() throws {
+    let database = try temporaryDatabase()
+    try StatusDatabaseMigrator.migrate(database)
+    let store = StatusPersistenceStore(database: database)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let item = StatusItem(
+        id: "sti_dismiss",
+        resourceID: "res_status_repo",
+        severity: .warning,
+        title: "Workflow failed",
+        summary: "The build failed.",
+        state: .open,
+        updatedAt: now
+    )
+
+    try store.insertStatusItem(item)
+    try store.dismissStatusItem(id: item.id, reason: "Handled in GitHub", at: now.addingTimeInterval(60))
+
+    let dismissed = try #require(try store.statusItem(id: item.id))
+    #expect(dismissed.state == .dismissed)
+    #expect(dismissed.dismissedReason == "Handled in GitHub")
+    #expect(dismissed.resolvedAt == now.addingTimeInterval(60))
+    #expect(try store.statusItems().isEmpty)
+}
+
 @Test func jobAuditEntryIncludesJobProvenance() throws {
     let database = try temporaryDatabase()
     try StatusDatabaseMigrator.migrate(database)

@@ -15,11 +15,12 @@ The current `StatusCore` implementation contains the first ingestion slice:
 - New warning and critical events create event-backed `StatusItem` rows.
 - Later warning and critical events for the same resource and event type update the existing open or snoozed event-backed `StatusItem` instead of multiplying inbox rows.
 - New notice events are stored and audited, but do not create inbox items by default.
+- `StatusPersistenceStore` persists status item lifecycle fields and exposes resolve, snooze, dismiss, and snooze-expiry reopen operations for the native inbox.
 - `StateChangeDetector` records resource state snapshots and classifies observations as first sighting, unchanged, or changed.
 - `MappingConditionEvaluator` evaluates `changed`, `changed_to`, and `changed_from` against current and previous resource state.
 - `StateEventPipeline` connects snapshot detection, mapping conditions, normalized event creation, and ingestion for the first polling-based path.
 
-The remaining semantics in this document are still planned work: full incident open/close handling, auto-resolution, notification decisions, and richer first-observation notification policy controls.
+The remaining semantics in this document are still planned work: full incident open/close handling, automatic resolution from recovery/state transitions, notification decisions, and richer first-observation notification policy controls.
 
 ## Three emission models
 

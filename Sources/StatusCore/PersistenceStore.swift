@@ -98,8 +98,8 @@ public final class StatusPersistenceStore {
         try database.execute(
             """
             INSERT OR REPLACE INTO status_items
-            (id, resource_id, kind, source_event_ids, severity, title, summary, action_url, state, created_at, updated_at)
-            VALUES (?, ?, 'event', '[]', ?, ?, ?, ?, ?, ?, ?)
+            (id, resource_id, kind, source_event_ids, severity, title, summary, action_url, state, created_at, updated_at, resolved_at, snooze_until, dismissed_reason, stuck)
+            VALUES (?, ?, 'event', '[]', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             bindings: [
                 .text(item.id),
@@ -110,7 +110,11 @@ public final class StatusPersistenceStore {
                 item.actionLink.map { .text($0.url.absoluteString) } ?? .null,
                 .text(item.state.rawValue),
                 .text(updatedAt),
-                .text(updatedAt)
+                .text(updatedAt),
+                item.resolvedAt.map { .text(ISO8601.string(from: $0)) } ?? .null,
+                item.snoozeUntil.map { .text(ISO8601.string(from: $0)) } ?? .null,
+                item.dismissedReason.map { .text($0) } ?? .null,
+                .integer(item.stuck ? 1 : 0)
             ]
         )
     }
@@ -157,8 +161,8 @@ public final class StatusPersistenceStore {
         try database.execute(
             """
             INSERT OR REPLACE INTO status_items
-            (id, resource_id, kind, source_event_ids, severity, title, summary, action_url, state, created_at, updated_at)
-            VALUES (?, ?, 'event', ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, resource_id, kind, source_event_ids, severity, title, summary, action_url, state, created_at, updated_at, resolved_at, snooze_until, dismissed_reason, stuck)
+            VALUES (?, ?, 'event', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             bindings: [
                 .text(item.id),
@@ -170,7 +174,11 @@ public final class StatusPersistenceStore {
                 item.actionLink.map { .text($0.url.absoluteString) } ?? .null,
                 .text(item.state.rawValue),
                 .text(updatedAt),
-                .text(updatedAt)
+                .text(updatedAt),
+                .null,
+                .null,
+                .null,
+                .integer(0)
             ]
         )
         return item
@@ -193,6 +201,95 @@ public final class StatusPersistenceStore {
             """,
             bindings: [.integer(Int64(limit))]
         ).map(statusItem(from:))
+    }
+
+    public func resolveStatusItem(id: String, at date: Date) throws {
+        try updateStatusItemLifecycle(
+            id: id,
+            state: .resolved,
+            updatedAt: date,
+            resolvedAt: date,
+            snoozeUntil: nil,
+            dismissedReason: nil
+        )
+    }
+
+    public func snoozeStatusItem(id: String, until date: Date, at updatedAt: Date) throws {
+        try updateStatusItemLifecycle(
+            id: id,
+            state: .snoozed,
+            updatedAt: updatedAt,
+            resolvedAt: nil,
+            snoozeUntil: date,
+            dismissedReason: nil
+        )
+    }
+
+    public func dismissStatusItem(id: String, reason: String? = nil, at date: Date) throws {
+        try updateStatusItemLifecycle(
+            id: id,
+            state: .dismissed,
+            updatedAt: date,
+            resolvedAt: date,
+            snoozeUntil: nil,
+            dismissedReason: reason
+        )
+    }
+
+    @discardableResult
+    public func reopenExpiredSnoozedItems(at date: Date) throws -> [StatusItem] {
+        let expired = try database.query(
+            """
+            SELECT * FROM status_items
+            WHERE state = 'snoozed'
+              AND snooze_until IS NOT NULL
+              AND snooze_until <= ?
+            ORDER BY updated_at ASC, id ASC
+            """,
+            bindings: [.text(ISO8601.string(from: date))]
+        )
+        .map(statusItem(from:))
+
+        for item in expired {
+            try updateStatusItemLifecycle(
+                id: item.id,
+                state: .open,
+                updatedAt: date,
+                resolvedAt: nil,
+                snoozeUntil: nil,
+                dismissedReason: nil
+            )
+        }
+        return try expired.compactMap { try statusItem(id: $0.id) }
+    }
+
+    private func updateStatusItemLifecycle(
+        id: String,
+        state: StatusItemState,
+        updatedAt: Date,
+        resolvedAt: Date?,
+        snoozeUntil: Date?,
+        dismissedReason: String?
+    ) throws {
+        try database.execute(
+            """
+            UPDATE status_items
+            SET state = ?,
+                updated_at = ?,
+                resolved_at = ?,
+                snooze_until = ?,
+                dismissed_reason = ?
+            WHERE id = ?
+            """,
+            bindings: [
+                .text(state.rawValue),
+                .text(ISO8601.string(from: updatedAt)),
+                resolvedAt.map { .text(ISO8601.string(from: $0)) } ?? .null,
+                snoozeUntil.map { .text(ISO8601.string(from: $0)) } ?? .null,
+                dismissedReason.map { .text($0) } ?? .null,
+                .text(id)
+            ]
+        )
     }
 
     private func openEventBackedStatusItem(resourceID: String, eventType: String) throws -> (item: StatusItem, sourceEventIDs: [String])? {
@@ -1056,6 +1153,10 @@ public final class StatusPersistenceStore {
             summary: row.requiredText("summary"),
             state: StatusItemState(rawValue: row.requiredText("state")) ?? .open,
             updatedAt: ISO8601.date(from: row.requiredText("updated_at")),
+            resolvedAt: try row.optionalText("resolved_at").map(ISO8601.date(from:)),
+            snoozeUntil: try row.optionalText("snooze_until").map(ISO8601.date(from:)),
+            dismissedReason: row.optionalText("dismissed_reason"),
+            stuck: row.optionalInteger("stuck") == 1,
             actionLink: actionURL.map { ActionLink(id: "open", label: "Open", url: $0) }
         )
     }
