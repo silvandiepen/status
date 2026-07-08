@@ -56,9 +56,9 @@ public enum PluginSetupConfiguration {
                 credentialRef = try storeBearerToken(from: auth.fields, values: values, plugin: plugin, credentialStore: credentialStore)
             case .none:
                 break
-            case .jwtAPIKey:
+            case .basicAuth, .jwtAPIKey:
                 credentialRef = try storeCredentialBundle(from: auth.fields, values: values, plugin: plugin, credentialStore: credentialStore)
-            case .apiKey, .basicAuth, .privateKeyJWT:
+            case .apiKey, .privateKeyJWT:
                 throw PluginSetupConfigurationError.secretFieldRequiresCredentialStore(auth.type.rawValue)
             case .oauth2:
                 throw PluginSetupConfigurationError.secretFieldRequiresCredentialStore("OAuth2")

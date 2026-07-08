@@ -422,6 +422,11 @@ public final class PluginRuntimeService: @unchecked Sendable {
                 return resolved
             }
             resolved["Authorization"] = "Bearer \(token)"
+        case AuthKind.basicAuth.rawValue:
+            let credentials = try JSONDecoder().decode(PluginAuthCredentialBundle.self, from: data)
+            if let authorization = basicAuthorizationHeader(credentials: credentials) {
+                resolved["Authorization"] = authorization
+            }
         case AuthKind.jwtAPIKey.rawValue:
             let credentials = try JSONDecoder().decode(PluginAuthCredentialBundle.self, from: data)
             let token = try PluginJWTSigner.appStoreConnectToken(credentials: credentials, now: now)
@@ -430,6 +435,25 @@ public final class PluginRuntimeService: @unchecked Sendable {
             break
         }
         return resolved
+    }
+
+    private func basicAuthorizationHeader(credentials: PluginAuthCredentialBundle) -> String? {
+        guard let username = credentialValue(["username", "email", "account", "user"], in: credentials),
+              let password = credentialValue(["password", "apiToken", "token", "secret"], in: credentials) else {
+            return nil
+        }
+        let raw = "\(username):\(password)"
+        return "Basic \(Data(raw.utf8).base64EncodedString())"
+    }
+
+    private func credentialValue(_ keys: [String], in credentials: PluginAuthCredentialBundle) -> String? {
+        for key in keys {
+            if let value = credentials.fields[key]?.trimmingCharacters(in: .whitespacesAndNewlines),
+               value.isEmpty == false {
+                return value
+            }
+        }
+        return nil
     }
 
     private func jobID(pluginID: String, requestID: String, accountID: String, date: Date) -> String {

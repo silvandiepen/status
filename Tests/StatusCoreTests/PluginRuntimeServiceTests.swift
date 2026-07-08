@@ -549,6 +549,58 @@ import Testing
     #expect(bundle.fields["privateKey"] == privateKey)
 }
 
+@Test func genericPluginSetupStoresBasicAuthCredentialBundleInCredentialStore() throws {
+    let database = try temporaryRuntimeDatabase()
+    try insertRuntimePluginFixture(database, pluginID: "com.status.jira")
+    let store = StatusPersistenceStore(database: database)
+    let service = PluginRuntimeService(store: store, credentialStore: nil)
+    let credentials = InMemoryCredentialStore()
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let plugin = InstalledPlugin(
+        id: "com.status.jira",
+        name: "Jira",
+        author: "Status Foundry",
+        description: "Read-only Jira checks.",
+        category: "developer",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/plugin",
+        auth: PackagedPluginAuth(
+            type: .basicAuth,
+            fields: [
+                PackagedPluginSetupField(id: "email", label: "Email", type: .text, required: true),
+                PackagedPluginSetupField(id: "apiToken", label: "API token", type: .secret, required: true)
+            ]
+        ),
+        setup: PackagedPluginSetup(
+            title: "Site",
+            fields: [
+                PackagedPluginSetupField(id: "site", label: "Site", type: .hostname, required: true)
+            ]
+        ),
+        installedAt: now,
+        updatedAt: now
+    )
+
+    let message = try PluginSetupConfiguration.saveValues(
+        ["email": "me@example.com", "apiToken": "jira-token", "site": "Example.atlassian.net"],
+        for: plugin,
+        service: service,
+        credentialStore: credentials,
+        now: now
+    )
+
+    let configuration = try #require(store.accountConfigurations(pluginID: "com.status.jira").first)
+    let credentialRef = try #require(configuration.credentialRef)
+    let credentialData = try #require(try credentials.read(reference: credentialRef))
+    let bundle = try JSONDecoder().decode(PluginAuthCredentialBundle.self, from: credentialData)
+    #expect(message == "Saved example.atlassian.net.")
+    #expect(configuration.authType == "basic-auth")
+    #expect(configuration.variables == ["site": "example.atlassian.net"])
+    #expect(bundle.fields["email"] == "me@example.com")
+    #expect(bundle.fields["apiToken"] == "jira-token")
+}
+
 @Test func pluginRuntimeServiceInjectsBearerTokenForConfiguredAccount() async throws {
     let database = try temporaryRuntimeDatabase()
     let store = StatusPersistenceStore(database: database)
@@ -647,6 +699,116 @@ import Testing
         transport: RuntimeHeaderCheckingTransport(
             response: PluginHTTPResponse(data: Data("{}".utf8), statusCode: 200, url: url),
             expectedAuthorization: "Bearer github_pat_example"
+        ),
+        credentialStore: credentials
+    )
+    let configuration = try #require(store.accountConfigurations(pluginID: manifest.id).first)
+
+    let job = try service.enqueueManualConfiguredPluginRun(pluginID: manifest.id, accountID: configuration.id, now: now)
+    _ = try await service.runQueuedPluginJob(jobID: job.id, now: now)
+
+    #expect(try store.job(id: job.id)?.status == .success)
+}
+
+@Test func pluginRuntimeServiceInjectsBasicAuthForConfiguredAccount() async throws {
+    let database = try temporaryRuntimeDatabase()
+    let store = StatusPersistenceStore(database: database)
+    let credentials = InMemoryCredentialStore()
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let packageURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("status-runtime-\(UUID().uuidString).statusplugin.zip")
+    let packageData = runtimeStoredZip(files: [
+        ("auth.json", Data("""
+        {
+          "type": "basic-auth",
+          "fields": [
+            { "key": "email", "label": "Email", "type": "text", "required": true },
+            { "key": "apiToken", "label": "API token", "type": "secret", "required": true }
+          ]
+        }
+        """.utf8)),
+        ("setup.schema.json", Data("""
+        {
+          "fields": [
+            { "key": "site", "label": "Site", "type": "hostname", "required": true }
+          ]
+        }
+        """.utf8)),
+        ("requests.json", Data("""
+        {
+          "requests": {
+            "search_issues": {
+              "method": "GET",
+              "url": "https://{{site}}/rest/api/3/search",
+              "auth": "default"
+            }
+          }
+        }
+        """.utf8)),
+        ("mappings.json", Data("""
+        {
+          "resources": [],
+          "events": []
+        }
+        """.utf8))
+    ])
+    try packageData.write(to: packageURL)
+    let manifest = PluginManifest(
+        id: "com.status.jira",
+        name: "Jira",
+        version: "0.1.0",
+        author: "Status Foundry",
+        category: "developer",
+        description: "Read-only Jira checks.",
+        minCoreVersion: "0.1.0",
+        platforms: [.macOS, .iOS],
+        permissions: [.network, .keychain, .backgroundRefresh],
+        domains: ["example.atlassian.net"]
+    )
+    let definition = try PluginPackageDefinition.decode(from: packageData)
+    try store.installPlugin(
+        PluginInstallRecord(
+            manifest: manifest,
+            trustLevel: .official,
+            installPath: packageURL.deletingLastPathComponent().path,
+            packagePath: packageURL.path,
+            verification: PluginPackageVerificationResult(
+                pluginID: manifest.id,
+                version: manifest.version,
+                sha256: PluginPackageVerifier.sha256Hex(packageData),
+                signedBy: "status-foundry-dev"
+            ),
+            signature: "dev-signature",
+            packageDefinition: definition,
+            installedAt: now
+        )
+    )
+    try store.upsertTrigger(
+        TriggerDefinition(
+            id: "trg_com_status_jira_search",
+            pluginID: manifest.id,
+            kind: .manual,
+            label: "Refresh Jira",
+            requestID: "search_issues"
+        ),
+        updatedAt: now
+    )
+    let installed = try #require(try store.installedPlugin(id: manifest.id))
+    let setupService = PluginRuntimeService(store: store, credentialStore: nil)
+    _ = try PluginSetupConfiguration.saveValues(
+        ["email": "me@example.com", "apiToken": "jira-token", "site": "example.atlassian.net"],
+        for: installed,
+        service: setupService,
+        credentialStore: credentials,
+        now: now
+    )
+    let url = try #require(URL(string: "https://example.atlassian.net/rest/api/3/search"))
+    let expectedAuthorization = "Basic \(Data("me@example.com:jira-token".utf8).base64EncodedString())"
+    let service = PluginRuntimeService(
+        store: store,
+        transport: RuntimeHeaderCheckingTransport(
+            response: PluginHTTPResponse(data: Data("{}".utf8), statusCode: 200, url: url),
+            expectedAuthorization: expectedAuthorization
         ),
         credentialStore: credentials
     )
