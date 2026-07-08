@@ -148,7 +148,8 @@ public final class PluginRuntimeService: @unchecked Sendable {
                 )
                 continue
             }
-            guard let accountID = try configuredAccountID(for: trigger) else {
+            let accountIDs = try configuredAccountIDs(for: trigger)
+            guard accountIDs.isEmpty == false else {
                 try insertSkippedTriggerAudit(
                     trigger,
                     reason: "account_missing",
@@ -157,19 +158,21 @@ public final class PluginRuntimeService: @unchecked Sendable {
                 )
                 continue
             }
-            let job = JobRecord(
-                id: jobID(pluginID: trigger.pluginID, requestID: requestID, accountID: accountID, date: now),
-                pluginID: trigger.pluginID,
-                triggerID: trigger.id,
-                accountID: accountID,
-                status: .queued,
-                queuedAt: now
-            )
-            try store.upsertJob(job)
+            for accountID in accountIDs {
+                let job = JobRecord(
+                    id: jobID(pluginID: trigger.pluginID, requestID: requestID, accountID: accountID, date: now),
+                    pluginID: trigger.pluginID,
+                    triggerID: trigger.id,
+                    accountID: accountID,
+                    status: .queued,
+                    queuedAt: now
+                )
+                try store.upsertJob(job)
+                jobs.append(job)
+            }
             trigger.lastRunAt = now
             trigger.nextRunAt = nextRunDate(for: trigger, from: now)
             try store.upsertTrigger(trigger, updatedAt: now)
-            jobs.append(job)
         }
         return jobs
     }
@@ -441,12 +444,12 @@ public final class PluginRuntimeService: @unchecked Sendable {
         return date.addingTimeInterval(intervalSeconds)
     }
 
-    private func configuredAccountID(for trigger: TriggerDefinition) throws -> String? {
+    private func configuredAccountIDs(for trigger: TriggerDefinition) throws -> [String] {
         if let accountID = trigger.accountID,
            try store.accountConfiguration(accountID: accountID) != nil {
-            return accountID
+            return [accountID]
         }
-        return try store.accountConfigurations(pluginID: trigger.pluginID).first?.id
+        return try store.accountConfigurations(pluginID: trigger.pluginID).map(\.id)
     }
 
     private func hasGrantedPermission(pluginID: String, permission: PluginPermission) throws -> Bool {

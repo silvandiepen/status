@@ -406,6 +406,121 @@ import Testing
     #expect(try service.enqueueDueConfiguredPluginJobs(now: now.addingTimeInterval(60)).isEmpty)
 }
 
+@Test func pluginRuntimeServiceRunsDueCronForEveryConfiguredAccount() async throws {
+    let database = try temporaryRuntimeDatabase()
+    let store = StatusPersistenceStore(database: database)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let packageURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("status-runtime-\(UUID().uuidString).statusplugin.zip")
+    let packageData = runtimeStoredZip(files: [
+        ("requests.json", Data("""
+        {
+          "requests": {
+            "check_site": {
+              "method": "GET",
+              "url": "https://{{host}}",
+              "timeoutSeconds": 15
+            }
+          }
+        }
+        """.utf8)),
+        ("mappings.json", Data("""
+        {
+          "resources": [
+            {
+              "type": "website",
+              "request": "check_site",
+              "id": "{{host}}",
+              "name": "{{host}}",
+              "actionUrl": "https://{{host}}"
+            }
+          ],
+          "events": []
+        }
+        """.utf8))
+    ])
+    try packageData.write(to: packageURL)
+    let manifest = PluginManifest(
+        id: WebsitePluginSetup.pluginID,
+        name: "Website Uptime",
+        version: "0.1.0",
+        author: "Status Foundry",
+        category: "ops",
+        description: "Check configured websites.",
+        minCoreVersion: "0.1.0",
+        platforms: [.macOS, .iOS],
+        permissions: [.network, .userConfiguredDomains, .backgroundRefresh],
+        domains: []
+    )
+    try store.installPlugin(
+        PluginInstallRecord(
+            manifest: manifest,
+            trustLevel: .official,
+            installPath: packageURL.deletingLastPathComponent().path,
+            packagePath: packageURL.path,
+            verification: PluginPackageVerificationResult(
+                pluginID: manifest.id,
+                version: manifest.version,
+                sha256: PluginPackageVerifier.sha256Hex(packageData),
+                signedBy: "status-foundry-dev"
+            ),
+            signature: "dev-signature",
+            packageDefinition: try PluginPackageDefinition.decode(from: packageData),
+            installedAt: now
+        )
+    )
+    try grantRuntimePermissions(manifest.permissions, pluginID: manifest.id, store: store, at: now)
+    try store.upsertTrigger(
+        TriggerDefinition(
+            id: "trg_com_status_website_poll_sites",
+            pluginID: WebsitePluginSetup.pluginID,
+            kind: .cron,
+            label: "Check website uptime",
+            intervalSeconds: 300,
+            requestID: WebsitePluginSetup.requestID
+        ),
+        updatedAt: now
+    )
+    try store.upsertAccountConfiguration(
+        PluginAccountConfiguration(
+            id: "acct_website_status_registry",
+            pluginID: WebsitePluginSetup.pluginID,
+            accountName: "status-registry.hakobs.com",
+            variables: ["host": "status-registry.hakobs.com"]
+        ),
+        updatedAt: now
+    )
+    try store.upsertAccountConfiguration(
+        PluginAccountConfiguration(
+            id: "acct_website_status_site",
+            pluginID: WebsitePluginSetup.pluginID,
+            accountName: "status.hakobs.com",
+            variables: ["host": "status.hakobs.com"]
+        ),
+        updatedAt: now
+    )
+    let registryURL = try #require(URL(string: "https://status-registry.hakobs.com"))
+    let siteURL = try #require(URL(string: "https://status.hakobs.com"))
+    let service = PluginRuntimeService(
+        store: store,
+        transport: RuntimeFakeTransport(responses: [
+            registryURL: PluginHTTPResponse(data: Data("OK".utf8), statusCode: 200, url: registryURL),
+            siteURL: PluginHTTPResponse(data: Data("OK".utf8), statusCode: 200, url: siteURL)
+        ])
+    )
+
+    let results = try await service.runDueConfiguredPluginJobs(now: now)
+
+    let resourceIDs = results.flatMap(\.mappingOutput.resources).map(\.resource.id).sorted()
+    #expect(resourceIDs == [
+        "acct_website_status_registry:status-registry.hakobs.com",
+        "acct_website_status_site:status.hakobs.com"
+    ])
+    #expect(try store.job(id: "job_com_status_website_check_site_acct_website_status_registry_1783433520")?.status == .success)
+    #expect(try store.job(id: "job_com_status_website_check_site_acct_website_status_site_1783433520")?.status == .success)
+    #expect(try store.trigger(id: "trg_com_status_website_poll_sites")?.nextRunAt == now.addingTimeInterval(300))
+}
+
 @Test func pluginRuntimeServiceAuditsSkippedCronTriggerWithoutBackgroundPermission() throws {
     let database = try temporaryRuntimeDatabase()
     let store = StatusPersistenceStore(database: database)
