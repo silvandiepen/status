@@ -939,6 +939,46 @@ import Testing
     #expect(try store.nextQueuedJob() == first)
 }
 
+@Test func recentJobsFilterByPluginAndSortByRuntimeTimestamp() throws {
+    let database = try temporaryDatabase()
+    try StatusDatabaseMigrator.migrate(database)
+    let store = StatusPersistenceStore(database: database)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let older = JobRecord(
+        id: "job_older",
+        pluginID: "com.status.github",
+        triggerID: "trg_github",
+        status: .success,
+        queuedAt: now,
+        startedAt: now.addingTimeInterval(1),
+        finishedAt: now.addingTimeInterval(2)
+    )
+    let newest = JobRecord(
+        id: "job_newest",
+        pluginID: "com.status.github",
+        triggerID: "trg_github",
+        status: .failed,
+        queuedAt: now.addingTimeInterval(10),
+        startedAt: now.addingTimeInterval(11),
+        finishedAt: now.addingTimeInterval(12),
+        error: "Missing network permission."
+    )
+    let other = JobRecord(
+        id: "job_other",
+        pluginID: "com.status.website",
+        triggerID: "trg_website",
+        status: .success,
+        queuedAt: now.addingTimeInterval(20)
+    )
+
+    try store.upsertJob(older)
+    try store.upsertJob(newest)
+    try store.upsertJob(other)
+
+    #expect(try store.recentJobs(pluginID: "com.status.github").map(\.id) == ["job_newest", "job_older"])
+    #expect(try store.recentJobs(limit: 2).map(\.id) == ["job_other", "job_newest"])
+}
+
 private func temporaryDatabase() throws -> SQLiteDatabase {
     let path = FileManager.default.temporaryDirectory
         .appendingPathComponent("status-\(UUID().uuidString).sqlite")

@@ -89,6 +89,8 @@ private struct IOSRootView: View {
             return try LocalStatusStore.openApplicationSupportStore().installedPlugins()
         } loadAvailable: {
             try await registry.plugins(platform: platform, coreVersion: "0.1.0")
+        } loadRuntimeStatuses: { plugins in
+            try pluginRuntimeStatuses(for: plugins)
         } installPlugin: { plugin in
             guard let latestVersion = plugin.latestVersion else { return }
             let store = try LocalStatusStore.openApplicationSupportStore()
@@ -185,6 +187,46 @@ private struct IOSRootView: View {
             try LocalStatusStore.openApplicationSupportStore().notificationPreferences()
         } setPreference: { pluginID, eventType, mode in
             try setNotificationPreference(pluginID: pluginID, eventType: eventType, mode: mode)
+        }
+    }
+
+    private func pluginRuntimeStatuses(for plugins: [InstalledPlugin]) throws -> [String: PluginRuntimeStatus] {
+        let store = try LocalStatusStore.openApplicationSupportStore()
+        return try Dictionary(uniqueKeysWithValues: plugins.compactMap { plugin in
+            guard let job = try store.recentJobs(pluginID: plugin.id, limit: 1).first else {
+                return nil
+            }
+            return (plugin.id, runtimeStatus(from: job))
+        })
+    }
+
+    private func runtimeStatus(from job: JobRecord) -> PluginRuntimeStatus {
+        PluginRuntimeStatus(
+            pluginID: job.pluginID,
+            status: job.status,
+            detail: runtimeStatusDetail(for: job),
+            timestamp: job.finishedAt ?? job.startedAt ?? job.queuedAt,
+            emittedEventCount: job.emittedEventIDs.count
+        )
+    }
+
+    private func runtimeStatusDetail(for job: JobRecord) -> String {
+        if let error = job.error, error.isEmpty == false {
+            return error
+        }
+        switch job.status {
+        case .success:
+            return "Job \(job.id) completed from \(job.triggerID)."
+        case .queued:
+            return "Job \(job.id) is queued from \(job.triggerID)."
+        case .running:
+            return "Job \(job.id) is running from \(job.triggerID)."
+        case .failed:
+            return "Job \(job.id) failed without a detailed error."
+        case .cancelled:
+            return "Job \(job.id) was cancelled."
+        case .skipped:
+            return "Job \(job.id) was skipped."
         }
     }
 

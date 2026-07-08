@@ -940,6 +940,30 @@ public final class StatusPersistenceStore {
         .first
     }
 
+    public func recentJobs(pluginID: String? = nil, limit: Int = 20) throws -> [JobRecord] {
+        let rows: [[String: SQLiteValue]]
+        if let pluginID {
+            rows = try database.query(
+                "SELECT * FROM jobs WHERE plugin_id = ?",
+                bindings: [.text(pluginID)]
+            )
+        } else {
+            rows = try database.query("SELECT * FROM jobs")
+        }
+        return try rows
+            .map(job(from:))
+            .sorted { lhs, rhs in
+                let leftDate = lhs.finishedAt ?? lhs.startedAt ?? lhs.queuedAt
+                let rightDate = rhs.finishedAt ?? rhs.startedAt ?? rhs.queuedAt
+                if leftDate == rightDate {
+                    return lhs.id < rhs.id
+                }
+                return leftDate > rightDate
+            }
+            .prefix(limit)
+            .map { $0 }
+    }
+
     public func recentEvents(limit: Int = 20) throws -> [Event] {
         try database.query(
             """

@@ -11,6 +11,22 @@ public struct PluginStoreCatalog: Equatable, Sendable {
     }
 }
 
+public struct PluginRuntimeStatus: Equatable, Sendable {
+    public var pluginID: String
+    public var status: JobStatus
+    public var detail: String
+    public var timestamp: Date
+    public var emittedEventCount: Int
+
+    public init(pluginID: String, status: JobStatus, detail: String, timestamp: Date, emittedEventCount: Int = 0) {
+        self.pluginID = pluginID
+        self.status = status
+        self.detail = detail
+        self.timestamp = timestamp
+        self.emittedEventCount = emittedEventCount
+    }
+}
+
 @MainActor
 public final class PluginStoreViewModel: ObservableObject {
     @Published public private(set) var catalog: PluginStoreCatalog
@@ -30,9 +46,11 @@ public final class PluginStoreViewModel: ObservableObject {
     @Published public private(set) var savingPermissionID: String?
     @Published public private(set) var installedTriggers: [String: [TriggerDefinition]]
     @Published public private(set) var savingTriggerID: String?
+    @Published public private(set) var runtimeStatuses: [String: PluginRuntimeStatus]
 
     private let loadInstalled: () throws -> [InstalledPlugin]
     private let loadAvailable: () async throws -> [RegistryPluginSummary]
+    private let loadRuntimeStatuses: ([InstalledPlugin]) throws -> [String: PluginRuntimeStatus]
     private let installPlugin: (RegistryPluginSummary) async throws -> Void
     private let removePlugin: (InstalledPlugin) async throws -> Void
     private let loadPermissions: (InstalledPlugin) throws -> [InstalledPluginPermission]
@@ -50,6 +68,7 @@ public final class PluginStoreViewModel: ObservableObject {
         initialCatalog: PluginStoreCatalog = PluginStoreCatalog(),
         loadInstalled: @escaping () throws -> [InstalledPlugin],
         loadAvailable: @escaping () async throws -> [RegistryPluginSummary],
+        loadRuntimeStatuses: @escaping ([InstalledPlugin]) throws -> [String: PluginRuntimeStatus] = { _ in [:] },
         installPlugin: @escaping (RegistryPluginSummary) async throws -> Void,
         removePlugin: @escaping (InstalledPlugin) async throws -> Void = { _ in },
         loadPermissions: @escaping (InstalledPlugin) throws -> [InstalledPluginPermission] = { _ in [] },
@@ -73,8 +92,10 @@ public final class PluginStoreViewModel: ObservableObject {
         self.setupErrors = [:]
         self.installedPermissions = [:]
         self.installedTriggers = [:]
+        self.runtimeStatuses = [:]
         self.loadInstalled = loadInstalled
         self.loadAvailable = loadAvailable
+        self.loadRuntimeStatuses = loadRuntimeStatuses
         self.installPlugin = installPlugin
         self.removePlugin = removePlugin
         self.loadPermissions = loadPermissions
@@ -98,6 +119,7 @@ public final class PluginStoreViewModel: ObservableObject {
             refreshSetupValues(for: installed)
             refreshPermissions(for: installed)
             refreshTriggers(for: installed)
+            refreshRuntimeStatuses(for: installed)
             loadError = nil
         } catch {
             let installed = (try? loadInstalled()) ?? []
@@ -106,6 +128,7 @@ public final class PluginStoreViewModel: ObservableObject {
             refreshSetupValues(for: installed)
             refreshPermissions(for: installed)
             refreshTriggers(for: installed)
+            refreshRuntimeStatuses(for: installed)
             loadError = error.localizedDescription
         }
     }
@@ -139,12 +162,13 @@ public final class PluginStoreViewModel: ObservableObject {
 
         do {
             try await removePlugin(plugin)
-        setupValues[plugin.id] = nil
-        configuredAccounts[plugin.id] = nil
-        selectedAccountIDs[plugin.id] = nil
-        installedPermissions[plugin.id] = nil
-        installedTriggers[plugin.id] = nil
-        await reload()
+            setupValues[plugin.id] = nil
+            configuredAccounts[plugin.id] = nil
+            selectedAccountIDs[plugin.id] = nil
+            installedPermissions[plugin.id] = nil
+            installedTriggers[plugin.id] = nil
+            runtimeStatuses[plugin.id] = nil
+            await reload()
         } catch {
             loadError = error.localizedDescription
         }
@@ -286,6 +310,10 @@ public final class PluginStoreViewModel: ObservableObject {
         })
     }
 
+    private func refreshRuntimeStatuses(for plugins: [InstalledPlugin]) {
+        runtimeStatuses = (try? loadRuntimeStatuses(plugins)) ?? [:]
+    }
+
     private func defaultSetupValues(for plugin: InstalledPlugin) -> [String: String] {
         Dictionary(uniqueKeysWithValues: plugin.configurationFields.map { field in
             (field.id, field.defaultValue ?? "")
@@ -351,6 +379,7 @@ public struct PluginStoreContainerView: View {
             savingPermissionID: viewModel.savingPermissionID,
             installedTriggers: viewModel.installedTriggers,
             savingTriggerID: viewModel.savingTriggerID,
+            runtimeStatuses: viewModel.runtimeStatuses,
             canConfigure: { plugin in
                 viewModel.canConfigure(plugin)
             },
@@ -434,6 +463,7 @@ public struct PluginStoreView: View {
     private let savingPermissionID: String?
     private let installedTriggers: [String: [TriggerDefinition]]
     private let savingTriggerID: String?
+    private let runtimeStatuses: [String: PluginRuntimeStatus]
     private let canConfigure: (InstalledPlugin) -> Bool
     private let updateSetupValue: (InstalledPlugin, String, String) -> Void
     private let selectAccount: (InstalledPlugin, String) -> Void
@@ -464,6 +494,7 @@ public struct PluginStoreView: View {
         savingPermissionID: String? = nil,
         installedTriggers: [String: [TriggerDefinition]] = [:],
         savingTriggerID: String? = nil,
+        runtimeStatuses: [String: PluginRuntimeStatus] = [:],
         canConfigure: @escaping (InstalledPlugin) -> Bool = { _ in false },
         updateSetupValue: @escaping (InstalledPlugin, String, String) -> Void = { _, _, _ in },
         selectAccount: @escaping (InstalledPlugin, String) -> Void = { _, _ in },
@@ -492,6 +523,7 @@ public struct PluginStoreView: View {
         self.savingPermissionID = savingPermissionID
         self.installedTriggers = installedTriggers
         self.savingTriggerID = savingTriggerID
+        self.runtimeStatuses = runtimeStatuses
         self.canConfigure = canConfigure
         self.updateSetupValue = updateSetupValue
         self.selectAccount = selectAccount
@@ -524,6 +556,7 @@ public struct PluginStoreView: View {
                     savingPermissionID: savingPermissionID,
                     triggers: installedTriggers,
                     savingTriggerID: savingTriggerID,
+                    runtimeStatuses: runtimeStatuses,
                     canConfigure: canConfigure,
                     updateSetupValue: updateSetupValue,
                     selectAccount: selectAccount,
@@ -603,6 +636,7 @@ private struct InstalledPluginSection: View {
     let savingPermissionID: String?
     let triggers: [String: [TriggerDefinition]]
     let savingTriggerID: String?
+    let runtimeStatuses: [String: PluginRuntimeStatus]
     let canConfigure: (InstalledPlugin) -> Bool
     let updateSetupValue: (InstalledPlugin, String, String) -> Void
     let selectAccount: (InstalledPlugin, String) -> Void
@@ -638,6 +672,7 @@ private struct InstalledPluginSection: View {
                             savingPermissionID: savingPermissionID,
                             triggers: triggers[plugin.id, default: []],
                             savingTriggerID: savingTriggerID,
+                            runtimeStatus: runtimeStatuses[plugin.id],
                             updateSetupValue: updateSetupValue,
                             selectAccount: selectAccount,
                             addAccount: addAccount,
@@ -705,6 +740,7 @@ private struct InstalledPluginRow: View {
     let savingPermissionID: String?
     let triggers: [TriggerDefinition]
     let savingTriggerID: String?
+    let runtimeStatus: PluginRuntimeStatus?
     let updateSetupValue: (InstalledPlugin, String, String) -> Void
     let selectAccount: (InstalledPlugin, String) -> Void
     let addAccount: (InstalledPlugin) -> Void
@@ -805,6 +841,9 @@ private struct InstalledPluginRow: View {
                         }
                     }
                 }
+            }
+            if let runtimeStatus {
+                PluginRuntimeStatusView(status: runtimeStatus)
             }
             if canConfigure {
                 VStack(alignment: .leading, spacing: 8) {
@@ -914,6 +953,42 @@ private struct PluginTriggerToggle: View {
             }
         }
         .disabled(isSaving)
+    }
+}
+
+private struct PluginRuntimeStatusView: View {
+    let status: PluginRuntimeStatus
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Circle()
+                .fill(status.status.statusColor)
+                .frame(width: 9, height: 9)
+                .padding(.top, 5)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(status.status.displayName)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(status.status.statusColor)
+                    Text(status.timestamp, style: .relative)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Text(status.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if status.emittedEventCount > 0 {
+                    Text("\(status.emittedEventCount) event\(status.emittedEventCount == 1 ? "" : "s") emitted")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(status.status.statusColor.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -1097,6 +1172,38 @@ private extension TriggerDefinition {
             return "\(minutes)m"
         }
         return "\(seconds)s"
+    }
+}
+
+private extension JobStatus {
+    var displayName: String {
+        switch self {
+        case .queued:
+            "Queued"
+        case .running:
+            "Running"
+        case .success:
+            "Last check succeeded"
+        case .failed:
+            "Last check failed"
+        case .cancelled:
+            "Last check cancelled"
+        case .skipped:
+            "Last check skipped"
+        }
+    }
+
+    var statusColor: Color {
+        switch self {
+        case .success:
+            .green
+        case .failed:
+            .red
+        case .skipped, .cancelled:
+            .orange
+        case .queued, .running:
+            .blue
+        }
     }
 }
 
