@@ -98,6 +98,7 @@ public struct PluginRequestJobResult: Equatable, Sendable {
 public enum PluginRequestJobRunnerError: Error, Equatable, LocalizedError, Sendable {
     case missingRequest(String)
     case invalidURL(String)
+    case invalidPaginationURL(String)
 
     public var errorDescription: String? {
         switch self {
@@ -105,6 +106,8 @@ public enum PluginRequestJobRunnerError: Error, Equatable, LocalizedError, Senda
             "Plugin request is not declared: \(requestID)"
         case .invalidURL(let url):
             "Plugin request URL is invalid: \(url)"
+        case .invalidPaginationURL(let url):
+            "Plugin pagination URL is invalid: \(url)"
         }
     }
 }
@@ -131,8 +134,7 @@ public final class PluginRequestJobRunner {
         }
 
         let request = try makeRequest(requestDefinition, input: input)
-        let response = try await transport.response(for: request)
-        let payload = decodePayload(response: response, variables: input.variables)
+        let payload = try await fetchPayload(request: request, definition: requestDefinition, variables: input.variables)
         let mappingOutput = try PluginMappingExecutor.execute(
             definition.mappings,
             input: PluginMappingExecutionInput(
@@ -153,6 +155,36 @@ public final class PluginRequestJobRunner {
             mappingOutput: mappingOutput,
             commitResult: commitResult
         )
+    }
+
+    private func fetchPayload(
+        request: PluginHTTPRequest,
+        definition: PackagedPluginRequest,
+        variables: [String: String]
+    ) async throws -> MappingJSONValue {
+        let firstResponse = try await transport.response(for: request)
+        var payload = decodePayload(response: firstResponse, variables: variables)
+        guard let pagination = definition.pagination else {
+            return payload
+        }
+
+        var nextURL = try paginationNextURL(from: payload, pagination: pagination, originalURL: request.url)
+        let maxPages = max(1, pagination.maxPages ?? 1)
+        var fetchedPages = 1
+        while let url = nextURL, fetchedPages < maxPages {
+            let pageRequest = PluginHTTPRequest(
+                method: definition.method,
+                url: url,
+                headers: request.headers,
+                timeoutSeconds: definition.timeoutSeconds
+            )
+            let pageResponse = try await transport.response(for: pageRequest)
+            let pagePayload = decodePayload(response: pageResponse, variables: variables)
+            payload = payload.mergingTopLevelArrays(from: pagePayload)
+            fetchedPages += 1
+            nextURL = try paginationNextURL(from: pagePayload, pagination: pagination, originalURL: request.url)
+        }
+        return payload
     }
 
     private func makeRequest(_ definition: PackagedPluginRequest, input: PluginRequestJobInput) throws -> PluginHTTPRequest {
@@ -192,6 +224,29 @@ public final class PluginRequestJobRunner {
         fields["previousHealthy"] = .null
         return .object(fields)
     }
+
+    private func paginationNextURL(
+        from payload: MappingJSONValue,
+        pagination: PackagedPluginRequestPagination,
+        originalURL: URL
+    ) throws -> URL? {
+        switch pagination.type {
+        case "jsonapi-next-link", "next-link":
+            guard let path = pagination.path,
+                  let value = try MappingSelector(path).resolve(in: payload)?.scalarString,
+                  value.isEmpty == false else {
+                return nil
+            }
+            guard let url = URL(string: value, relativeTo: originalURL)?.absoluteURL,
+                  url.scheme == "https",
+                  url.host?.lowercased() == originalURL.host?.lowercased() else {
+                throw PluginRequestJobRunnerError.invalidPaginationURL(value)
+            }
+            return url
+        default:
+            return nil
+        }
+    }
 }
 
 private extension MappingJSONValue {
@@ -199,6 +254,22 @@ private extension MappingJSONValue {
         guard case .object(var object) = self else { return self }
         for (key, value) in fields {
             object[key] = value
+        }
+        return .object(object)
+    }
+
+    func mergingTopLevelArrays(from next: MappingJSONValue) -> MappingJSONValue {
+        guard case .object(var object) = self,
+              case .object(let nextObject) = next else {
+            return self
+        }
+        for (key, nextValue) in nextObject {
+            if case .array(let existingArray) = object[key],
+               case .array(let nextArray) = nextValue {
+                object[key] = .array(existingArray + nextArray)
+            } else if object[key] == nil {
+                object[key] = nextValue
+            }
         }
         return .object(object)
     }

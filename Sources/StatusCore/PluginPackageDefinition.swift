@@ -230,6 +230,7 @@ public struct PackagedPluginRequest: Decodable, Equatable, Sendable {
     public var url: String
     public var auth: String?
     public var query: [String: String]
+    public var pagination: PackagedPluginRequestPagination?
     public var timeoutSeconds: TimeInterval?
 
     enum CodingKeys: String, CodingKey {
@@ -237,6 +238,7 @@ public struct PackagedPluginRequest: Decodable, Equatable, Sendable {
         case url
         case auth
         case query
+        case pagination
         case timeoutSeconds
     }
 
@@ -245,12 +247,14 @@ public struct PackagedPluginRequest: Decodable, Equatable, Sendable {
         url: String,
         auth: String? = nil,
         query: [String: String] = [:],
+        pagination: PackagedPluginRequestPagination? = nil,
         timeoutSeconds: TimeInterval? = nil
     ) {
         self.method = method
         self.url = url
         self.auth = auth
         self.query = query
+        self.pagination = pagination
         self.timeoutSeconds = timeoutSeconds
     }
 
@@ -260,7 +264,24 @@ public struct PackagedPluginRequest: Decodable, Equatable, Sendable {
         url = try container.decode(String.self, forKey: .url)
         auth = try container.decodeIfPresent(String.self, forKey: .auth)
         query = try container.decodeIfPresent([String: String].self, forKey: .query) ?? [:]
+        pagination = try container.decodeIfPresent(PackagedPluginRequestPagination.self, forKey: .pagination)
         timeoutSeconds = try container.decodeIfPresent(TimeInterval.self, forKey: .timeoutSeconds)
+    }
+}
+
+public struct PackagedPluginRequestPagination: Decodable, Equatable, Sendable {
+    public var type: String
+    public var path: String?
+    public var param: String?
+    public var pageSize: Int?
+    public var maxPages: Int?
+
+    public init(type: String, path: String? = nil, param: String? = nil, pageSize: Int? = nil, maxPages: Int? = nil) {
+        self.type = type
+        self.path = path
+        self.param = param
+        self.pageSize = pageSize
+        self.maxPages = maxPages
     }
 }
 

@@ -91,6 +91,61 @@ import Testing
     #expect(try store.statusItemCount() == 1)
 }
 
+@Test func pluginRequestJobRunnerFollowsJSONAPINextLinkPagination() async throws {
+    let database = try temporaryRequestRunnerDatabase()
+    try insertRequestRunnerPluginFixture(database, pluginID: "com.status.appstoreconnect", accountID: "acct_asc", jobID: "job_asc")
+    let store = StatusPersistenceStore(database: database)
+    let firstURL = try #require(URL(string: "https://api.appstoreconnect.apple.com/v1/apps"))
+    let secondURL = try #require(URL(string: "https://api.appstoreconnect.apple.com/v1/apps?cursor=next"))
+    let transport = FakePluginRequestTransport(responses: [
+        firstURL: PluginHTTPResponse(
+            data: Data("""
+            {
+              "data": [
+                { "id": "app-1", "attributes": { "name": "Status One", "bundleId": "com.example.one" } }
+              ],
+              "links": { "next": "https://api.appstoreconnect.apple.com/v1/apps?cursor=next" }
+            }
+            """.utf8),
+            statusCode: 200,
+            url: firstURL
+        ),
+        secondURL: PluginHTTPResponse(
+            data: Data("""
+            {
+              "data": [
+                { "id": "app-2", "attributes": { "name": "Status Two", "bundleId": "com.example.two" } }
+              ],
+              "links": { "next": null }
+            }
+            """.utf8),
+            statusCode: 200,
+            url: secondURL
+        )
+    ])
+    let runner = PluginRequestJobRunner(
+        transport: transport,
+        committer: PluginMappingOutputCommitter(store: store)
+    )
+
+    let result = try await runner.run(
+        definition: appStoreConnectDefinition(),
+        input: PluginRequestJobInput(
+            pluginID: "com.status.appstoreconnect",
+            accountID: "acct_asc",
+            provider: "com.status.appstoreconnect",
+            requestID: "list_apps",
+            headers: ["Authorization": "Bearer token"],
+            jobID: "job_asc",
+            capturedAt: Date(timeIntervalSince1970: 1_783_433_520)
+        )
+    )
+
+    #expect(result.mappingOutput.resources.map(\.resource.id) == ["acct_asc:app-1", "acct_asc:app-2"])
+    #expect(try store.resource(id: "acct_asc:app-1")?.name == "Status One")
+    #expect(try store.resource(id: "acct_asc:app-2")?.name == "Status Two")
+}
+
 private struct FakePluginRequestTransport: PluginRequestHTTPTransport {
     var responses: [URL: PluginHTTPResponse]
 
@@ -121,6 +176,33 @@ private func githubDefinition() -> PluginPackageDefinition {
                 severity: .fixed(.warning),
                 actionURL: "{{html_url}}",
                 timestamp: "$.updated_at"
+            )
+        ])
+    )
+}
+
+private func appStoreConnectDefinition() -> PluginPackageDefinition {
+    PluginPackageDefinition(
+        requests: PackagedPluginRequests(requests: [
+            "list_apps": PackagedPluginRequest(
+                url: "https://api.appstoreconnect.apple.com/v1/apps",
+                auth: "default",
+                pagination: PackagedPluginRequestPagination(
+                    type: "jsonapi-next-link",
+                    path: "$.links.next",
+                    maxPages: 5
+                ),
+                timeoutSeconds: 30
+            )
+        ]),
+        mappings: PackagedPluginMappings(resources: [
+            PackagedResourceMapping(
+                type: "app",
+                request: "list_apps",
+                source: "$.data[*]",
+                id: "$.id",
+                name: "$.attributes.name",
+                fields: ["bundleId": "$.attributes.bundleId"]
             )
         ])
     )
@@ -166,7 +248,12 @@ private func temporaryRequestRunnerDatabase() throws -> SQLiteDatabase {
     return database
 }
 
-private func insertRequestRunnerPluginFixture(_ database: SQLiteDatabase, pluginID: String, accountID: String) throws {
+private func insertRequestRunnerPluginFixture(
+    _ database: SQLiteDatabase,
+    pluginID: String,
+    accountID: String,
+    jobID: String? = nil
+) throws {
     let now = "2026-07-07T12:00:00Z"
     try database.execute(
         """
@@ -190,6 +277,6 @@ private func insertRequestRunnerPluginFixture(_ database: SQLiteDatabase, plugin
         (id, plugin_id, trigger_id, account_id, status, started_at)
         VALUES (?, ?, 'trg_fixture', ?, 'running', ?)
         """,
-        bindings: [.text(pluginID == "com.status.website" ? "job_web" : "job_gh"), .text(pluginID), .text(accountID), .text(now)]
+        bindings: [.text(jobID ?? (pluginID == "com.status.website" ? "job_web" : "job_gh")), .text(pluginID), .text(accountID), .text(now)]
     )
 }
