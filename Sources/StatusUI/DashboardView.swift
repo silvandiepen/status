@@ -276,11 +276,6 @@ private extension AuditEntry {
     }
 }
 
-private extension Color {
-    static let statusBackground = Color(red: 0.965, green: 0.965, blue: 0.945)
-    static let statusSurface = Color.white.opacity(0.92)
-}
-
 #Preview {
     DashboardView(snapshot: MockDashboard.snapshot)
 }

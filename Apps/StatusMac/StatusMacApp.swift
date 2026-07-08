@@ -16,27 +16,59 @@ struct StatusMacApp: App {
 
 private struct MacRootView: View {
     @State private var selection: MacSection? = .overview
+    @State private var sidebarPlugins: [InstalledPlugin] = []
+    @State private var sidebarPluginError: String?
 
     var body: some View {
         NavigationSplitView {
             List(selection: $selection) {
-                NavigationLink(value: MacSection.overview) {
-                    Label("Overview", systemImage: "rectangle.grid.2x2")
+                Section("Integrations") {
+                    if sidebarPlugins.isEmpty {
+                        Text(sidebarPluginError ?? "No integrations installed")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(sidebarPlugins) { plugin in
+                            Button {
+                                selection = .integrations
+                            } label: {
+                                Label {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(plugin.name)
+                                            .lineLimit(1)
+                                        Text(plugin.enabled ? "Enabled" : "Disabled")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                } icon: {
+                                    Image(systemName: plugin.enabled ? "puzzlepiece.extension" : "puzzlepiece.extension.fill")
+                                        .foregroundStyle(plugin.enabled ? .primary : .secondary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
                 }
-                NavigationLink(value: MacSection.alerts) {
-                    Label("Alerts", systemImage: "bell")
-                }
-                NavigationLink(value: MacSection.integrations) {
-                    Label("Integrations", systemImage: "puzzlepiece.extension")
-                }
-                NavigationLink(value: MacSection.rules) {
-                    Label("Rules", systemImage: "slider.horizontal.3")
-                }
-                NavigationLink(value: MacSection.audit) {
-                    Label("Audit Log", systemImage: "list.bullet.rectangle")
-                }
-                NavigationLink(value: MacSection.settings) {
-                    Label("Settings", systemImage: "gearshape")
+
+                Section {
+                    NavigationLink(value: MacSection.overview) {
+                        Label("Overview", systemImage: "rectangle.grid.2x2")
+                    }
+                    NavigationLink(value: MacSection.alerts) {
+                        Label("Alerts", systemImage: "bell")
+                    }
+                    NavigationLink(value: MacSection.integrations) {
+                        Label("Integrations", systemImage: "puzzlepiece.extension")
+                    }
+                    NavigationLink(value: MacSection.rules) {
+                        Label("Rules", systemImage: "slider.horizontal.3")
+                    }
+                    NavigationLink(value: MacSection.audit) {
+                        Label("Audit Log", systemImage: "list.bullet.rectangle")
+                    }
+                    NavigationLink(value: MacSection.settings) {
+                        Label("Settings", systemImage: "gearshape")
+                    }
                 }
             }
             .navigationTitle("Status")
@@ -68,7 +100,19 @@ private struct MacRootView: View {
             }
         }
         .task {
+            loadSidebarPlugins()
             await runBackgroundPluginLoop()
+        }
+    }
+
+    private func loadSidebarPlugins() {
+        do {
+            try bootstrapBundledPlugins()
+            sidebarPlugins = try LocalStatusStore.openApplicationSupportStore().installedPlugins()
+            sidebarPluginError = nil
+        } catch {
+            sidebarPlugins = []
+            sidebarPluginError = error.localizedDescription
         }
     }
 
