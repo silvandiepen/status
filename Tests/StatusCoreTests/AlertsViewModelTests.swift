@@ -125,6 +125,37 @@ import StatusCore
     #expect(viewModel.effectiveMode(pluginID: "github", event: workflowEvent) == .digest)
 }
 
+@MainActor
+@Test func notificationHistoryViewModelLoadsAndReportsErrors() throws {
+    let notification = NotificationRecord(
+        id: "ntf_01",
+        eventID: "evt_01",
+        statusItemID: "sti_01",
+        mode: .dashboardOnly,
+        title: "Build failed",
+        body: "CI failed on main.",
+        createdAt: Date(timeIntervalSince1970: 1_783_433_520)
+    )
+    var shouldFail = false
+    let viewModel = NotificationHistoryViewModel {
+        if shouldFail {
+            throw TestActionError.failed
+        }
+        return [notification]
+    }
+
+    viewModel.reload()
+
+    #expect(viewModel.notifications == [notification])
+    #expect(viewModel.loadError == nil)
+
+    shouldFail = true
+    viewModel.reload()
+
+    #expect(viewModel.notifications.isEmpty)
+    #expect(viewModel.loadError == "failed")
+}
+
 private func statusItem(id: String) -> StatusItem {
     StatusItem(
         id: id,

@@ -48,13 +48,14 @@ The same pipeline is used for:
 - macOS and iOS provide first platform adapters for safe runtime effects: local notifications and opening URLs. Notification permission is requested by the app shell, not by plugins. Immediate local notifications are stored before platform dispatch and marked delivered after successful effect dispatch.
 - Notification preferences persist locally as plugin-level defaults and event-type overrides. The automation pipeline resolves them before dispatch; event-level preferences win over plugin defaults, and only `immediate` notifications are sent to the platform dispatcher.
 - macOS and iOS settings expose app-owned notification preference controls for installed plugin defaults and declared event types. Resetting a row removes the override so plugin declarations and rule defaults apply again.
+- macOS and iOS settings show recent persisted notification records so delivered, dashboard-only, digest, silent, and suppressed notification decisions remain inspectable after automation runs.
 - The native shells start an app-alive background loop that asks the core to run due configured plugin jobs every five minutes. Due checks still respect each trigger's stored schedule.
 - Unscoped due cron triggers enqueue one job per configured plugin account; account-scoped cron triggers enqueue only for their declared account.
 - Due cron triggers that cannot enqueue because of missing `background-refresh` permission, missing request metadata, or missing account configuration write stable skipped audit rows instead of failing silently.
 - Failed cron jobs update the persisted trigger failure count and next retry time with exponential backoff; successful cron jobs reset the failure count and restore the normal schedule.
 - Declarative plugin requests enforce each request's `timeoutSeconds` value in the shared request runner; when omitted, the runner uses a 30-second default.
 
-OS-level background execution, richer retry policy controls, and notification-center history controls remain planned work.
+OS-level background execution, richer retry policy controls, and notification dismissal/action-link controls remain planned work.
 
 ## Triggers
 

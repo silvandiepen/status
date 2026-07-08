@@ -527,7 +527,7 @@ CREATE TABLE notifications (
 );
 ```
 
-Current implementation stores the columns above. `rule_id`, `dismissed_at`, and `action_url` remain planned extensions for notification-center history.
+Current implementation stores the columns above and the native settings UI can read them as recent notification history. `rule_id`, `dismissed_at`, and `action_url` remain planned extensions for deeper notification-center behavior.
 
 ### notification_preferences
 

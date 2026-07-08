@@ -521,12 +521,39 @@ public final class NotificationPreferencesViewModel: ObservableObject {
     }
 }
 
+@MainActor
+public final class NotificationHistoryViewModel: ObservableObject {
+    @Published public private(set) var notifications: [NotificationRecord]
+    @Published public private(set) var loadError: String?
+
+    private let loadNotifications: () throws -> [NotificationRecord]
+
+    public init(
+        initialNotifications: [NotificationRecord] = [],
+        loadNotifications: @escaping () throws -> [NotificationRecord]
+    ) {
+        self.notifications = initialNotifications
+        self.loadNotifications = loadNotifications
+    }
+
+    public func reload() {
+        do {
+            notifications = try loadNotifications()
+            loadError = nil
+        } catch {
+            notifications = []
+            loadError = error.localizedDescription
+        }
+    }
+}
+
 public struct StatusSettingsView: View {
     private let registryURL: URL
     private let databasePath: String
     private let pluginInstallPath: String
     private let runtimeAction: RuntimeAction?
     @StateObject private var notificationPreferencesViewModel: NotificationPreferencesViewModel
+    @StateObject private var notificationHistoryViewModel: NotificationHistoryViewModel
 
     public init(
         registryURL: URL,
@@ -537,6 +564,9 @@ public struct StatusSettingsView: View {
             loadPluginGroups: { [] },
             loadPreferences: { [] },
             setPreference: { _, _, _ in }
+        ),
+        notificationHistoryViewModel: @autoclosure @escaping () -> NotificationHistoryViewModel = NotificationHistoryViewModel(
+            loadNotifications: { [] }
         )
     ) {
         self.registryURL = registryURL
@@ -544,6 +574,7 @@ public struct StatusSettingsView: View {
         self.pluginInstallPath = pluginInstallPath
         self.runtimeAction = runtimeAction
         _notificationPreferencesViewModel = StateObject(wrappedValue: notificationPreferencesViewModel())
+        _notificationHistoryViewModel = StateObject(wrappedValue: notificationHistoryViewModel())
     }
 
     public var body: some View {
@@ -559,12 +590,15 @@ public struct StatusSettingsView: View {
                 RuntimeActionPanel(action: runtimeAction)
             }
             NotificationPreferencesPanel(viewModel: notificationPreferencesViewModel)
+            NotificationHistoryPanel(viewModel: notificationHistoryViewModel)
         }
         .task {
             notificationPreferencesViewModel.reload()
+            notificationHistoryViewModel.reload()
         }
         .refreshable {
             notificationPreferencesViewModel.reload()
+            notificationHistoryViewModel.reload()
         }
     }
 }
@@ -711,6 +745,85 @@ private struct NotificationModeMenu: View {
         .menuStyle(.button)
         .help("Notification mode")
         .accessibilityLabel(Text(selectedMode?.displayName ?? title))
+    }
+}
+
+private struct NotificationHistoryPanel: View {
+    @ObservedObject var viewModel: NotificationHistoryViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Notification History")
+                    .font(.headline)
+                Text("Recent notification decisions stored by the automation pipeline.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let loadError = viewModel.loadError {
+                Text(loadError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            if viewModel.notifications.isEmpty {
+                Text("No notifications have been recorded on this device yet.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(viewModel.notifications) { notification in
+                        NotificationHistoryRow(notification: notification)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct NotificationHistoryRow: View {
+    let notification: NotificationRecord
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(notification.title)
+                    .font(.callout.weight(.semibold))
+                Spacer(minLength: 12)
+                Text(notification.mode.displayName)
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(notification.mode.modeColor.opacity(0.12))
+                    .foregroundStyle(notification.mode.modeColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                Text(notification.createdAt, style: .relative)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text(notification.body)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(notification.deliveryState)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                ForEach(notification.provenanceReferences, id: \.self) { reference in
+                    Text(reference)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+        }
+        .padding(14)
+        .background(Color.statusSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -957,5 +1070,47 @@ private extension NotificationMode {
         case .disabled:
             "Disabled"
         }
+    }
+
+    var modeColor: Color {
+        switch self {
+        case .immediate:
+            .blue
+        case .digest:
+            .purple
+        case .dashboardOnly:
+            .secondary
+        case .silentAutomation:
+            .orange
+        case .disabled:
+            .red
+        }
+    }
+}
+
+private extension NotificationRecord {
+    var deliveryState: String {
+        if let deliveredAt {
+            return "Delivered \(deliveredAt.formatted(date: .omitted, time: .shortened))"
+        }
+        switch mode {
+        case .immediate:
+            return "Pending delivery"
+        case .digest:
+            return "Queued for digest"
+        case .dashboardOnly:
+            return "Dashboard only"
+        case .silentAutomation:
+            return "Silent"
+        case .disabled:
+            return "Suppressed"
+        }
+    }
+
+    var provenanceReferences: [String] {
+        [
+            eventID.map { "event \($0)" },
+            statusItemID.map { "item \($0)" }
+        ].compactMap { $0 }
     }
 }

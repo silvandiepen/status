@@ -95,7 +95,8 @@ private struct MacRootView: View {
                     databasePath: applicationDatabasePath(),
                     pluginInstallPath: applicationPluginInstallPath(),
                     runtimeAction: makeRegistryCheckAction(),
-                    notificationPreferencesViewModel: makeNotificationPreferencesViewModel()
+                    notificationPreferencesViewModel: makeNotificationPreferencesViewModel(),
+                    notificationHistoryViewModel: makeNotificationHistoryViewModel()
                 )
                     .navigationTitle("Settings")
             }
@@ -229,6 +230,12 @@ private struct MacRootView: View {
             try LocalStatusStore.openApplicationSupportStore().notificationPreferences()
         } setPreference: { pluginID, eventType, mode in
             try setNotificationPreference(pluginID: pluginID, eventType: eventType, mode: mode)
+        }
+    }
+
+    private func makeNotificationHistoryViewModel() -> NotificationHistoryViewModel {
+        NotificationHistoryViewModel {
+            try LocalStatusStore.openApplicationSupportStore().notifications(limit: 20)
         }
     }
 
