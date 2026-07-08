@@ -556,10 +556,49 @@ public struct PackagedMetricMapping: Decodable, Equatable, Sendable {
 
 public enum PackagedMappingCondition: Decodable, Equatable, Sendable {
     case shorthand(String)
+    case predicate(PackagedMappingPredicate)
+    case all([PackagedMappingCondition])
+    case any([PackagedMappingCondition])
 
     public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        self = .shorthand(try container.decode(String.self))
+        if let container = try? decoder.singleValueContainer(),
+           let expression = try? container.decode(String.self) {
+            self = .shorthand(expression)
+            return
+        }
+        if let container = try? decoder.singleValueContainer(),
+           let conditions = try? container.decode([PackagedMappingCondition].self) {
+            self = .all(conditions)
+            return
+        }
+        let object = try decoder.container(keyedBy: CodingKeys.self)
+        if let conditions = try object.decodeIfPresent([PackagedMappingCondition].self, forKey: .any) {
+            self = .any(conditions)
+            return
+        }
+        self = .predicate(try PackagedMappingPredicate(from: decoder))
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case any
+    }
+}
+
+public struct PackagedMappingPredicate: Decodable, Equatable, Sendable {
+    public var path: String
+    public var operation: MappingOperator
+    public var value: MappingJSONValue?
+
+    enum CodingKeys: String, CodingKey {
+        case path
+        case operation = "operator"
+        case value
+    }
+
+    public init(path: String, operation: MappingOperator, value: MappingJSONValue? = nil) {
+        self.path = path
+        self.operation = operation
+        self.value = value
     }
 }
 

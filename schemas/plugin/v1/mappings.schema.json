@@ -131,9 +131,76 @@
       "description": "Opaque selector expression. Grammar is defined in docs/16-mapping-language.md."
     },
     "condition": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Opaque condition expression. Grammar is defined in docs/16-mapping-language.md."
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        { "$ref": "#/$defs/conditionPredicate" },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/conditionNode" }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["any"],
+          "properties": {
+            "any": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/conditionPredicate" }
+            }
+          }
+        }
+      ],
+      "description": "Condition expression. Grammar is defined in docs/16-mapping-language.md."
+    },
+    "conditionNode": {
+      "oneOf": [
+        { "$ref": "#/$defs/conditionPredicate" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["any"],
+          "properties": {
+            "any": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/conditionPredicate" }
+            }
+          }
+        }
+      ]
+    },
+    "conditionPredicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "operator"],
+      "properties": {
+        "path": { "$ref": "#/$defs/selector" },
+        "operator": {
+          "enum": [
+            "equals",
+            "not_equals",
+            "contains",
+            "not_contains",
+            "starts_with",
+            "ends_with",
+            "greater_than",
+            "less_than",
+            "is_empty",
+            "is_not_empty",
+            "changed",
+            "changed_to",
+            "changed_from"
+          ]
+        },
+        "value": {
+          "type": ["string", "number", "boolean", "null"]
+        }
+      }
     },
     "severity": {
       "enum": ["ok", "notice", "warning", "critical"]

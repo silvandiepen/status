@@ -154,6 +154,94 @@ import Testing
     #expect(output.events[0].timestamp == ISO8601DateFormatter().date(from: "2026-07-07T20:15:30Z"))
 }
 
+@Test func pluginMappingExecutorEvaluatesCanonicalConditionTrees() throws {
+    let mappings = PackagedPluginMappings(events: [
+        PackagedEventMapping(
+            type: "service.issue.detected",
+            request: "list_checks",
+            source: "$.checks[*]",
+            when: .all([
+                .predicate(PackagedMappingPredicate(
+                    path: "$.status",
+                    operation: .notEquals,
+                    value: .string("ok")
+                )),
+                .any([
+                    .predicate(PackagedMappingPredicate(
+                        path: "$.severity",
+                        operation: .equals,
+                        value: .string("critical")
+                    )),
+                    .predicate(PackagedMappingPredicate(
+                        path: "$.tags",
+                        operation: .contains,
+                        value: .string("attention")
+                    ))
+                ])
+            ]),
+            resourceID: "$.id",
+            title: "Service issue",
+            summary: "{{name}} needs attention.",
+            severity: .fixed(.warning)
+        )
+    ])
+    let output = try PluginMappingExecutor.execute(
+        mappings,
+        input: PluginMappingExecutionInput(
+            pluginID: "com.status.checks",
+            accountID: "acct_checks",
+            provider: "com.status.checks",
+            requestID: "list_checks",
+            payload: decodeMappingJSON("""
+            {
+              "checks": [
+                { "id": "check-1", "name": "API", "status": "degraded", "severity": "critical", "tags": [] },
+                { "id": "check-2", "name": "Docs", "status": "ok", "severity": "critical", "tags": ["attention"] },
+                { "id": "check-3", "name": "CDN", "status": "degraded", "severity": "warning", "tags": ["edge"] }
+              ]
+            }
+            """),
+            capturedAt: Date(timeIntervalSince1970: 1_783_433_520)
+        )
+    )
+
+    #expect(output.events.map(\.resourceID) == ["acct_checks:check-1"])
+    #expect(output.events.map(\.summary) == ["API needs attention."])
+}
+
+@Test func packagedPluginMappingsDecodesCanonicalConditionTrees() throws {
+    let mappings = try JSONDecoder().decode(PackagedPluginMappings.self, from: Data("""
+    {
+      "events": [
+        {
+          "type": "service.issue.detected",
+          "request": "list_checks",
+          "source": "$.checks[*]",
+          "when": [
+            { "path": "$.status", "operator": "not_equals", "value": "ok" },
+            { "any": [
+              { "path": "$.severity", "operator": "equals", "value": "critical" },
+              { "path": "$.tags", "operator": "contains", "value": "attention" }
+            ]}
+          ],
+          "resourceId": "$.id",
+          "title": "Service issue",
+          "summary": "{{name}} needs attention.",
+          "severity": "warning"
+        }
+      ]
+    }
+    """.utf8))
+
+    #expect(mappings.events.first?.when == .all([
+        .predicate(PackagedMappingPredicate(path: "$.status", operation: .notEquals, value: .string("ok"))),
+        .any([
+            .predicate(PackagedMappingPredicate(path: "$.severity", operation: .equals, value: .string("critical"))),
+            .predicate(PackagedMappingPredicate(path: "$.tags", operation: .contains, value: .string("attention")))
+        ])
+    ]))
+}
+
 @Test func pluginMappingExecutorMapsEventSeverityFromPayloadValue() throws {
     let mappings = PackagedPluginMappings(events: [
         PackagedEventMapping(

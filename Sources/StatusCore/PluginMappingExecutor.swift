@@ -278,6 +278,53 @@ public enum PluginMappingExecutor {
         switch condition {
         case .shorthand(let expression):
             try evaluateOrExpression(expression, item: item)
+        case .predicate(let predicate):
+            try evaluatePredicate(predicate, item: item)
+        case .all(let conditions):
+            try conditions.allSatisfy { try evaluate($0, item: item) }
+        case .any(let conditions):
+            try conditions.contains { try evaluate($0, item: item) }
+        }
+    }
+
+    private static func evaluatePredicate(_ predicate: PackagedMappingPredicate, item: MappingJSONValue) throws -> Bool {
+        let left = try MappingSelector(predicate.path).resolve(in: item)
+        switch predicate.operation {
+        case .equals:
+            guard let left else { return false }
+            return left == predicate.value
+        case .notEquals:
+            guard let left else { return true }
+            return left != predicate.value
+        case .contains:
+            guard let value = predicate.value else { return false }
+            return contains(left, value)
+        case .notContains:
+            guard let value = predicate.value else { return true }
+            return contains(left, value) == false
+        case .startsWith:
+            guard let left = left?.scalarString,
+                  let right = predicate.value?.scalarString else { return false }
+            return left.hasPrefix(right)
+        case .endsWith:
+            guard let left = left?.scalarString,
+                  let right = predicate.value?.scalarString else { return false }
+            return left.hasSuffix(right)
+        case .greaterThan:
+            return number(left).map { leftNumber in number(predicate.value).map { leftNumber > $0 } ?? false } ?? false
+        case .lessThan:
+            return number(left).map { leftNumber in number(predicate.value).map { leftNumber < $0 } ?? false } ?? false
+        case .isEmpty:
+            return isEmpty(left)
+        case .isNotEmpty:
+            return isEmpty(left) == false
+        case .changed:
+            return false
+        case .changedTo:
+            guard let left else { return false }
+            return left == predicate.value
+        case .changedFrom:
+            return false
         }
     }
 
@@ -354,6 +401,30 @@ public enum PluginMappingExecutor {
             Double(string)
         case .bool, .object, .array, .null, nil:
             nil
+        }
+    }
+
+    private static func contains(_ left: MappingJSONValue?, _ right: MappingJSONValue) -> Bool {
+        switch (left, right) {
+        case (.string(let left), .string(let right)):
+            left.contains(right)
+        case (.array(let values), _):
+            values.contains(right)
+        case (.some, _), (nil, _):
+            false
+        }
+    }
+
+    private static func isEmpty(_ value: MappingJSONValue?) -> Bool {
+        switch value {
+        case nil, .null:
+            return true
+        case .string(let string):
+            return string.isEmpty
+        case .array(let values):
+            return values.isEmpty
+        case .number, .bool, .object:
+            return false
         }
     }
 
