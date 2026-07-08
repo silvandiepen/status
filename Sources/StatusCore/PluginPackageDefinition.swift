@@ -337,14 +337,29 @@ public enum PackagedPluginRequestBody: Decodable, Equatable, Sendable {
 public struct PackagedPluginRequestPagination: Decodable, Equatable, Sendable {
     public var type: String
     public var path: String?
+    public var cursorPath: String?
     public var param: String?
+    public var start: Int?
+    public var itemsPath: String?
     public var pageSize: Int?
     public var maxPages: Int?
 
-    public init(type: String, path: String? = nil, param: String? = nil, pageSize: Int? = nil, maxPages: Int? = nil) {
+    public init(
+        type: String,
+        path: String? = nil,
+        cursorPath: String? = nil,
+        param: String? = nil,
+        start: Int? = nil,
+        itemsPath: String? = nil,
+        pageSize: Int? = nil,
+        maxPages: Int? = nil
+    ) {
         self.type = type
         self.path = path
+        self.cursorPath = cursorPath
         self.param = param
+        self.start = start
+        self.itemsPath = itemsPath
         self.pageSize = pageSize
         self.maxPages = maxPages
     }

@@ -65,15 +65,28 @@
       "required": ["type"],
       "properties": {
         "type": {
-          "enum": ["jsonapi-next-link", "next-link", "cursor", "page"]
+          "enum": ["jsonapi-next-link", "next-link", "cursor", "page-number", "page"]
         },
         "path": {
           "$ref": "#/$defs/selector",
-          "description": "Selector for the next link or cursor in the response."
+          "description": "Selector for the next link in the response. Also accepted as a cursor selector for compatibility."
+        },
+        "cursorPath": {
+          "$ref": "#/$defs/selector",
+          "description": "Selector for the next cursor in the response."
         },
         "param": {
           "type": "string",
           "description": "Query parameter name for cursor or page based pagination."
+        },
+        "start": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "First page number for page-number pagination. Defaults to 1."
+        },
+        "itemsPath": {
+          "$ref": "#/$defs/selector",
+          "description": "Selector for the item array used to stop page-number pagination."
         },
         "pageSize": {
           "type": "integer",

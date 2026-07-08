@@ -148,6 +148,108 @@ import Testing
     #expect(try store.resource(id: "acct_asc:app-2")?.name == "Status Two")
 }
 
+@Test func pluginRequestJobRunnerFollowsCursorPagination() async throws {
+    let database = try temporaryRequestRunnerDatabase()
+    try insertRequestRunnerPluginFixture(database, pluginID: "com.status.cursor", accountID: "acct_cursor", jobID: "job_cursor")
+    let store = StatusPersistenceStore(database: database)
+    let firstURL = try #require(URL(string: "https://api.example.test/items"))
+    let secondURL = try #require(URL(string: "https://api.example.test/items?pageToken=next-token"))
+    let transport = FakePluginRequestTransport(responses: [
+        firstURL: PluginHTTPResponse(
+            data: Data("""
+            {
+              "items": [{ "id": "item-1", "name": "First" }],
+              "nextPageToken": "next-token"
+            }
+            """.utf8),
+            statusCode: 200,
+            url: firstURL
+        ),
+        secondURL: PluginHTTPResponse(
+            data: Data("""
+            {
+              "items": [{ "id": "item-2", "name": "Second" }],
+              "nextPageToken": null
+            }
+            """.utf8),
+            statusCode: 200,
+            url: secondURL
+        )
+    ])
+    let runner = PluginRequestJobRunner(
+        transport: transport,
+        committer: PluginMappingOutputCommitter(store: store)
+    )
+
+    let result = try await runner.run(
+        definition: cursorPaginationDefinition(),
+        input: PluginRequestJobInput(
+            pluginID: "com.status.cursor",
+            accountID: "acct_cursor",
+            provider: "com.status.cursor",
+            requestID: "list_items",
+            jobID: "job_cursor",
+            capturedAt: Date(timeIntervalSince1970: 1_783_433_520)
+        )
+    )
+
+    #expect(result.mappingOutput.resources.map(\.resource.id) == ["acct_cursor:item-1", "acct_cursor:item-2"])
+    #expect(try store.resource(id: "acct_cursor:item-2")?.name == "Second")
+}
+
+@Test func pluginRequestJobRunnerFollowsPageNumberPaginationUntilEmptyItems() async throws {
+    let database = try temporaryRequestRunnerDatabase()
+    try insertRequestRunnerPluginFixture(database, pluginID: "com.status.pages", accountID: "acct_pages", jobID: "job_pages")
+    let store = StatusPersistenceStore(database: database)
+    let firstURL = try #require(URL(string: "https://api.example.test/items?page=1"))
+    let secondURL = try #require(URL(string: "https://api.example.test/items?page=2"))
+    let thirdURL = try #require(URL(string: "https://api.example.test/items?page=3"))
+    let transport = FakePluginRequestTransport(responses: [
+        firstURL: PluginHTTPResponse(
+            data: Data("""
+            { "items": [{ "id": "item-1", "name": "First" }] }
+            """.utf8),
+            statusCode: 200,
+            url: firstURL
+        ),
+        secondURL: PluginHTTPResponse(
+            data: Data("""
+            { "items": [{ "id": "item-2", "name": "Second" }] }
+            """.utf8),
+            statusCode: 200,
+            url: secondURL
+        ),
+        thirdURL: PluginHTTPResponse(
+            data: Data("""
+            { "items": [] }
+            """.utf8),
+            statusCode: 200,
+            url: thirdURL
+        )
+    ])
+    let runner = PluginRequestJobRunner(
+        transport: transport,
+        committer: PluginMappingOutputCommitter(store: store)
+    )
+
+    let result = try await runner.run(
+        definition: pageNumberPaginationDefinition(),
+        input: PluginRequestJobInput(
+            pluginID: "com.status.pages",
+            accountID: "acct_pages",
+            provider: "com.status.pages",
+            requestID: "list_items",
+            jobID: "job_pages",
+            capturedAt: Date(timeIntervalSince1970: 1_783_433_520)
+        )
+    )
+
+    #expect(result.request.url == firstURL)
+    #expect(result.mappingOutput.resources.map(\.resource.id) == ["acct_pages:item-1", "acct_pages:item-2"])
+    #expect(try store.resource(id: "acct_pages:item-1")?.name == "First")
+    #expect(try store.resource(id: "acct_pages:item-2")?.name == "Second")
+}
+
 @Test func pluginRequestJobRunnerRendersJSONRequestBody() async throws {
     let database = try temporaryRequestRunnerDatabase()
     try insertRequestRunnerPluginFixture(database, pluginID: "com.status.github", accountID: "acct_gh", jobID: "job_issue")
@@ -249,6 +351,53 @@ private func appStoreConnectDefinition() -> PluginPackageDefinition {
             )
         ])
     )
+}
+
+private func cursorPaginationDefinition() -> PluginPackageDefinition {
+    PluginPackageDefinition(
+        requests: PackagedPluginRequests(requests: [
+            "list_items": PackagedPluginRequest(
+                url: "https://api.example.test/items",
+                pagination: PackagedPluginRequestPagination(
+                    type: "cursor",
+                    cursorPath: "$.nextPageToken",
+                    param: "pageToken",
+                    maxPages: 5
+                )
+            )
+        ]),
+        mappings: itemListMappings(requestID: "list_items")
+    )
+}
+
+private func pageNumberPaginationDefinition() -> PluginPackageDefinition {
+    PluginPackageDefinition(
+        requests: PackagedPluginRequests(requests: [
+            "list_items": PackagedPluginRequest(
+                url: "https://api.example.test/items",
+                pagination: PackagedPluginRequestPagination(
+                    type: "page-number",
+                    param: "page",
+                    start: 1,
+                    itemsPath: "$.items",
+                    maxPages: 5
+                )
+            )
+        ]),
+        mappings: itemListMappings(requestID: "list_items")
+    )
+}
+
+private func itemListMappings(requestID: String) -> PackagedPluginMappings {
+    PackagedPluginMappings(resources: [
+        PackagedResourceMapping(
+            type: "item",
+            request: requestID,
+            source: "$.items[*]",
+            id: "$.id",
+            name: "$.name"
+        )
+    ])
 }
 
 private func githubIssueDefinition() -> PluginPackageDefinition {

@@ -180,8 +180,9 @@ public final class PluginRequestJobRunner {
             return payload
         }
 
-        var nextURL = try paginationNextURL(from: payload, pagination: pagination, originalURL: request.url)
-        let maxPages = max(1, pagination.maxPages ?? 1)
+        var state = PaginationState(currentPage: pagination.start ?? 1)
+        var nextURL = try paginationNextURL(from: payload, pagination: pagination, originalURL: request.url, state: &state)
+        let maxPages = max(1, min(pagination.maxPages ?? 20, 100))
         var fetchedPages = 1
         while let url = nextURL, fetchedPages < maxPages {
             let pageRequest = PluginHTTPRequest(
@@ -194,7 +195,7 @@ public final class PluginRequestJobRunner {
             let pagePayload = decodePayload(response: pageResponse, variables: variables)
             payload = payload.mergingTopLevelArrays(from: pagePayload)
             fetchedPages += 1
-            nextURL = try paginationNextURL(from: pagePayload, pagination: pagination, originalURL: request.url)
+            nextURL = try paginationNextURL(from: pagePayload, pagination: pagination, originalURL: request.url, state: &state)
         }
         return payload
     }
@@ -211,6 +212,11 @@ public final class PluginRequestJobRunner {
             .sorted { $0.key < $1.key }
             .map { URLQueryItem(name: $0.key, value: MappingTemplateRenderer.render($0.value, context: context)) }
         components.queryItems = (existingQueryItems + queryItems).isEmpty ? nil : existingQueryItems + queryItems
+        if isPageNumberPagination(definition.pagination),
+           let param = definition.pagination?.param,
+           param.isEmpty == false {
+            components = components.replacingQueryItem(name: param, value: String(definition.pagination?.start ?? 1))
+        }
         guard let url = components.url else {
             throw PluginRequestJobRunnerError.invalidURL(renderedURL)
         }
@@ -273,7 +279,8 @@ public final class PluginRequestJobRunner {
     private func paginationNextURL(
         from payload: MappingJSONValue,
         pagination: PackagedPluginRequestPagination,
-        originalURL: URL
+        originalURL: URL,
+        state: inout PaginationState
     ) throws -> URL? {
         switch pagination.type {
         case "jsonapi-next-link", "next-link":
@@ -288,13 +295,76 @@ public final class PluginRequestJobRunner {
                 throw PluginRequestJobRunnerError.invalidPaginationURL(value)
             }
             return url
+        case "cursor":
+            guard let param = pagination.param, param.isEmpty == false else {
+                return nil
+            }
+            let path = pagination.cursorPath ?? pagination.path
+            guard let path,
+                  let cursor = try MappingSelector(path).resolve(in: payload)?.scalarString,
+                  cursor.isEmpty == false,
+                  cursor != state.previousCursor else {
+                return nil
+            }
+            state.previousCursor = cursor
+            return try originalURL.withQueryItem(name: param, value: cursor)
+        case "page-number", "page":
+            guard let param = pagination.param, param.isEmpty == false else {
+                return nil
+            }
+            if let itemsPath = pagination.itemsPath,
+               try MappingSelector(itemsPath).resolve(in: payload)?.isEmptyArray != false {
+                return nil
+            }
+            state.currentPage += 1
+            return try originalURL.withQueryItem(name: param, value: String(state.currentPage))
         default:
             return nil
         }
     }
+
+    private func isPageNumberPagination(_ pagination: PackagedPluginRequestPagination?) -> Bool {
+        pagination?.type == "page-number" || pagination?.type == "page"
+    }
+}
+
+private struct PaginationState {
+    var previousCursor: String?
+    var currentPage: Int
+}
+
+private extension URL {
+    func withQueryItem(name: String, value: String) throws -> URL {
+        guard var components = URLComponents(url: self, resolvingAgainstBaseURL: false) else {
+            throw PluginRequestJobRunnerError.invalidURL(absoluteString)
+        }
+        components = components.replacingQueryItem(name: name, value: value)
+        guard let url = components.url else {
+            throw PluginRequestJobRunnerError.invalidURL(absoluteString)
+        }
+        return url
+    }
+}
+
+private extension URLComponents {
+    func replacingQueryItem(name: String, value: String) -> URLComponents {
+        var copy = self
+        var items = copy.queryItems ?? []
+        items.removeAll { $0.name == name }
+        items.append(URLQueryItem(name: name, value: value))
+        copy.queryItems = items.isEmpty ? nil : items
+        return copy
+    }
 }
 
 private extension MappingJSONValue {
+    var isEmptyArray: Bool {
+        if case .array(let values) = self {
+            return values.isEmpty
+        }
+        return false
+    }
+
     func mergingObjectFields(_ fields: [String: MappingJSONValue]) -> MappingJSONValue {
         guard case .object(var object) = self else { return self }
         for (key, value) in fields {
