@@ -529,14 +529,44 @@ public enum PackagedMappingCondition: Decodable, Equatable, Sendable {
 
 public enum PackagedEventSeverity: Decodable, Equatable, Sendable {
     case fixed(Severity)
+    case mapped(PackagedEventSeverityMap)
 
     public init(_ severity: Severity) {
         self = .fixed(severity)
     }
 
     public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        self = .fixed(try container.decode(Severity.self))
+        if let container = try? decoder.singleValueContainer(),
+           let severity = try? container.decode(Severity.self) {
+            self = .fixed(severity)
+            return
+        }
+        self = .mapped(try PackagedEventSeverityMap(from: decoder))
+    }
+}
+
+public struct PackagedEventSeverityMap: Decodable, Equatable, Sendable {
+    public var path: String
+    public var map: [String: Severity]
+    public var defaultSeverity: Severity
+
+    enum CodingKeys: String, CodingKey {
+        case path
+        case map
+        case defaultSeverity = "default"
+    }
+
+    public init(path: String, map: [String: Severity], defaultSeverity: Severity) {
+        self.path = path
+        self.map = map
+        self.defaultSeverity = defaultSeverity
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        path = try container.decode(String.self, forKey: .path)
+        map = try container.decode([String: Severity].self, forKey: .map)
+        defaultSeverity = try container.decode(Severity.self, forKey: .defaultSeverity)
     }
 }
 

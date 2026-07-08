@@ -82,7 +82,10 @@
         "title": { "$ref": "#/$defs/templateString" },
         "summary": { "$ref": "#/$defs/templateString" },
         "severity": {
-          "enum": ["ok", "notice", "warning", "critical"],
+          "oneOf": [
+            { "$ref": "#/$defs/severity" },
+            { "$ref": "#/$defs/severityMap" }
+          ],
           "description": "Severity for emitted events. Defaults to the event's defaultSeverity in events.json."
         },
         "actionUrl": { "$ref": "#/$defs/templateString" },
@@ -131,6 +134,23 @@
       "type": "string",
       "minLength": 1,
       "description": "Opaque condition expression. Grammar is defined in docs/16-mapping-language.md."
+    },
+    "severity": {
+      "enum": ["ok", "notice", "warning", "critical"]
+    },
+    "severityMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "map", "default"],
+      "properties": {
+        "path": { "$ref": "#/$defs/selector" },
+        "map": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/$defs/severity" }
+        },
+        "default": { "$ref": "#/$defs/severity" }
+      }
     },
     "templateString": {
       "type": "string",

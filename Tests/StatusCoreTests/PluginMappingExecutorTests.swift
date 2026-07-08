@@ -154,6 +154,54 @@ import Testing
     #expect(output.events[0].timestamp == ISO8601DateFormatter().date(from: "2026-07-07T20:15:30Z"))
 }
 
+@Test func pluginMappingExecutorMapsEventSeverityFromPayloadValue() throws {
+    let mappings = PackagedPluginMappings(events: [
+        PackagedEventMapping(
+            type: "app.review.state_changed",
+            request: "list_app_store_versions",
+            source: "$.data[*]",
+            resourceID: "$.relationships.app.data.id",
+            title: "Review state changed",
+            summary: "{{attributes.appStoreState}}",
+            severity: .mapped(PackagedEventSeverityMap(
+                path: "$.attributes.appStoreState",
+                map: [
+                    "IN_REVIEW": .notice,
+                    "REJECTED": .critical
+                ],
+                defaultSeverity: .warning
+            ))
+        )
+    ])
+    let output = try PluginMappingExecutor.execute(
+        mappings,
+        input: PluginMappingExecutionInput(
+            pluginID: "com.status.appstoreconnect",
+            accountID: "acct_asc",
+            provider: "com.status.appstoreconnect",
+            requestID: "list_app_store_versions",
+            payload: decodeMappingJSON("""
+            {
+              "data": [
+                {
+                  "attributes": { "appStoreState": "REJECTED" },
+                  "relationships": { "app": { "data": { "id": "app-1" } } }
+                },
+                {
+                  "attributes": { "appStoreState": "WAITING_FOR_REVIEW" },
+                  "relationships": { "app": { "data": { "id": "app-2" } } }
+                }
+              ]
+            }
+            """),
+            capturedAt: Date(timeIntervalSince1970: 1_783_433_520)
+        )
+    )
+
+    #expect(output.events.map(\.resourceID) == ["acct_asc:app-1", "acct_asc:app-2"])
+    #expect(output.events.map(\.severity) == [.critical, .warning])
+}
+
 @Test func pluginMappingExecutorMapsNumericMetrics() throws {
     let mappings = PackagedPluginMappings(metrics: [
         PackagedMetricMapping(

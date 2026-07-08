@@ -175,7 +175,7 @@ public enum PluginMappingExecutor {
             let actionURLString = try mapping.actionURL.flatMap { try expression($0, item: item, context: context) }
             let timestampString = try mapping.timestamp.flatMap { try expression($0, item: item, context: context) }
             let timestamp = timestampString.flatMap(parseDate) ?? input.capturedAt
-            let severity = fixedSeverity(mapping.severity)
+            let severity = try resolveSeverity(mapping.severity, item: item)
             let fingerprint = EventFingerprint.make(
                 EventFingerprintInput(
                     provider: input.provider,
@@ -357,10 +357,15 @@ public enum PluginMappingExecutor {
         }
     }
 
-    private static func fixedSeverity(_ severity: PackagedEventSeverity) -> Severity {
+    private static func resolveSeverity(_ severity: PackagedEventSeverity, item: MappingJSONValue) throws -> Severity {
         switch severity {
         case .fixed(let severity):
-            severity
+            return severity
+        case .mapped(let map):
+            guard let value = try MappingSelector(map.path).resolve(in: item)?.scalarString else {
+                return map.defaultSeverity
+            }
+            return map.map[value] ?? map.defaultSeverity
         }
     }
 
