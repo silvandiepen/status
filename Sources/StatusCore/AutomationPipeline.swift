@@ -27,7 +27,7 @@ public final class AutomationPipeline {
         self.effectDispatcher = effectDispatcher
     }
 
-    public func process(event: Event, rules: [Rule]) throws -> AutomationPipelineResult {
+    public func process(event: Event, rules: [Rule]) async throws -> AutomationPipelineResult {
         let matches = RuleEngine.matchingRules(for: event, rules: rules)
         var actionResults: [ActionExecutionResult] = []
         let cursor = actionRunner.effects.cursor()
@@ -39,7 +39,12 @@ public final class AutomationPipeline {
                 actionResults.append(result)
             }
         }
-        try effectDispatcher.dispatch(actionRunner.effects.effects(since: cursor))
+        do {
+            try await effectDispatcher.dispatch(actionRunner.effects.effects(since: cursor))
+        } catch let failure as ActionEffectDispatchFailure {
+            try recordDispatchFailure(failure)
+            throw failure
+        }
 
         return AutomationPipelineResult(
             eventID: event.id,
@@ -48,8 +53,30 @@ public final class AutomationPipeline {
         )
     }
 
-    public func processStoredRules(for event: Event) throws -> AutomationPipelineResult {
-        try process(event: event, rules: store.rules(eventType: event.type))
+    public func processStoredRules(for event: Event) async throws -> AutomationPipelineResult {
+        try await process(event: event, rules: store.rules(eventType: event.type))
+    }
+
+    private func recordDispatchFailure(_ failure: ActionEffectDispatchFailure) throws {
+        guard var actionRun = try store.actionRun(id: failure.actionRunID) else {
+            return
+        }
+        let finishedAt = Date()
+        actionRun.status = .failed
+        actionRun.error = failure.message
+        actionRun.finishedAt = finishedAt
+        try store.upsertActionRun(actionRun)
+        try store.insertAuditEntry(
+            AuditEntry(
+                id: "aud_\(actionRun.id)",
+                title: "Action failed",
+                detail: "Runtime effect dispatch failed for \(actionRun.action). \(failure.message)",
+                timestamp: finishedAt,
+                status: "failed",
+                eventID: actionRun.eventID,
+                actionRunID: actionRun.id
+            )
+        )
     }
 
     private func reviewPermissionGranted(rule: Rule, action: RuleActionDefinition) -> Bool {

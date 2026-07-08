@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import StatusCore
 
-@Test func automationPipelineRunsMatchingRuleAndPersistsActionAuditTrail() throws {
+@Test func automationPipelineRunsMatchingRuleAndPersistsActionAuditTrail() async throws {
     let database = try temporaryDatabase()
     try StatusDatabaseMigrator.migrate(database)
     let store = StatusPersistenceStore(database: database)
@@ -25,7 +25,7 @@ import Testing
     let dispatcher = RecordingActionEffectDispatcher()
     let pipeline = AutomationPipeline(store: store, actionRunner: runner, effectDispatcher: dispatcher)
 
-    let result = try pipeline.process(event: event, rules: [rule])
+    let result = try await pipeline.process(event: event, rules: [rule])
 
     let actionRun = try #require(result.actionResults.first?.actionRun)
     let auditEntry = try #require(result.actionResults.first?.auditEntry)
@@ -40,7 +40,7 @@ import Testing
     ])
 }
 
-@Test func automationPipelineIgnoresRulesThatDoNotMatch() throws {
+@Test func automationPipelineIgnoresRulesThatDoNotMatch() async throws {
     let database = try temporaryDatabase()
     try StatusDatabaseMigrator.migrate(database)
     let store = StatusPersistenceStore(database: database)
@@ -56,14 +56,14 @@ import Testing
     )
     let pipeline = AutomationPipeline(store: store)
 
-    let result = try pipeline.process(event: event, rules: [rule])
+    let result = try await pipeline.process(event: event, rules: [rule])
 
     #expect(result.matches.isEmpty)
     #expect(result.actionResults.isEmpty)
     #expect(try store.auditEntryCount() == 0)
 }
 
-@Test func automationPipelineDeniesReviewRequiredActionWithoutWriteGrant() throws {
+@Test func automationPipelineDeniesReviewRequiredActionWithoutWriteGrant() async throws {
     let database = try temporaryDatabase()
     try StatusDatabaseMigrator.migrate(database)
     let store = StatusPersistenceStore(database: database)
@@ -74,7 +74,7 @@ import Testing
         actionRunner: ActionRunner(now: { Date(timeIntervalSince1970: 1_783_433_530) })
     )
 
-    let result = try pipeline.process(event: event, rules: [rule])
+    let result = try await pipeline.process(event: event, rules: [rule])
 
     let actionRun = try #require(result.actionResults.first?.actionRun)
     #expect(actionRun.status == .denied)
@@ -82,7 +82,7 @@ import Testing
     #expect(try store.auditEntry(id: "aud_\(actionRun.id)")?.status == "denied")
 }
 
-@Test func automationPipelineDispatchesWebhookWhenWriteGrantExists() throws {
+@Test func automationPipelineDispatchesWebhookWhenWriteGrantExists() async throws {
     let database = try temporaryDatabase()
     try StatusDatabaseMigrator.migrate(database)
     let store = StatusPersistenceStore(database: database)
@@ -98,7 +98,7 @@ import Testing
         effectDispatcher: dispatcher
     )
 
-    let result = try pipeline.process(event: event, rules: [rule])
+    let result = try await pipeline.process(event: event, rules: [rule])
 
     let actionRun = try #require(result.actionResults.first?.actionRun)
     let webhookURL = try #require(URL(string: "https://example.com/hooks/status"))
@@ -119,11 +119,40 @@ import Testing
                         "resource_name": event.resourceName,
                         "severity": event.severity.rawValue,
                         "timestamp": iso8601String(from: event.timestamp)
-                    ]
+                    ],
+                    actionRunID: actionRun.id
                 )
             ]
         )
     ])
+}
+
+@Test func automationPipelineMarksWebhookActionFailedWhenDispatchFails() async throws {
+    let database = try temporaryDatabase()
+    try StatusDatabaseMigrator.migrate(database)
+    let store = StatusPersistenceStore(database: database)
+    let event = workflowFailedEvent(provider: "com.status.github")
+    let rule = webhookRule(provider: "com.status.github")
+    let now = Date(timeIntervalSince1970: 1_783_433_530)
+    try installActionPlugin(provider: "com.status.github", store: store, at: now)
+    try store.setPluginPermission(pluginID: "com.status.github", permission: .writeActions, granted: true, grantedAt: now)
+    let pipeline = AutomationPipeline(
+        store: store,
+        actionRunner: ActionRunner(now: { now }),
+        effectDispatcher: FailingActionEffectDispatcher(message: "Webhook endpoint returned 500.")
+    )
+
+    await #expect(throws: ActionEffectDispatchFailure.self) {
+        _ = try await pipeline.process(event: event, rules: [rule])
+    }
+
+    let actionRunID = "run_rul_webhook_evt_01workflowfailed_0"
+    let actionRun = try #require(try store.actionRun(id: actionRunID))
+    let audit = try #require(try store.auditEntry(id: "aud_\(actionRunID)"))
+    #expect(actionRun.status == .failed)
+    #expect(actionRun.error == "Webhook endpoint returned 500.")
+    #expect(audit.status == "failed")
+    #expect(audit.detail == "Runtime effect dispatch failed for webhook.post. Webhook endpoint returned 500.")
 }
 
 @Test func actionWebhookRequestBuilderCreatesJSONPostRequest() throws {
@@ -149,7 +178,18 @@ import Testing
     #expect(decoded == ["event_id": "evt_01", "severity": "warning"])
 }
 
-@Test func automationPipelineCanEvaluateStoredRules() throws {
+private struct FailingActionEffectDispatcher: ActionEffectDispatcher {
+    var message: String
+
+    func dispatch(_ effects: ActionRuntimeEffects) async throws {
+        guard let actionRunID = effects.webhooks.first?.actionRunID else {
+            return
+        }
+        throw ActionEffectDispatchFailure(actionRunID: actionRunID, message: message)
+    }
+}
+
+@Test func automationPipelineCanEvaluateStoredRules() async throws {
     let database = try temporaryDatabase()
     try StatusDatabaseMigrator.migrate(database)
     let store = StatusPersistenceStore(database: database)
@@ -171,7 +211,7 @@ import Testing
         actionRunner: ActionRunner(now: { Date(timeIntervalSince1970: 1_783_433_530) })
     )
 
-    let result = try pipeline.processStoredRules(for: event)
+    let result = try await pipeline.processStoredRules(for: event)
 
     #expect(result.matches.map(\.rule.id) == ["rul_notify"])
     #expect(result.actionResults.first?.actionRun.action == "notification.show")

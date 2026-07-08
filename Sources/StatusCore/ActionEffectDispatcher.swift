@@ -1,13 +1,27 @@
 import Foundation
 
 public protocol ActionEffectDispatcher: Sendable {
-    func dispatch(_ effects: ActionRuntimeEffects) throws
+    func dispatch(_ effects: ActionRuntimeEffects) async throws
 }
 
 public struct NoopActionEffectDispatcher: ActionEffectDispatcher {
     public init() {}
 
-    public func dispatch(_ effects: ActionRuntimeEffects) throws {}
+    public func dispatch(_ effects: ActionRuntimeEffects) async throws {}
+}
+
+public struct ActionEffectDispatchFailure: Error, Equatable, LocalizedError, Sendable {
+    public var actionRunID: String
+    public var message: String
+
+    public init(actionRunID: String, message: String) {
+        self.actionRunID = actionRunID
+        self.message = message
+    }
+
+    public var errorDescription: String? {
+        message
+    }
 }
 
 public final class RecordingActionEffectDispatcher: ActionEffectDispatcher, @unchecked Sendable {
@@ -15,7 +29,7 @@ public final class RecordingActionEffectDispatcher: ActionEffectDispatcher, @unc
 
     public init() {}
 
-    public func dispatch(_ effects: ActionRuntimeEffects) throws {
+    public func dispatch(_ effects: ActionRuntimeEffects) async throws {
         dispatchedEffects.append(effects)
     }
 }

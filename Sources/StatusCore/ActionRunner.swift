@@ -118,8 +118,8 @@ public struct ActionRuntimeEffects: Equatable, Sendable {
         auditNotes.append(note)
     }
 
-    fileprivate mutating func recordWebhook(url: URL, payload: [String: String]) {
-        webhooks.append(ActionRuntimeWebhook(url: url, payload: payload))
+    fileprivate mutating func recordWebhook(url: URL, payload: [String: String], actionRunID: String) {
+        webhooks.append(ActionRuntimeWebhook(url: url, payload: payload, actionRunID: actionRunID))
     }
 }
 
@@ -152,10 +152,12 @@ public struct ActionRuntimeNotification: Equatable, Sendable {
 public struct ActionRuntimeWebhook: Equatable, Sendable {
     public var url: URL
     public var payload: [String: String]
+    public var actionRunID: String?
 
-    public init(url: URL, payload: [String: String]) {
+    public init(url: URL, payload: [String: String], actionRunID: String? = nil) {
         self.url = url
         self.payload = payload
+        self.actionRunID = actionRunID
     }
 }
 
@@ -219,7 +221,7 @@ public final class ActionRunner {
                 break
             }
             do {
-                result = try performReviewRequiredAction(definition, event: event)
+                result = try performReviewRequiredAction(definition, event: event, actionRunID: runID)
             } catch let actionError as ActionRunnerError {
                 status = .unsupported
                 error = actionError.errorDescription
@@ -280,7 +282,11 @@ public final class ActionRunner {
         }
     }
 
-    private func performReviewRequiredAction(_ definition: RuleActionDefinition, event: Event) throws -> [String: String] {
+    private func performReviewRequiredAction(
+        _ definition: RuleActionDefinition,
+        event: Event,
+        actionRunID: String
+    ) throws -> [String: String] {
         switch definition.action {
         case "webhook.post":
             let urlString = definition.parameters["url"]
@@ -288,7 +294,7 @@ public final class ActionRunner {
                 throw ActionRunnerError.missingURL
             }
             let payload = webhookPayload(definition: definition, event: event)
-            effects.recordWebhook(url: url, payload: payload)
+            effects.recordWebhook(url: url, payload: payload, actionRunID: actionRunID)
             return ["url": url.absoluteString]
         default:
             throw ActionRunnerError.unsupportedReviewRequiredAction(definition.action)

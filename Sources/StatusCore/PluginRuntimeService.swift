@@ -359,7 +359,7 @@ public final class PluginRuntimeService: @unchecked Sendable {
                 try store.insertJobAuditEntry(for: job, timestamp: request.now)
             }
             try recordTriggerSuccess(triggerID: triggerID, at: request.now)
-            try processAutomation(for: result)
+            try await processAutomation(for: result)
             return result
         } catch {
             try store.upsertJob(
@@ -440,7 +440,7 @@ public final class PluginRuntimeService: @unchecked Sendable {
         )
     }
 
-    private func processAutomation(for result: PluginRequestJobResult) throws {
+    private func processAutomation(for result: PluginRequestJobResult) async throws {
         let insertedEventIDs = result.commitResult.eventResults.compactMap { ingestionResult -> String? in
             guard case .inserted(let eventID, _) = ingestionResult else {
                 return nil
@@ -456,7 +456,7 @@ public final class PluginRuntimeService: @unchecked Sendable {
             effectDispatcher: effectDispatcher
         )
         for event in result.mappingOutput.events where insertedEventIDs.contains(event.id) {
-            _ = try pipeline.processStoredRules(for: event)
+            _ = try await pipeline.processStoredRules(for: event)
         }
     }
 

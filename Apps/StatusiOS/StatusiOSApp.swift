@@ -308,25 +308,30 @@ private struct IOSRootView: View {
 }
 
 private struct IOSActionEffectDispatcher: ActionEffectDispatcher {
-    func dispatch(_ effects: ActionRuntimeEffects) throws {
+    func dispatch(_ effects: ActionRuntimeEffects) async throws {
         for notification in effects.notifications {
             deliver(notification)
         }
         for url in effects.openedURLs {
-            Task { @MainActor in
+            await MainActor.run {
                 UIApplication.shared.open(url)
             }
         }
         for webhook in effects.webhooks {
-            Task {
-                try? await post(webhook)
-            }
+            try await post(webhook)
         }
     }
 
     private func post(_ webhook: ActionRuntimeWebhook) async throws {
-        let request = try ActionWebhookRequestBuilder().request(for: webhook)
-        _ = try await URLSessionPluginRequestTransport().response(for: request)
+        do {
+            let request = try ActionWebhookRequestBuilder().request(for: webhook)
+            _ = try await URLSessionPluginRequestTransport().response(for: request)
+        } catch {
+            if let actionRunID = webhook.actionRunID {
+                throw ActionEffectDispatchFailure(actionRunID: actionRunID, message: error.localizedDescription)
+            }
+            throw error
+        }
     }
 
     private func deliver(_ notification: ActionRuntimeNotification) {
