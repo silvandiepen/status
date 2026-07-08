@@ -950,8 +950,8 @@ public final class StatusPersistenceStore {
         try database.execute(
             """
             INSERT OR REPLACE INTO plugin_versions
-            (id, plugin_id, version, min_core_version, platforms_json, domains_json, sha256, signature, manifest_json, package_path, revoked, installed_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+            (id, plugin_id, version, min_core_version, platforms_json, domains_json, sha256, signed_by, signature, manifest_json, package_path, revoked, installed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
             """,
             bindings: [
                 .text(pluginVersionID(pluginID: record.manifest.id, version: record.manifest.version)),
@@ -961,6 +961,7 @@ public final class StatusPersistenceStore {
                 .text(try jsonString(record.manifest.platforms.map(\.rawValue))),
                 .text(try jsonString(record.manifest.domains)),
                 .text(record.verification.sha256),
+                .text(record.verification.signedBy),
                 record.signature.map { .text($0) } ?? .null,
                 .text(try jsonString(record.manifest)),
                 record.packagePath.map { .text($0) } ?? .null,
@@ -1031,6 +1032,7 @@ public final class StatusPersistenceStore {
             revocations.revokedPlugins.contains(version.pluginID)
                 || revocations.revokedVersions.contains { $0.pluginId == version.pluginID && $0.version == version.version }
                 || revocations.revokedHashes.contains(version.sha256)
+                || version.signedBy.map { revocations.revokedSigningKeys.contains($0) } == true
         }
         let disabledPluginIDs = Array(Set(matchingVersions.map(\.pluginID))).sorted()
         guard matchingVersions.isEmpty == false else {
@@ -1271,6 +1273,7 @@ public final class StatusPersistenceStore {
             platforms: platforms,
             domains: domains,
             sha256: row.requiredText("sha256"),
+            signedBy: row.optionalText("signed_by"),
             signature: row.optionalText("signature"),
             manifest: manifest,
             packagePath: row.optionalText("package_path"),

@@ -1,7 +1,7 @@
 import Foundation
 
 public enum StatusDatabaseMigrator {
-    public static let currentUserVersion = 2
+    public static let currentUserVersion = 3
 
     public static func migrate(_ database: SQLiteDatabase) throws {
         try database.executeBatch("""
@@ -11,12 +11,33 @@ public enum StatusDatabaseMigrator {
         """)
 
         let userVersion = try database.query("PRAGMA user_version").first?["user_version"]
-        guard userVersion != .integer(Int64(currentUserVersion)) else {
+        let numericUserVersion = userVersion?.integerValue ?? 0
+        guard numericUserVersion != currentUserVersion else {
             return
         }
 
         try database.executeBatch(schemaV0)
+        if numericUserVersion > 0 && numericUserVersion < 3 {
+            try addColumnIfMissing(
+                database,
+                table: "plugin_versions",
+                column: "signed_by",
+                definition: "TEXT"
+            )
+        }
         try database.executeBatch("PRAGMA user_version = \(currentUserVersion);")
+    }
+
+    private static func addColumnIfMissing(
+        _ database: SQLiteDatabase,
+        table: String,
+        column: String,
+        definition: String
+    ) throws {
+        let columns = try database.query("PRAGMA table_info('\(table)')")
+            .compactMap { row in row["name"]?.textValue }
+        guard columns.contains(column) == false else { return }
+        try database.execute("ALTER TABLE \(table) ADD COLUMN \(column) \(definition)")
     }
 
     private static let schemaV0 = """
@@ -45,6 +66,7 @@ public enum StatusDatabaseMigrator {
       platforms_json   TEXT NOT NULL,
       domains_json     TEXT NOT NULL,
       sha256           TEXT NOT NULL,
+      signed_by        TEXT,
       signature        TEXT,
       manifest_json    TEXT NOT NULL,
       package_path     TEXT,

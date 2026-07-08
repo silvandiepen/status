@@ -50,6 +50,38 @@ import Testing
     #expect(columns.contains("secret") == false)
 }
 
+@Test func migrationAddsPluginVersionSigningKeyColumn() throws {
+    let database = try temporaryDatabase()
+    try database.execute(
+        """
+        CREATE TABLE plugin_versions (
+          id TEXT PRIMARY KEY,
+          plugin_id TEXT NOT NULL,
+          version TEXT NOT NULL,
+          min_core_version TEXT NOT NULL,
+          platforms_json TEXT NOT NULL,
+          domains_json TEXT NOT NULL,
+          sha256 TEXT NOT NULL,
+          signature TEXT,
+          manifest_json TEXT NOT NULL,
+          package_path TEXT,
+          revoked INTEGER NOT NULL DEFAULT 0,
+          installed_at TEXT NOT NULL
+        )
+        """
+    )
+    try database.executeBatch("PRAGMA user_version = 2;")
+
+    try StatusDatabaseMigrator.migrate(database)
+
+    let columns = try database.query("PRAGMA table_info('plugin_versions')")
+        .map { try $0.requiredText("name") }
+    let userVersion = try database.query("PRAGMA user_version").first?["user_version"]
+
+    #expect(columns.contains("signed_by"))
+    #expect(userVersion == .integer(Int64(StatusDatabaseMigrator.currentUserVersion)))
+}
+
 @Test func eventStatusItemAndAuditEntryRoundTripThroughSQLite() throws {
     let database = try temporaryDatabase()
     try StatusDatabaseMigrator.migrate(database)
@@ -409,6 +441,7 @@ import Testing
     #expect(try store.installedPlugins().map(\.id) == [manifest.id])
     #expect(try store.installedPluginVersions(pluginID: manifest.id).first?.manifest == manifest)
     #expect(try store.installedPluginVersions(pluginID: manifest.id).first?.sha256 == verification.sha256)
+    #expect(try store.installedPluginVersions(pluginID: manifest.id).first?.signedBy == verification.signedBy)
     #expect(try store.pluginPermissions(pluginID: manifest.id).map(\.permission) == [.backgroundRefresh, .network])
     #expect(try store.pluginPermissions(pluginID: manifest.id).allSatisfy { $0.granted == false })
 
@@ -474,6 +507,59 @@ import Testing
     #expect(try store.installedPlugin(id: manifest.id)?.enabled == false)
     #expect(try store.installedPluginVersions(pluginID: manifest.id).first?.revoked == true)
     #expect(try store.auditEntry(id: "aud_plugin_com_status_github_revoked")?.status == "revoked")
+}
+
+@Test func pluginSigningKeyRevocationDisablesInstalledPlugin() throws {
+    let database = try temporaryDatabase()
+    try StatusDatabaseMigrator.migrate(database)
+    let store = StatusPersistenceStore(database: database)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let manifest = PluginManifest(
+        id: "com.status.github",
+        name: "GitHub",
+        version: "0.1.0",
+        author: "Status Foundry",
+        category: "developer",
+        description: "Read-only GitHub status events.",
+        minCoreVersion: "0.1.0",
+        platforms: [.macOS, .iOS],
+        permissions: [.network],
+        domains: ["api.github.com"]
+    )
+    let verification = PluginPackageVerificationResult(
+        pluginID: manifest.id,
+        version: manifest.version,
+        sha256: "dcd4260b527a28d62ad2a956b00c4f5616416b2fdc0506e6fe5f6b616f5df5aa",
+        signedBy: "status-foundry-dev"
+    )
+    try store.installPlugin(
+        PluginInstallRecord(
+            manifest: manifest,
+            trustLevel: .official,
+            installPath: "/Application Support/Status/Plugins/com.status.github",
+            packagePath: "/Application Support/Status/Packages/com.status.github-0.1.0.statusplugin.zip",
+            verification: verification,
+            signature: "signature",
+            installedAt: now
+        )
+    )
+
+    let result = try store.applyPluginRevocations(
+        RegistryRevocationsResponse(
+            schemaVersion: "1.0.0",
+            generatedAt: now,
+            revokedPlugins: [],
+            revokedVersions: [],
+            revokedHashes: [],
+            revokedSigningKeys: [verification.signedBy]
+        ),
+        checkedAt: now.addingTimeInterval(60)
+    )
+
+    #expect(result.disabledPluginIDs == [manifest.id])
+    #expect(result.revokedVersions.map(\.signedBy) == [verification.signedBy])
+    #expect(try store.installedPlugin(id: manifest.id)?.enabled == false)
+    #expect(try store.installedPluginVersions(pluginID: manifest.id).first?.revoked == true)
 }
 
 @Test func pluginUninstallRemovesActivePluginDataAndKeepsHistory() throws {

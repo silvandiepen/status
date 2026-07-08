@@ -6,6 +6,16 @@ public enum SQLiteValue: Equatable, Sendable {
     case integer(Int64)
     case double(Double)
     case text(String)
+
+    public var integerValue: Int? {
+        guard case .integer(let value) = self else { return nil }
+        return Int(value)
+    }
+
+    public var textValue: String? {
+        guard case .text(let value) = self else { return nil }
+        return value
+    }
 }
 
 public enum PersistenceError: Error, Equatable, LocalizedError, Sendable {

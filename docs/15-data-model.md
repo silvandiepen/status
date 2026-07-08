@@ -125,7 +125,7 @@ SQLiteDatabase
 
 StatusDatabaseMigrator
 → applies schema v0
-→ sets PRAGMA user_version = 2
+→ sets PRAGMA user_version = 3
 
 StatusPersistenceStore
 → first round-trip store for events, status items, audit entries,
@@ -172,6 +172,7 @@ CREATE TABLE plugin_versions (
   platforms_json   TEXT NOT NULL,               -- ["macOS","iOS"]
   domains_json     TEXT NOT NULL,               -- declared domains, enforced by request engine
   sha256           TEXT NOT NULL,
+  signed_by        TEXT,                        -- registry signing key id used for revocation checks
   signature        TEXT,                        -- NULL only for local-dev
   manifest_json    TEXT NOT NULL,               -- full manifest as installed
   package_path     TEXT,                        -- archived package location, if kept

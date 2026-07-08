@@ -57,6 +57,7 @@ public struct InstalledPluginVersion: Codable, Equatable, Sendable, Identifiable
     public var platforms: [PluginPlatform]
     public var domains: [String]
     public var sha256: String
+    public var signedBy: String?
     public var signature: String?
     public var manifest: PluginManifest
     public var packagePath: String?
@@ -71,6 +72,7 @@ public struct InstalledPluginVersion: Codable, Equatable, Sendable, Identifiable
         platforms: [PluginPlatform],
         domains: [String],
         sha256: String,
+        signedBy: String? = nil,
         signature: String? = nil,
         manifest: PluginManifest,
         packagePath: String? = nil,
@@ -84,6 +86,7 @@ public struct InstalledPluginVersion: Codable, Equatable, Sendable, Identifiable
         self.platforms = platforms
         self.domains = domains
         self.sha256 = sha256
+        self.signedBy = signedBy
         self.signature = signature
         self.manifest = manifest
         self.packagePath = packagePath
