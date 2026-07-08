@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Testing
 @testable import StatusCore
@@ -80,7 +81,7 @@ import Testing
         packageUrl: try #require(URL(string: "https://status-registry.hakobs.com/package.zip")),
         manifestUrl: try #require(URL(string: "https://status-registry.hakobs.com/manifest.json")),
         sha256: PluginPackageVerifier.sha256Hex(packageData),
-        signature: "dev-signature",
+        signature: signatureBase64(for: packageData),
         signedBy: "status-foundry-dev",
         releasedAt: Date(timeIntervalSince1970: 1_783_433_520)
     )
@@ -141,7 +142,7 @@ import Testing
         packageUrl: try #require(URL(string: "https://status-registry.hakobs.com/package.zip")),
         manifestUrl: try #require(URL(string: "https://status-registry.hakobs.com/manifest.json")),
         sha256: PluginPackageVerifier.sha256Hex(packageData),
-        signature: "dev-signature",
+        signature: signatureBase64(for: packageData),
         signedBy: "status-foundry-dev",
         releasedAt: Date(timeIntervalSince1970: 1_783_433_520)
     )
@@ -184,6 +185,13 @@ private struct FakeRegistryMetadataProvider: PluginRegistryMetadataProvider {
     func revocations() async throws -> RegistryRevocationsResponse {
         revocations
     }
+}
+
+private func signatureBase64(for data: Data) -> String {
+    let privateKey = try! Curve25519.Signing.PrivateKey(
+        rawRepresentation: Data(base64Encoded: "cxcm0WfrqEan3cwwxBxM6BCrE5cc2y/DSJTDExN2Fpk=")!
+    )
+    return try! privateKey.signature(for: data).base64EncodedString()
 }
 
 private struct FakePackageTransport: RegistryHTTPTransport {

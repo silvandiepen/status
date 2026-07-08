@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createPrivateKey, sign } from "node:crypto";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +12,9 @@ const packageDistRoot = path.join(root, "workers", "registry", "dist", "plugins"
 const swiftBundledPluginsRoot = path.join(root, "Sources", "StatusCore", "Resources", "BundledPlugins");
 const registryBaseURL = "https://status-registry.hakobs.com";
 const checkOnly = process.argv.includes("--check");
+const devSigningPrivateKey = createPrivateKey(`-----BEGIN PRIVATE KEY-----
+MC4CAQAwBQYDK2VwBCIEIHMXJtFn66hGp93MMMQcTOgQqxOXHNsvw0iUwxMTdhaZ
+-----END PRIVATE KEY-----`);
 
 const allowedPlatforms = new Set(["macOS", "iOS"]);
 const allowedPermissions = new Set([
@@ -365,7 +368,7 @@ async function build() {
     const sha256 = createHash("sha256").update(packageData).digest("hex");
     const packagePath = `/plugins/${manifest.id}/${manifest.version}/${manifest.id}-${manifest.version}.statusplugin.zip`;
     const manifestPath = `/plugins/${manifest.id}/${manifest.version}/manifest.json`;
-    const signature = `dev-signature:${sha256}`;
+    const signature = sign(null, packageData, devSigningPrivateKey).toString("base64");
 
     artifacts[packagePath] = {
       contentType: "application/zip",

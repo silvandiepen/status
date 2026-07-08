@@ -19,6 +19,8 @@ public enum PluginPackageVerificationError: Error, Equatable, LocalizedError, Se
     case missingPluginID
     case missingSignature
     case missingSigner
+    case unknownSigningKey(String)
+    case invalidSignature
     case hashMismatch(expected: String, actual: String)
     case revokedPlugin(String)
     case revokedVersion(pluginID: String, version: String)
@@ -33,6 +35,10 @@ public enum PluginPackageVerificationError: Error, Equatable, LocalizedError, Se
             "Plugin package is missing signature material."
         case .missingSigner:
             "Plugin package is missing signer metadata."
+        case .unknownSigningKey(let keyID):
+            "Plugin signing key is not trusted: \(keyID)."
+        case .invalidSignature:
+            "Plugin package signature is invalid."
         case .hashMismatch(let expected, let actual):
             "Plugin package hash mismatch. Expected \(expected), got \(actual)."
         case .revokedPlugin(let pluginID):
@@ -62,6 +68,11 @@ public enum PluginPackageVerifier {
         guard let signedBy = version.signedBy, signedBy.isEmpty == false else {
             throw PluginPackageVerificationError.missingSigner
         }
+        guard let signatureString = version.signature,
+              let signature = Data(base64Encoded: signatureString),
+              signature.isEmpty == false else {
+            throw PluginPackageVerificationError.invalidSignature
+        }
 
         let actualHash = sha256Hex(packageData)
         let expectedHash = version.sha256.lowercased()
@@ -81,6 +92,14 @@ public enum PluginPackageVerifier {
         if revocations.revokedSigningKeys.contains(signedBy) {
             throw PluginPackageVerificationError.revokedSigningKey(signedBy)
         }
+        guard let publicKeyBytes = trustedSigningKeys[signedBy],
+              let publicKeyData = Data(base64Encoded: publicKeyBytes) else {
+            throw PluginPackageVerificationError.unknownSigningKey(signedBy)
+        }
+        let publicKey = try Curve25519.Signing.PublicKey(rawRepresentation: publicKeyData)
+        guard publicKey.isValidSignature(signature, for: packageData) else {
+            throw PluginPackageVerificationError.invalidSignature
+        }
 
         return PluginPackageVerificationResult(
             pluginID: pluginID,
@@ -93,4 +112,8 @@ public enum PluginPackageVerifier {
     public static func sha256Hex(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
+
+    private static let trustedSigningKeys: [String: String] = [
+        "status-foundry-dev": "bRCtQVjoAgF5R3LMRy6u9A1QdGiKU5pSDwjAI3acfM4="
+    ]
 }

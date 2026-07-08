@@ -43,7 +43,7 @@ test("plugin detail and versions endpoints return package metadata", async () =>
   assert.equal(version.status, 200);
   assert.equal(versionBody.pluginId, "com.status.github");
   assert.match(versionBody.packageUrl, /com\.status\.github-0\.1\.0\.statusplugin\.zip$/);
-  assert.match(versionBody.signature, /^dev-signature:/);
+  assert.match(versionBody.signature, /^[A-Za-z0-9+/]+={0,2}$/);
 });
 
 test("plugin package and manifest artifacts are downloadable and match registry hash", async () => {

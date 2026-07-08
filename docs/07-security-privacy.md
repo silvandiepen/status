@@ -129,6 +129,8 @@ Rules:
 - The pinned set is a list, so rotation works by shipping an app version that trusts both the old and new key, re-signing new packages with the new key, and later removing the old key from the pinned set.
 - A compromised key is handled by revoking its `keyId` (see revocation) and shipping an app update with the key removed.
 
+Current implementation status: `PluginPackageVerifier` verifies registry and bundled package signatures with CryptoKit Ed25519 against a pinned `status-foundry-dev` development public key. `scripts/build-plugin-packages.mjs` signs bundled/demo artifacts with the matching repository development private key so local builds and temporary registry deployments are verifiable. Production release signing must replace this development key with offline/CI custody before public distribution.
+
 ### Verification order
 
 Before installing or updating any registry package, the app verifies locally, in this order, failing closed at the first failure:

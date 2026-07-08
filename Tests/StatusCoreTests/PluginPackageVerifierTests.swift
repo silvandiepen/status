@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Testing
 @testable import StatusCore
@@ -18,6 +19,32 @@ import Testing
     #expect(result.signedBy == "status-foundry-dev")
 }
 
+@Test func packageVerifierRejectsInvalidSignature() throws {
+    let data = Data("plugin package".utf8)
+    let version = registryVersion(packageData: data, signature: Data("invalid".utf8).base64EncodedString())
+
+    #expect(throws: PluginPackageVerificationError.invalidSignature) {
+        try PluginPackageVerifier.verify(
+            packageData: data,
+            version: version,
+            revocations: emptyRevocations()
+        )
+    }
+}
+
+@Test func packageVerifierRejectsUnknownSigningKey() throws {
+    let data = Data("plugin package".utf8)
+    let version = registryVersion(packageData: data, signedBy: "unknown-key")
+
+    #expect(throws: PluginPackageVerificationError.unknownSigningKey("unknown-key")) {
+        try PluginPackageVerifier.verify(
+            packageData: data,
+            version: version,
+            revocations: emptyRevocations()
+        )
+    }
+}
+
 @Test func packageVerifierRejectsHashMismatch() throws {
     let data = Data("plugin package".utf8)
     let version = registryVersion(packageData: data, sha256: "bad")
@@ -33,7 +60,7 @@ import Testing
 
 @Test func packageVerifierRejectsMissingSignatureMetadata() throws {
     let data = Data("plugin package".utf8)
-    let version = registryVersion(packageData: data, signature: nil)
+    let version = registryVersion(packageData: data, includeSignature: false)
 
     #expect(throws: PluginPackageVerificationError.missingSignature) {
         try PluginPackageVerifier.verify(
@@ -97,7 +124,9 @@ import Testing
 private func registryVersion(
     packageData: Data,
     sha256: String? = nil,
-    signature: String? = "dev-signature"
+    signature: String? = nil,
+    includeSignature: Bool = true,
+    signedBy: String = "status-foundry-dev"
 ) -> RegistryPluginVersion {
     RegistryPluginVersion(
         pluginId: "com.status.github",
@@ -107,10 +136,17 @@ private func registryVersion(
         packageUrl: URL(string: "https://status-registry.hakobs.com/plugins/com.status.github/0.1.0/com.status.github-0.1.0.statusplugin.zip")!,
         manifestUrl: URL(string: "https://status-registry.hakobs.com/plugins/com.status.github/0.1.0/manifest.json")!,
         sha256: sha256 ?? PluginPackageVerifier.sha256Hex(packageData),
-        signature: signature,
-        signedBy: "status-foundry-dev",
+        signature: includeSignature ? (signature ?? signatureBase64(for: packageData)) : nil,
+        signedBy: signedBy,
         releasedAt: Date(timeIntervalSince1970: 1_783_433_520)
     )
+}
+
+private func signatureBase64(for data: Data) -> String {
+    let privateKey = try! Curve25519.Signing.PrivateKey(
+        rawRepresentation: Data(base64Encoded: "cxcm0WfrqEan3cwwxBxM6BCrE5cc2y/DSJTDExN2Fpk=")!
+    )
+    return try! privateKey.signature(for: data).base64EncodedString()
 }
 
 private func emptyRevocations() -> RegistryRevocationsResponse {

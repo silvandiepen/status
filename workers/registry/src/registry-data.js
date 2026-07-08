@@ -29,7 +29,7 @@ export const registry = {
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.appstoreconnect/0.1.0/com.status.appstoreconnect-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.appstoreconnect/0.1.0/manifest.json",
           "sha256": "bdb69dcccc1baaab3dbbb3f9a40b46360596815fabfccecc2270a4c59c08337a",
-          "signature": "dev-signature:bdb69dcccc1baaab3dbbb3f9a40b46360596815fabfccecc2270a4c59c08337a",
+          "signature": "qYi/WfsCr6vUeIhkGWLsu0nq0VIZXiXNYwOqbVj1XakZtc0uBhPldfpj6ka2IqQqu7lqKCrlLD2GpuQEu1vcAg==",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-07T12:00:00Z"
         }
@@ -62,7 +62,7 @@ export const registry = {
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.github/0.1.0/com.status.github-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.github/0.1.0/manifest.json",
           "sha256": "d863c60ee2bcefb8436b028c3b1c806e16b5f1fed049502d745cf151ee63a39b",
-          "signature": "dev-signature:d863c60ee2bcefb8436b028c3b1c806e16b5f1fed049502d745cf151ee63a39b",
+          "signature": "IJBcS39fjs6kr8mq9nbqviHsFxYuUejPzhVsupJHQ6mZ0rAZ/xBb9FoGAef5WCBsvvUKrqoDIzI28X8Qmbr+Aw==",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-07T12:00:00Z"
         }
@@ -93,7 +93,7 @@ export const registry = {
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.website/0.1.0/com.status.website-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.website/0.1.0/manifest.json",
           "sha256": "1d973370cfa0e6413b713abc8396a8596d1947ac8172cd60e55f8607f12e1c20",
-          "signature": "dev-signature:1d973370cfa0e6413b713abc8396a8596d1947ac8172cd60e55f8607f12e1c20",
+          "signature": "uqAyAF4YqJXCEIMsbKh6b2paLj0erqmm2DNYM87x8zZCZsy+PB06XAzPpi/Ff0B8R+hKnN/1p65IKSgi5RiEBw==",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-07T12:00:00Z"
         }
