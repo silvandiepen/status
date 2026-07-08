@@ -827,6 +827,74 @@ import Testing
     ])
 }
 
+@Test func pluginPackageDefinitionDecodesActions() throws {
+    let packageData = runtimeStoredZip(files: [
+        ("actions.json", Data("""
+        {
+          "actions": [
+            {
+              "id": "jira.createIssue",
+              "label": "Create Jira issue",
+              "description": "Creates an issue in the configured Jira project.",
+              "requiresWritePermission": true,
+              "safety": "review-required",
+              "inputSchema": {
+                "fields": [
+                  {
+                    "key": "project",
+                    "label": "Project",
+                    "type": "select",
+                    "required": true,
+                    "options": [
+                      { "value": "STATUS", "label": "STATUS" }
+                    ]
+                  },
+                  {
+                    "key": "summary",
+                    "label": "Summary",
+                    "type": "template",
+                    "required": true,
+                    "default": "{{event.title}}"
+                  }
+                ]
+              },
+              "request": "create_issue"
+            }
+          ]
+        }
+        """.utf8))
+    ])
+
+    let definition = try PluginPackageDefinition.decode(from: packageData)
+
+    #expect(definition.actions == [
+        PackagedPluginAction(
+            id: "jira.createIssue",
+            label: "Create Jira issue",
+            description: "Creates an issue in the configured Jira project.",
+            requiresWritePermission: true,
+            safety: .reviewRequired,
+            inputSchema: PackagedPluginActionInputSchema(fields: [
+                PackagedPluginActionInputField(
+                    key: "project",
+                    label: "Project",
+                    type: .select,
+                    required: true,
+                    options: [PackagedPluginSetupFieldOption(value: "STATUS", label: "STATUS")]
+                ),
+                PackagedPluginActionInputField(
+                    key: "summary",
+                    label: "Summary",
+                    type: .template,
+                    required: true,
+                    defaultValue: "{{event.title}}"
+                )
+            ]),
+            request: "create_issue"
+        )
+    ])
+}
+
 @Test func genericPluginSetupStoresBearerTokenInCredentialStore() throws {
     let database = try temporaryRuntimeDatabase()
     try insertRuntimePluginFixture(database, pluginID: "com.status.github")

@@ -6,6 +6,7 @@ public struct PluginPackageDefinition: Equatable, Sendable {
     public var triggers: [PackagedPluginTrigger]
     public var requests: PackagedPluginRequests
     public var events: [EventTypeDeclaration]
+    public var actions: [PackagedPluginAction]
     public var mappings: PackagedPluginMappings
     public var rulePresets: [PackagedRulePreset]
 
@@ -15,6 +16,7 @@ public struct PluginPackageDefinition: Equatable, Sendable {
         triggers: [PackagedPluginTrigger] = [],
         requests: PackagedPluginRequests = PackagedPluginRequests(),
         events: [EventTypeDeclaration] = [],
+        actions: [PackagedPluginAction] = [],
         mappings: PackagedPluginMappings = PackagedPluginMappings(),
         rulePresets: [PackagedRulePreset] = []
     ) {
@@ -23,6 +25,7 @@ public struct PluginPackageDefinition: Equatable, Sendable {
         self.triggers = triggers
         self.requests = requests
         self.events = events
+        self.actions = actions
         self.mappings = mappings
         self.rulePresets = rulePresets
     }
@@ -51,6 +54,10 @@ public struct PluginPackageDefinition: Equatable, Sendable {
             try decoder.decode(PackagedPluginEventsFile.self, from: data).events
         } ?? []
 
+        let actions = try archive.file(named: "actions.json").map { data in
+            try decoder.decode(PackagedPluginActionsFile.self, from: data).actions
+        } ?? []
+
         let mappings = try archive.file(named: "mappings.json").map { data in
             try decoder.decode(PackagedPluginMappings.self, from: data)
         } ?? PackagedPluginMappings()
@@ -59,12 +66,114 @@ public struct PluginPackageDefinition: Equatable, Sendable {
             try decoder.decode(PackagedRulePresetsFile.self, from: data).presets
         } ?? []
 
-        return PluginPackageDefinition(auth: auth, setup: setup, triggers: triggers, requests: requests, events: events, mappings: mappings, rulePresets: presets)
+        return PluginPackageDefinition(auth: auth, setup: setup, triggers: triggers, requests: requests, events: events, actions: actions, mappings: mappings, rulePresets: presets)
     }
 }
 
 public struct PackagedPluginEventsFile: Decodable, Equatable, Sendable {
     public var events: [EventTypeDeclaration]
+}
+
+public struct PackagedPluginActionsFile: Decodable, Equatable, Sendable {
+    public var actions: [PackagedPluginAction]
+}
+
+public struct PackagedPluginAction: Decodable, Equatable, Sendable {
+    public var id: String
+    public var label: String
+    public var description: String?
+    public var requiresWritePermission: Bool
+    public var safety: ActionSafetyLevel?
+    public var inputSchema: PackagedPluginActionInputSchema?
+    public var request: String
+
+    public init(
+        id: String,
+        label: String,
+        description: String? = nil,
+        requiresWritePermission: Bool = false,
+        safety: ActionSafetyLevel? = nil,
+        inputSchema: PackagedPluginActionInputSchema? = nil,
+        request: String
+    ) {
+        self.id = id
+        self.label = label
+        self.description = description
+        self.requiresWritePermission = requiresWritePermission
+        self.safety = safety
+        self.inputSchema = inputSchema
+        self.request = request
+    }
+}
+
+public struct PackagedPluginActionInputSchema: Decodable, Equatable, Sendable {
+    public var fields: [PackagedPluginActionInputField]
+
+    public init(fields: [PackagedPluginActionInputField]) {
+        self.fields = fields
+    }
+}
+
+public struct PackagedPluginActionInputField: Decodable, Equatable, Sendable {
+    public var key: String
+    public var label: String
+    public var type: PackagedPluginActionInputType
+    public var required: Bool
+    public var placeholder: String?
+    public var help: String?
+    public var defaultValue: String?
+    public var options: [PackagedPluginSetupFieldOption]
+
+    enum CodingKeys: String, CodingKey {
+        case key
+        case label
+        case type
+        case required
+        case placeholder
+        case help
+        case `default`
+        case options
+    }
+
+    public init(
+        key: String,
+        label: String,
+        type: PackagedPluginActionInputType,
+        required: Bool = false,
+        placeholder: String? = nil,
+        help: String? = nil,
+        defaultValue: String? = nil,
+        options: [PackagedPluginSetupFieldOption] = []
+    ) {
+        self.key = key
+        self.label = label
+        self.type = type
+        self.required = required
+        self.placeholder = placeholder
+        self.help = help
+        self.defaultValue = defaultValue
+        self.options = options
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        key = try container.decode(String.self, forKey: .key)
+        label = try container.decode(String.self, forKey: .label)
+        type = try container.decode(PackagedPluginActionInputType.self, forKey: .type)
+        required = try container.decodeIfPresent(Bool.self, forKey: .required) ?? false
+        placeholder = try container.decodeIfPresent(String.self, forKey: .placeholder)
+        help = try container.decodeIfPresent(String.self, forKey: .help)
+        defaultValue = try container.decodeIfPresent(PluginJSONValue.self, forKey: .default)?.stringValue
+        options = try container.decodeIfPresent([PackagedPluginSetupFieldOption].self, forKey: .options) ?? []
+    }
+}
+
+public enum PackagedPluginActionInputType: String, Decodable, Equatable, Sendable {
+    case text
+    case template
+    case select
+    case number
+    case toggle
 }
 
 public struct PackagedPluginAuth: Codable, Equatable, Sendable {
