@@ -148,6 +148,49 @@ import Testing
     #expect(try store.resource(id: "acct_asc:app-2")?.name == "Status Two")
 }
 
+@Test func pluginRequestJobRunnerWarnsWhenPaginationHitsMaxPages() async throws {
+    let database = try temporaryRequestRunnerDatabase()
+    try insertRequestRunnerPluginFixture(database, pluginID: "com.status.appstoreconnect", accountID: "acct_asc", jobID: "job_asc")
+    let store = StatusPersistenceStore(database: database)
+    let firstURL = try #require(URL(string: "https://api.appstoreconnect.apple.com/v1/apps"))
+    let transport = FakePluginRequestTransport(responses: [
+        firstURL: PluginHTTPResponse(
+            data: Data("""
+            {
+              "data": [
+                { "id": "app-1", "attributes": { "name": "Status One", "bundleId": "com.example.one" } }
+              ],
+              "links": { "next": "https://api.appstoreconnect.apple.com/v1/apps?cursor=next" }
+            }
+            """.utf8),
+            statusCode: 200,
+            url: firstURL
+        )
+    ])
+    let runner = PluginRequestJobRunner(
+        transport: transport,
+        committer: PluginMappingOutputCommitter(store: store)
+    )
+
+    let result = try await runner.run(
+        definition: appStoreConnectDefinition(maxPages: 1),
+        input: PluginRequestJobInput(
+            pluginID: "com.status.appstoreconnect",
+            accountID: "acct_asc",
+            provider: "com.status.appstoreconnect",
+            requestID: "list_apps",
+            headers: ["Authorization": "Bearer token"],
+            jobID: "job_asc",
+            capturedAt: Date(timeIntervalSince1970: 1_783_433_520)
+        )
+    )
+
+    #expect(result.mappingOutput.resources.map(\.resource.id) == ["acct_asc:app-1"])
+    #expect(result.warnings == [
+        PluginMappingWarning(message: "Request list_apps reached pagination maxPages limit of 1.")
+    ])
+}
+
 @Test func pluginRequestJobRunnerFollowsCursorPagination() async throws {
     let database = try temporaryRequestRunnerDatabase()
     try insertRequestRunnerPluginFixture(database, pluginID: "com.status.cursor", accountID: "acct_cursor", jobID: "job_cursor")
@@ -326,7 +369,7 @@ private func githubDefinition() -> PluginPackageDefinition {
     )
 }
 
-private func appStoreConnectDefinition() -> PluginPackageDefinition {
+private func appStoreConnectDefinition(maxPages: Int = 5) -> PluginPackageDefinition {
     PluginPackageDefinition(
         requests: PackagedPluginRequests(requests: [
             "list_apps": PackagedPluginRequest(
@@ -335,7 +378,7 @@ private func appStoreConnectDefinition() -> PluginPackageDefinition {
                 pagination: PackagedPluginRequestPagination(
                     type: "jsonapi-next-link",
                     path: "$.links.next",
-                    maxPages: 5
+                    maxPages: maxPages
                 ),
                 timeoutSeconds: 30
             )

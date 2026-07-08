@@ -90,17 +90,20 @@ public struct PluginRequestJobResult: Equatable, Sendable {
     public var payload: MappingJSONValue
     public var mappingOutput: PluginMappingExecutionOutput
     public var commitResult: PluginMappingCommitResult
+    public var warnings: [PluginMappingWarning]
 
     public init(
         request: PluginHTTPRequest,
         payload: MappingJSONValue,
         mappingOutput: PluginMappingExecutionOutput,
-        commitResult: PluginMappingCommitResult
+        commitResult: PluginMappingCommitResult,
+        warnings: [PluginMappingWarning] = []
     ) {
         self.request = request
         self.payload = payload
         self.mappingOutput = mappingOutput
         self.commitResult = commitResult
+        self.warnings = warnings
     }
 }
 
@@ -146,7 +149,12 @@ public final class PluginRequestJobRunner {
         }
 
         let request = try makeRequest(requestDefinition, input: input)
-        let payload = try await fetchPayload(request: request, definition: requestDefinition, variables: input.variables)
+        let payloadResult = try await fetchPayload(
+            request: request,
+            definition: requestDefinition,
+            requestID: input.requestID,
+            variables: input.variables
+        )
         let mappingOutput = try PluginMappingExecutor.execute(
             definition.mappings,
             input: PluginMappingExecutionInput(
@@ -154,7 +162,7 @@ public final class PluginRequestJobRunner {
                 accountID: input.accountID,
                 provider: input.provider,
                 requestID: input.requestID,
-                payload: payload,
+                payload: payloadResult.payload,
                 capturedAt: input.capturedAt,
                 account: .object(input.variables.mapValues(MappingJSONValue.string))
             )
@@ -163,23 +171,31 @@ public final class PluginRequestJobRunner {
 
         return PluginRequestJobResult(
             request: request,
-            payload: payload,
+            payload: payloadResult.payload,
             mappingOutput: mappingOutput,
-            commitResult: commitResult
+            commitResult: commitResult,
+            warnings: payloadResult.warnings + mappingOutput.warnings
         )
+    }
+
+    private struct PayloadFetchResult {
+        var payload: MappingJSONValue
+        var warnings: [PluginMappingWarning]
     }
 
     private func fetchPayload(
         request: PluginHTTPRequest,
         definition: PackagedPluginRequest,
+        requestID: String,
         variables: [String: String]
-    ) async throws -> MappingJSONValue {
+    ) async throws -> PayloadFetchResult {
         let firstResponse = try await transport.response(for: request)
         var payload = decodePayload(response: firstResponse, variables: variables)
         guard let pagination = definition.pagination else {
-            return payload
+            return PayloadFetchResult(payload: payload, warnings: [])
         }
 
+        var warnings: [PluginMappingWarning] = []
         var state = PaginationState(currentPage: pagination.start ?? 1)
         var nextURL = try paginationNextURL(from: payload, pagination: pagination, originalURL: request.url, state: &state)
         let maxPages = max(1, min(pagination.maxPages ?? 20, 100))
@@ -197,7 +213,10 @@ public final class PluginRequestJobRunner {
             fetchedPages += 1
             nextURL = try paginationNextURL(from: pagePayload, pagination: pagination, originalURL: request.url, state: &state)
         }
-        return payload
+        if nextURL != nil {
+            warnings.append(PluginMappingWarning(message: "Request \(requestID) reached pagination maxPages limit of \(maxPages)."))
+        }
+        return PayloadFetchResult(payload: payload, warnings: warnings)
     }
 
     private func makeRequest(_ definition: PackagedPluginRequest, input: PluginRequestJobInput) throws -> PluginHTTPRequest {

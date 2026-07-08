@@ -336,6 +336,45 @@ import Testing
     #expect(output.metrics[0].pointTimestamp == ISO8601DateFormatter().date(from: "2026-07-07T20:15:30Z"))
 }
 
+@Test func pluginMappingExecutorWarnsWhenMetricValueIsNotNumeric() throws {
+    let mappings = PackagedPluginMappings(metrics: [
+        PackagedMetricMapping(
+            request: "channel_stats",
+            source: "$.items[*]",
+            name: "views_28d",
+            resourceID: "$.id",
+            value: "$.statistics.viewCount",
+            unit: "count"
+        )
+    ])
+
+    let output = try PluginMappingExecutor.execute(
+        mappings,
+        input: PluginMappingExecutionInput(
+            pluginID: "com.status.youtube",
+            accountID: "acct_yt",
+            provider: "com.status.youtube",
+            requestID: "channel_stats",
+            payload: decodeMappingJSON("""
+            {
+              "items": [
+                {
+                  "id": "channel-1",
+                  "statistics": { "viewCount": "not-a-number" }
+                }
+              ]
+            }
+            """),
+            capturedAt: Date(timeIntervalSince1970: 1_783_433_520)
+        )
+    )
+
+    #expect(output.metrics == [])
+    #expect(output.warnings == [
+        PluginMappingWarning(message: "Metric views_28d was skipped because value did not resolve to a number.")
+    ])
+}
+
 private func decodeMappingJSON(_ string: String) throws -> MappingJSONValue {
     try JSONDecoder().decode(MappingJSONValue.self, from: Data(string.utf8))
 }

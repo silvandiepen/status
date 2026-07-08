@@ -53,15 +53,30 @@ public struct MappedPluginMetric: Equatable, Sendable {
     }
 }
 
+public struct PluginMappingWarning: Equatable, Sendable {
+    public var message: String
+
+    public init(message: String) {
+        self.message = message
+    }
+}
+
 public struct PluginMappingExecutionOutput: Equatable, Sendable {
     public var resources: [MappedPluginResource]
     public var events: [Event]
     public var metrics: [MappedPluginMetric]
+    public var warnings: [PluginMappingWarning]
 
-    public init(resources: [MappedPluginResource], events: [Event], metrics: [MappedPluginMetric] = []) {
+    public init(
+        resources: [MappedPluginResource],
+        events: [Event],
+        metrics: [MappedPluginMetric] = [],
+        warnings: [PluginMappingWarning] = []
+    ) {
         self.resources = resources
         self.events = events
         self.metrics = metrics
+        self.warnings = warnings
     }
 }
 
@@ -89,11 +104,13 @@ public enum PluginMappingExecutor {
             .filter { $0.request == input.requestID }
             .flatMap { try executeEventMapping($0, input: input) }
 
-        let metrics = try mappings.metrics
+        let metricResults = try mappings.metrics
             .filter { $0.request.isEmpty || $0.request == input.requestID }
-            .flatMap { try executeMetricMapping($0, input: input) }
+            .map { try executeMetricMapping($0, input: input) }
+        let metrics = metricResults.flatMap(\.metrics)
+        let warnings = metricResults.flatMap(\.warnings)
 
-        return PluginMappingExecutionOutput(resources: resources, events: events, metrics: metrics)
+        return PluginMappingExecutionOutput(resources: resources, events: events, metrics: metrics, warnings: warnings)
     }
 
     private static func executeResourceMapping(
@@ -201,17 +218,28 @@ public enum PluginMappingExecutor {
         }
     }
 
+    private struct MetricMappingResult {
+        var metrics: [MappedPluginMetric]
+        var warnings: [PluginMappingWarning]
+    }
+
     private static func executeMetricMapping(
         _ mapping: PackagedMetricMapping,
         input: PluginMappingExecutionInput
-    ) throws -> [MappedPluginMetric] {
-        try items(for: mapping.source, payload: input.payload).compactMap { item in
+    ) throws -> MetricMappingResult {
+        var metrics: [MappedPluginMetric] = []
+        var warnings: [PluginMappingWarning] = []
+        for item in try items(for: mapping.source, payload: input.payload) {
             let context = templateContext(item: item, input: input)
             guard let rawResourceID = try expression(mapping.resourceID, item: item, context: context),
-                  rawResourceID.isEmpty == false,
-                  let valueString = try expression(mapping.value, item: item, context: context),
+                  rawResourceID.isEmpty == false else {
+                warnings.append(PluginMappingWarning(message: "Metric \(mapping.name) was skipped because resourceId resolved to an empty value."))
+                continue
+            }
+            guard let valueString = try expression(mapping.value, item: item, context: context),
                   let pointValue = Double(valueString.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-                return nil
+                warnings.append(PluginMappingWarning(message: "Metric \(mapping.name) was skipped because value did not resolve to a number."))
+                continue
             }
 
             let timestampString = try mapping.timestamp.flatMap { try expression($0, item: item, context: context) }
@@ -219,7 +247,7 @@ public enum PluginMappingExecutor {
             let resourceID = normalizedResourceID(accountID: input.accountID, rawID: rawResourceID)
             let metricID = normalizedMetricID(resourceID: resourceID, name: mapping.name)
 
-            return MappedPluginMetric(
+            metrics.append(MappedPluginMetric(
                 metric: Metric(
                     id: metricID,
                     resourceID: resourceID,
@@ -230,8 +258,9 @@ public enum PluginMappingExecutor {
                 ),
                 pointValue: pointValue,
                 pointTimestamp: pointTimestamp
-            )
+            ))
         }
+        return MetricMappingResult(metrics: metrics, warnings: warnings)
     }
 
     private static func items(for source: String?, payload: MappingJSONValue) throws -> [MappingJSONValue] {
