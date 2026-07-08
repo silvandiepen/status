@@ -218,13 +218,16 @@ Plugins declare events they can emit.
       "label": "App rejected",
       "resourceType": "app",
       "defaultSeverity": "critical",
-      "notificationDefault": "immediate"
+      "notificationDefault": "immediate",
+      "opensIncident": "review_blocker",
+      "closedBy": "app.review.approved"
     }
   ]
 }
 ```
 
 Plugins do not send notifications directly. They suggest defaults. The core and user preferences decide.
+`opensIncident` and `closedBy` are optional. Use them only for event pairs where a later recovery or clear event should resolve the user-facing StatusItem for the opening event. The plugin still emits normalized events; the core owns the resolution behavior.
 
 ## Triggers
 

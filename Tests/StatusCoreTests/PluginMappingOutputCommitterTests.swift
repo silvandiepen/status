@@ -94,6 +94,153 @@ import Testing
     #expect(try store.auditEntryCount() == 2)
 }
 
+@Test func pluginMappingOutputCommitterResolvesOpenItemsFromClosingEvents() throws {
+    let database = try temporaryMappingCommitDatabase()
+    try insertMappingCommitPluginFixture(database)
+    let store = StatusPersistenceStore(database: database)
+    let committer = PluginMappingOutputCommitter(store: store)
+    let openedAt = Date(timeIntervalSince1970: 1_783_433_520)
+    let closedAt = openedAt.addingTimeInterval(300)
+    let actionURL = try #require(URL(string: "https://status.hakobs.com"))
+    let resource = Resource(
+        id: "acct_web:status.hakobs.com",
+        accountID: "acct_web",
+        pluginID: "com.status.website",
+        type: "website",
+        name: "status.hakobs.com",
+        actionURL: actionURL
+    )
+    let declarations = [
+        EventTypeDeclaration(
+            type: "website.down",
+            label: "Website down",
+            resourceType: "website",
+            defaultSeverity: .critical,
+            notificationDefault: .immediate,
+            opensIncident: "downtime",
+            closedBy: "website.recovered"
+        ),
+        EventTypeDeclaration(
+            type: "website.recovered",
+            label: "Website recovered",
+            resourceType: "website",
+            defaultSeverity: .ok,
+            notificationDefault: .digest
+        )
+    ]
+    let downFingerprint = EventFingerprint.make(
+        EventFingerprintInput(
+            provider: "com.status.website",
+            eventType: "website.down",
+            resourceID: resource.id,
+            relevantState: "down"
+        )
+    )
+    let downEvent = Event(
+        id: "evt_\(downFingerprint.prefix(26))",
+        provider: "com.status.website",
+        type: "website.down",
+        resourceID: resource.id,
+        resourceName: resource.name,
+        severity: .critical,
+        title: "Website down",
+        summary: "status.hakobs.com is not responding normally.",
+        timestamp: openedAt,
+        actionURL: actionURL,
+        fingerprint: downFingerprint
+    )
+    let recoveredFingerprint = EventFingerprint.make(
+        EventFingerprintInput(
+            provider: "com.status.website",
+            eventType: "website.recovered",
+            resourceID: resource.id,
+            relevantState: "recovered"
+        )
+    )
+    let recoveredEvent = Event(
+        id: "evt_\(recoveredFingerprint.prefix(26))",
+        provider: "com.status.website",
+        type: "website.recovered",
+        resourceID: resource.id,
+        resourceName: resource.name,
+        severity: .ok,
+        title: "Website recovered",
+        summary: "status.hakobs.com is responding normally again.",
+        timestamp: closedAt,
+        actionURL: actionURL,
+        fingerprint: recoveredFingerprint
+    )
+
+    let downResult = try committer.commit(
+        PluginMappingExecutionOutput(
+            resources: [
+                MappedPluginResource(
+                    resource: resource,
+                    state: ["id": "status.hakobs.com", "name": "status.hakobs.com", "reachable": "false"]
+                )
+            ],
+            events: [downEvent],
+            metrics: []
+        ),
+        jobID: "job_website_check",
+        capturedAt: openedAt,
+        eventDeclarations: declarations
+    )
+    let statusItemID: String
+    guard case .inserted(_, let createdStatusItemID) = downResult.eventResults.first else {
+        Issue.record("Expected opening event to create a status item.")
+        return
+    }
+    statusItemID = try #require(createdStatusItemID)
+
+    let recoveredResult = try committer.commit(
+        PluginMappingExecutionOutput(resources: [], events: [recoveredEvent], metrics: []),
+        jobID: "job_website_check",
+        capturedAt: closedAt,
+        eventDeclarations: declarations
+    )
+
+    #expect(recoveredResult.eventResults == [.inserted(eventID: recoveredEvent.id, statusItemID: nil)])
+    let resolvedItem = try #require(try store.statusItem(id: statusItemID))
+    #expect(resolvedItem.state == .resolved)
+    #expect(resolvedItem.resolvedAt == closedAt)
+    #expect(try store.statusItems().isEmpty)
+    #expect(try store.statusItemCount() == 1)
+}
+
+@Test func packagedPluginEventsFileDecodesIncidentMetadataAndRegistryNotificationValues() throws {
+    let json = Data(
+        """
+        {
+          "events": [
+            {
+              "type": "website.down",
+              "label": "Website down",
+              "resourceType": "website",
+              "defaultSeverity": "critical",
+              "notificationDefault": "immediate",
+              "opensIncident": "downtime",
+              "closedBy": "website.recovered"
+            },
+            {
+              "type": "github.workflow.failed",
+              "label": "Workflow failed",
+              "resourceType": "repository",
+              "defaultSeverity": "warning",
+              "notificationDefault": "dashboard-only"
+            }
+          ]
+        }
+        """.utf8
+    )
+
+    let decoded = try JSONDecoder().decode(PackagedPluginEventsFile.self, from: json)
+
+    #expect(decoded.events[0].opensIncident == "downtime")
+    #expect(decoded.events[0].closedBy == "website.recovered")
+    #expect(decoded.events[1].notificationDefault == .dashboardOnly)
+}
+
 @Test func pluginMappingOutputCommitterEmitsMetricDropEventAgainstPreviousPoint() throws {
     let database = try temporaryMappingCommitDatabase()
     try insertMappingCommitPluginFixture(database)

@@ -167,7 +167,12 @@ public final class PluginRequestJobRunner {
                 account: .object(input.variables.mapValues(MappingJSONValue.string))
             )
         )
-        let commitResult = try committer.commit(mappingOutput, jobID: input.jobID, capturedAt: input.capturedAt)
+        let commitResult = try committer.commit(
+            mappingOutput,
+            jobID: input.jobID,
+            capturedAt: input.capturedAt,
+            eventDeclarations: definition.events
+        )
 
         return PluginRequestJobResult(
             request: request,

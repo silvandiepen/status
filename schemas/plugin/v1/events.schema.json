@@ -44,6 +44,16 @@
           "description": "Suggested notification mode. The core notification engine and user rules make the final decision.",
           "enum": ["immediate", "digest", "dashboard-only", "silent-automation", "disabled"],
           "default": "dashboard-only"
+        },
+        "opensIncident": {
+          "type": "string",
+          "description": "Incident kind opened by this event, for paired recurring incidents.",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "closedBy": {
+          "type": "string",
+          "description": "Event type that closes the incident opened by this event.",
+          "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)+$"
         }
       }
     }

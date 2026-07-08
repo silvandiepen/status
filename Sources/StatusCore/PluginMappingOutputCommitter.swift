@@ -33,7 +33,8 @@ public final class PluginMappingOutputCommitter {
     public func commit(
         _ output: PluginMappingExecutionOutput,
         jobID: String? = nil,
-        capturedAt: Date
+        capturedAt: Date,
+        eventDeclarations: [EventTypeDeclaration] = []
     ) throws -> PluginMappingCommitResult {
         var resourceIDs: [String] = []
         for mappedResource in output.resources {
@@ -53,7 +54,11 @@ public final class PluginMappingOutputCommitter {
             resourceIDs.append(mappedResource.resource.id)
         }
 
-        var eventResults = try output.events.map { try ingestor.ingest($0) }
+        var eventResults: [EventIngestionResult] = []
+        for event in output.events {
+            eventResults.append(try ingestor.ingest(event))
+            try resolveItemsClosedBy(event, declarations: eventDeclarations)
+        }
         var metricIDs: [String] = []
         for mappedMetric in output.metrics {
             let previousPoints = try store.metricPoints(metricID: mappedMetric.metric.id)
@@ -100,6 +105,19 @@ public final class PluginMappingOutputCommitter {
             return nil
         }
         return eventID
+    }
+
+    private func resolveItemsClosedBy(_ event: Event, declarations: [EventTypeDeclaration]) throws {
+        let openedEventTypes = declarations
+            .filter { $0.closedBy == event.type }
+            .map(\.type)
+        for openedEventType in openedEventTypes {
+            _ = try store.resolveOpenEventBackedStatusItems(
+                resourceID: event.resourceID,
+                eventType: openedEventType,
+                at: event.timestamp
+            )
+        }
     }
 
     private func metricDropEvent(

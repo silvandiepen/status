@@ -5,6 +5,7 @@ public struct PluginPackageDefinition: Equatable, Sendable {
     public var setup: PackagedPluginSetup?
     public var triggers: [PackagedPluginTrigger]
     public var requests: PackagedPluginRequests
+    public var events: [EventTypeDeclaration]
     public var mappings: PackagedPluginMappings
     public var rulePresets: [PackagedRulePreset]
 
@@ -13,6 +14,7 @@ public struct PluginPackageDefinition: Equatable, Sendable {
         setup: PackagedPluginSetup? = nil,
         triggers: [PackagedPluginTrigger] = [],
         requests: PackagedPluginRequests = PackagedPluginRequests(),
+        events: [EventTypeDeclaration] = [],
         mappings: PackagedPluginMappings = PackagedPluginMappings(),
         rulePresets: [PackagedRulePreset] = []
     ) {
@@ -20,6 +22,7 @@ public struct PluginPackageDefinition: Equatable, Sendable {
         self.setup = setup
         self.triggers = triggers
         self.requests = requests
+        self.events = events
         self.mappings = mappings
         self.rulePresets = rulePresets
     }
@@ -44,6 +47,10 @@ public struct PluginPackageDefinition: Equatable, Sendable {
             try decoder.decode(PackagedPluginRequests.self, from: data)
         } ?? PackagedPluginRequests()
 
+        let events = try archive.file(named: "events.json").map { data in
+            try decoder.decode(PackagedPluginEventsFile.self, from: data).events
+        } ?? []
+
         let mappings = try archive.file(named: "mappings.json").map { data in
             try decoder.decode(PackagedPluginMappings.self, from: data)
         } ?? PackagedPluginMappings()
@@ -52,8 +59,12 @@ public struct PluginPackageDefinition: Equatable, Sendable {
             try decoder.decode(PackagedRulePresetsFile.self, from: data).presets
         } ?? []
 
-        return PluginPackageDefinition(auth: auth, setup: setup, triggers: triggers, requests: requests, mappings: mappings, rulePresets: presets)
+        return PluginPackageDefinition(auth: auth, setup: setup, triggers: triggers, requests: requests, events: events, mappings: mappings, rulePresets: presets)
     }
+}
+
+public struct PackagedPluginEventsFile: Decodable, Equatable, Sendable {
+    public var events: [EventTypeDeclaration]
 }
 
 public struct PackagedPluginAuth: Codable, Equatable, Sendable {

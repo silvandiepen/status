@@ -6,7 +6,9 @@
       "description": "A tracked website did not return a healthy response.",
       "resourceType": "website",
       "defaultSeverity": "critical",
-      "notificationDefault": "immediate"
+      "notificationDefault": "immediate",
+      "opensIncident": "downtime",
+      "closedBy": "website.recovered"
     },
     {
       "type": "website.recovered",

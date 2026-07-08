@@ -237,6 +237,39 @@ public final class StatusPersistenceStore {
     }
 
     @discardableResult
+    public func resolveOpenEventBackedStatusItems(
+        resourceID: String,
+        eventType: String,
+        at date: Date
+    ) throws -> [StatusItem] {
+        let rows = try database.query(
+            """
+            SELECT * FROM status_items
+            WHERE resource_id = ?
+              AND kind = 'event'
+              AND state IN ('open', 'snoozed')
+            ORDER BY updated_at ASC, id ASC
+            """,
+            bindings: [.text(resourceID)]
+        )
+        var resolved: [StatusItem] = []
+        for row in rows {
+            let sourceEventIDs = try optionalJSON([String].self, from: row.optionalText("source_event_ids")) ?? []
+            guard let sourceEventID = sourceEventIDs.first,
+                  let sourceEvent = try event(id: sourceEventID),
+                  sourceEvent.type == eventType else {
+                continue
+            }
+            let item = try statusItem(from: row)
+            try resolveStatusItem(id: item.id, at: date)
+            if let resolvedItem = try statusItem(id: item.id) {
+                resolved.append(resolvedItem)
+            }
+        }
+        return resolved
+    }
+
+    @discardableResult
     public func reopenExpiredSnoozedItems(at date: Date) throws -> [StatusItem] {
         let expired = try database.query(
             """
