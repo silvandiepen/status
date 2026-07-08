@@ -203,10 +203,16 @@ public final class PluginRequestJobRunner {
             throw PluginRequestJobRunnerError.invalidURL(renderedURL)
         }
 
+        var headers = definition.headers
+            .mapValues { MappingTemplateRenderer.render($0, context: context) }
+        for (field, value) in input.headers {
+            headers[field] = value
+        }
+
         return PluginHTTPRequest(
             method: definition.method,
             url: url,
-            headers: input.headers,
+            headers: headers,
             timeoutSeconds: definition.timeoutSeconds
         )
     }

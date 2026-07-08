@@ -48,6 +48,8 @@ import Testing
 
     #expect(result.request.url == responseURL)
     #expect(result.request.headers["Authorization"] == "Bearer token")
+    #expect(result.request.headers["Accept"] == "application/vnd.github+json")
+    #expect(result.request.headers["X-Repo"] == "statusfoundry/status")
     #expect(result.mappingOutput.events.map(\.type) == ["github.workflow.failed"])
     #expect(try store.event(id: result.mappingOutput.events[0].id)?.summary == "CI failed on main.")
     #expect(try store.statusItemCount() == 1)
@@ -160,6 +162,11 @@ private func githubDefinition() -> PluginPackageDefinition {
             "list_workflow_runs": PackagedPluginRequest(
                 url: "https://api.github.com/repos/{{owner}}/{{repo}}/actions/runs",
                 auth: "default",
+                headers: [
+                    "Accept": "application/vnd.github+json",
+                    "Authorization": "Bearer package-token",
+                    "X-Repo": "{{owner}}/{{repo}}"
+                ],
                 query: ["per_page": "25"],
                 timeoutSeconds: 30
             )

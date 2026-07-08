@@ -10,6 +10,10 @@
       "method": "GET",
       "url": "https://api.github.com/repos/{{owner}}/{{repo}}/actions/runs",
       "auth": "default",
+      "headers": {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28"
+      },
       "query": {
         "per_page": "25"
       },

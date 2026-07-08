@@ -229,6 +229,7 @@ public struct PackagedPluginRequest: Decodable, Equatable, Sendable {
     public var method: String
     public var url: String
     public var auth: String?
+    public var headers: [String: String]
     public var query: [String: String]
     public var pagination: PackagedPluginRequestPagination?
     public var timeoutSeconds: TimeInterval?
@@ -237,6 +238,7 @@ public struct PackagedPluginRequest: Decodable, Equatable, Sendable {
         case method
         case url
         case auth
+        case headers
         case query
         case pagination
         case timeoutSeconds
@@ -246,6 +248,7 @@ public struct PackagedPluginRequest: Decodable, Equatable, Sendable {
         method: String = "GET",
         url: String,
         auth: String? = nil,
+        headers: [String: String] = [:],
         query: [String: String] = [:],
         pagination: PackagedPluginRequestPagination? = nil,
         timeoutSeconds: TimeInterval? = nil
@@ -253,6 +256,7 @@ public struct PackagedPluginRequest: Decodable, Equatable, Sendable {
         self.method = method
         self.url = url
         self.auth = auth
+        self.headers = headers
         self.query = query
         self.pagination = pagination
         self.timeoutSeconds = timeoutSeconds
@@ -263,6 +267,7 @@ public struct PackagedPluginRequest: Decodable, Equatable, Sendable {
         method = try container.decodeIfPresent(String.self, forKey: .method) ?? "GET"
         url = try container.decode(String.self, forKey: .url)
         auth = try container.decodeIfPresent(String.self, forKey: .auth)
+        headers = try container.decodeIfPresent([String: String].self, forKey: .headers) ?? [:]
         query = try container.decodeIfPresent([String: String].self, forKey: .query) ?? [:]
         pagination = try container.decodeIfPresent(PackagedPluginRequestPagination.self, forKey: .pagination)
         timeoutSeconds = try container.decodeIfPresent(TimeInterval.self, forKey: .timeoutSeconds)

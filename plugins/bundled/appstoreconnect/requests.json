@@ -4,6 +4,9 @@
       "method": "GET",
       "url": "https://api.appstoreconnect.apple.com/v1/apps",
       "auth": "default",
+      "headers": {
+        "Accept": "application/json"
+      },
       "pagination": {
         "type": "jsonapi-next-link",
         "path": "$.links.next",
@@ -15,6 +18,9 @@
       "method": "GET",
       "url": "https://api.appstoreconnect.apple.com/v1/apps/{{appId}}/appStoreVersions",
       "auth": "default",
+      "headers": {
+        "Accept": "application/json"
+      },
       "timeoutSeconds": 30
     }
   }

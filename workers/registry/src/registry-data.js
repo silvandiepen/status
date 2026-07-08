@@ -28,8 +28,8 @@ export const registry = {
           ],
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.appstoreconnect/0.1.0/com.status.appstoreconnect-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.appstoreconnect/0.1.0/manifest.json",
-          "sha256": "a05a3d689096f900d3e7527d56837ee9b762734108a297daee37012e9ea2b2fa",
-          "signature": "dev-signature:a05a3d689096f900d3e7527d56837ee9b762734108a297daee37012e9ea2b2fa",
+          "sha256": "bdb69dcccc1baaab3dbbb3f9a40b46360596815fabfccecc2270a4c59c08337a",
+          "signature": "dev-signature:bdb69dcccc1baaab3dbbb3f9a40b46360596815fabfccecc2270a4c59c08337a",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-07T12:00:00Z"
         }
@@ -61,8 +61,8 @@ export const registry = {
           ],
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.github/0.1.0/com.status.github-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.github/0.1.0/manifest.json",
-          "sha256": "f2ad68d8b021048bf1e9c52544892744d19c15db42031e717ee373b5645c84c9",
-          "signature": "dev-signature:f2ad68d8b021048bf1e9c52544892744d19c15db42031e717ee373b5645c84c9",
+          "sha256": "d863c60ee2bcefb8436b028c3b1c806e16b5f1fed049502d745cf151ee63a39b",
+          "signature": "dev-signature:d863c60ee2bcefb8436b028c3b1c806e16b5f1fed049502d745cf151ee63a39b",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-07T12:00:00Z"
         }
