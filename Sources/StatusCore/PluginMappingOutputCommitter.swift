@@ -53,9 +53,10 @@ public final class PluginMappingOutputCommitter {
             resourceIDs.append(mappedResource.resource.id)
         }
 
-        let eventResults = try output.events.map { try ingestor.ingest($0) }
+        var eventResults = try output.events.map { try ingestor.ingest($0) }
         var metricIDs: [String] = []
         for mappedMetric in output.metrics {
+            let previousPoints = try store.metricPoints(metricID: mappedMetric.metric.id)
             try store.upsertMetric(mappedMetric.metric, updatedAt: capturedAt)
             try store.insertMetricPoint(
                 metricID: mappedMetric.metric.id,
@@ -63,6 +64,9 @@ public final class PluginMappingOutputCommitter {
                 timestamp: mappedMetric.pointTimestamp,
                 metadata: jobID.map { ["jobID": $0] } ?? [:]
             )
+            if let event = try metricDropEvent(for: mappedMetric, previousPoints: previousPoints) {
+                eventResults.append(try ingestor.ingest(event))
+            }
             metricIDs.append(mappedMetric.metric.id)
         }
         let auditEntry = AuditEntry(
@@ -96,5 +100,59 @@ public final class PluginMappingOutputCommitter {
             return nil
         }
         return eventID
+    }
+
+    private func metricDropEvent(
+        for mappedMetric: MappedPluginMetric,
+        previousPoints: [(timestamp: Date, value: Double)]
+    ) throws -> Event? {
+        let threshold = 0.20
+        guard let previous = previousPoints.last,
+              previous.value > 0,
+              mappedMetric.pointValue < previous.value else {
+            return nil
+        }
+        let dropRatio = (previous.value - mappedMetric.pointValue) / previous.value
+        guard dropRatio >= threshold else {
+            return nil
+        }
+        guard let resource = try store.resource(id: mappedMetric.metric.resourceID) else {
+            return nil
+        }
+
+        let percent = Int((dropRatio * 100).rounded())
+        let eventType = "metric.\(mappedMetric.metric.label).dropped"
+        let relevantState = "\(mappedMetric.metric.id):lt:previous_0.8"
+        let fingerprint = EventFingerprint.make(
+            EventFingerprintInput(
+                provider: resource.pluginID,
+                eventType: eventType,
+                resourceID: resource.id,
+                relevantState: relevantState,
+                dateBucket: dayBucket(mappedMetric.pointTimestamp)
+            )
+        )
+        return Event(
+            id: "evt_\(fingerprint.prefix(26))",
+            provider: resource.pluginID,
+            type: eventType,
+            resourceID: resource.id,
+            resourceName: resource.name,
+            severity: .warning,
+            title: "\(mappedMetric.metric.label) dropped",
+            summary: "\(resource.name) \(mappedMetric.metric.label) dropped \(percent)% vs the previous point.",
+            timestamp: mappedMetric.pointTimestamp,
+            actionURL: resource.actionURL,
+            fingerprint: fingerprint
+        )
+    }
+
+    private func dayBucket(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
     }
 }

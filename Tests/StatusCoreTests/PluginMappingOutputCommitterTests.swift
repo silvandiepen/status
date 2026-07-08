@@ -94,6 +94,124 @@ import Testing
     #expect(try store.auditEntryCount() == 2)
 }
 
+@Test func pluginMappingOutputCommitterEmitsMetricDropEventAgainstPreviousPoint() throws {
+    let database = try temporaryMappingCommitDatabase()
+    try insertMappingCommitPluginFixture(database)
+    let store = StatusPersistenceStore(database: database)
+    let committer = PluginMappingOutputCommitter(store: store)
+    let resource = Resource(
+        id: "acct_yt:channel-1",
+        accountID: "acct_yt",
+        pluginID: "com.status.youtube",
+        type: "youtube_channel",
+        name: "Status Channel"
+    )
+    let metric = Metric(
+        id: "\(resource.id):metric:views_28d",
+        resourceID: resource.id,
+        label: "views_28d",
+        value: "1000",
+        delta: "count",
+        severity: .ok
+    )
+    let firstPointAt = Date(timeIntervalSince1970: 1_783_433_520)
+    let secondPointAt = firstPointAt.addingTimeInterval(3_600)
+
+    let firstResult = try committer.commit(
+        PluginMappingExecutionOutput(
+            resources: [MappedPluginResource(resource: resource, state: ["id": "channel-1", "name": "Status Channel"])],
+            events: [],
+            metrics: [MappedPluginMetric(metric: metric, pointValue: 1_000, pointTimestamp: firstPointAt)]
+        ),
+        jobID: "job_youtube_first",
+        capturedAt: firstPointAt
+    )
+    let secondResult = try committer.commit(
+        PluginMappingExecutionOutput(
+            resources: [],
+            events: [],
+            metrics: [MappedPluginMetric(metric: metric, pointValue: 750, pointTimestamp: secondPointAt)]
+        ),
+        jobID: "job_youtube_second",
+        capturedAt: secondPointAt
+    )
+
+    #expect(firstResult.eventResults == [])
+    #expect(secondResult.eventResults.count == 1)
+    guard case .inserted(let eventID, let statusItemID) = secondResult.eventResults[0] else {
+        Issue.record("Expected inserted metric drop event.")
+        return
+    }
+    let event = try #require(try store.event(id: eventID))
+    #expect(statusItemID == "sti_\(eventID.dropFirst(4))")
+    #expect(event.provider == "com.status.youtube")
+    #expect(event.type == "metric.views_28d.dropped")
+    #expect(event.resourceID == resource.id)
+    #expect(event.severity == .warning)
+    #expect(event.summary == "Status Channel views_28d dropped 25% vs the previous point.")
+    #expect(try store.statusItemCount() == 1)
+    #expect(try store.metricPoints(metricID: metric.id).map(\.value) == [1_000, 750])
+}
+
+@Test func pluginMappingOutputCommitterSuppressesDuplicateMetricDropEventsInSameDayBucket() throws {
+    let database = try temporaryMappingCommitDatabase()
+    try insertMappingCommitPluginFixture(database)
+    let store = StatusPersistenceStore(database: database)
+    let committer = PluginMappingOutputCommitter(store: store)
+    let resource = Resource(
+        id: "acct_yt:channel-1",
+        accountID: "acct_yt",
+        pluginID: "com.status.youtube",
+        type: "youtube_channel",
+        name: "Status Channel"
+    )
+    let metric = Metric(
+        id: "\(resource.id):metric:views_28d",
+        resourceID: resource.id,
+        label: "views_28d",
+        value: "1000",
+        delta: "count",
+        severity: .ok
+    )
+    let firstPointAt = Date(timeIntervalSince1970: 1_783_433_520)
+
+    _ = try committer.commit(
+        PluginMappingExecutionOutput(
+            resources: [MappedPluginResource(resource: resource, state: ["id": "channel-1", "name": "Status Channel"])],
+            events: [],
+            metrics: [MappedPluginMetric(metric: metric, pointValue: 1_000, pointTimestamp: firstPointAt)]
+        ),
+        jobID: "job_youtube_first",
+        capturedAt: firstPointAt
+    )
+    let firstDropResult = try committer.commit(
+        PluginMappingExecutionOutput(
+            resources: [],
+            events: [],
+            metrics: [MappedPluginMetric(metric: metric, pointValue: 750, pointTimestamp: firstPointAt.addingTimeInterval(3_600))]
+        ),
+        jobID: "job_youtube_second",
+        capturedAt: firstPointAt.addingTimeInterval(3_600)
+    )
+    let secondDropResult = try committer.commit(
+        PluginMappingExecutionOutput(
+            resources: [],
+            events: [],
+            metrics: [MappedPluginMetric(metric: metric, pointValue: 500, pointTimestamp: firstPointAt.addingTimeInterval(7_200))]
+        ),
+        jobID: "job_youtube_third",
+        capturedAt: firstPointAt.addingTimeInterval(7_200)
+    )
+
+    #expect(firstDropResult.eventResults.count == 1)
+    #expect(secondDropResult.eventResults.count == 1)
+    guard case .duplicate = secondDropResult.eventResults[0] else {
+        Issue.record("Expected duplicate metric drop event in the same day bucket.")
+        return
+    }
+    #expect(try store.statusItemCount() == 1)
+}
+
 private func temporaryMappingCommitDatabase() throws -> SQLiteDatabase {
     let path = FileManager.default.temporaryDirectory
         .appendingPathComponent("status-\(UUID().uuidString).sqlite")
@@ -109,24 +227,32 @@ private func insertMappingCommitPluginFixture(_ database: SQLiteDatabase) throws
         """
         INSERT INTO plugins
         (id, name, author, description, category, trust_level, installed_version, install_path, installed_at, updated_at)
-        VALUES ('com.status.website', 'Website Uptime', 'Status Foundry', 'Fixture plugin', 'ops', 'official', '0.1.0', '/tmp/plugin', ?, ?)
+        VALUES
+          ('com.status.website', 'Website Uptime', 'Status Foundry', 'Fixture plugin', 'ops', 'official', '0.1.0', '/tmp/plugin', ?, ?),
+          ('com.status.youtube', 'YouTube', 'Status Foundry', 'Fixture plugin', 'media', 'official', '0.1.0', '/tmp/plugin', ?, ?)
         """,
-        bindings: [.text(now), .text(now)]
+        bindings: [.text(now), .text(now), .text(now), .text(now)]
     )
     try database.execute(
         """
         INSERT INTO accounts
         (id, plugin_id, provider, display_name, auth_type, created_at, updated_at)
-        VALUES ('acct_web', 'com.status.website', 'com.status.website', 'Website checks', 'none', ?, ?)
+        VALUES
+          ('acct_web', 'com.status.website', 'com.status.website', 'Website checks', 'none', ?, ?),
+          ('acct_yt', 'com.status.youtube', 'com.status.youtube', 'YouTube channel', 'none', ?, ?)
         """,
-        bindings: [.text(now), .text(now)]
+        bindings: [.text(now), .text(now), .text(now), .text(now)]
     )
     try database.execute(
         """
         INSERT INTO jobs
         (id, plugin_id, trigger_id, account_id, status, started_at)
-        VALUES ('job_website_check', 'com.status.website', 'trg_website_check', 'acct_web', 'running', ?)
+        VALUES
+          ('job_website_check', 'com.status.website', 'trg_website_check', 'acct_web', 'running', ?),
+          ('job_youtube_first', 'com.status.youtube', 'trg_youtube_metrics', 'acct_yt', 'running', ?),
+          ('job_youtube_second', 'com.status.youtube', 'trg_youtube_metrics', 'acct_yt', 'running', ?),
+          ('job_youtube_third', 'com.status.youtube', 'trg_youtube_metrics', 'acct_yt', 'running', ?)
         """,
-        bindings: [.text(now)]
+        bindings: [.text(now), .text(now), .text(now), .text(now)]
     )
 }
