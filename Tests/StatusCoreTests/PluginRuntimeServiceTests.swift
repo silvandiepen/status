@@ -77,6 +77,7 @@ import Testing
             installedAt: now
         )
     )
+    try grantRuntimePermissions(manifest.permissions, pluginID: manifest.id, store: store, at: now)
     try store.upsertRule(
         Rule(
             id: "rul_notify_website_down",
@@ -125,6 +126,75 @@ import Testing
     #expect(dispatcher.dispatchedEffects.flatMap(\.notifications) == [
         ActionRuntimeNotification(title: "Website needs attention", body: "status-registry.hakobs.com is not responding normally.")
     ])
+}
+
+@Test func pluginRuntimeServiceRequiresGrantedNetworkPermission() async throws {
+    let database = try temporaryRuntimeDatabase()
+    let store = StatusPersistenceStore(database: database)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let packageURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("status-runtime-\(UUID().uuidString).statusplugin.zip")
+    let packageData = runtimeStoredZip(files: [
+        ("requests.json", Data("""
+        {
+          "requests": {
+            "check_site": {
+              "method": "GET",
+              "url": "https://example.com"
+            }
+          }
+        }
+        """.utf8)),
+        ("mappings.json", Data("""
+        {
+          "resources": [],
+          "events": []
+        }
+        """.utf8))
+    ])
+    try packageData.write(to: packageURL)
+    let manifest = PluginManifest(
+        id: "com.status.website",
+        name: "Website Uptime",
+        version: "0.1.0",
+        author: "Status Foundry",
+        category: "ops",
+        description: "Check websites.",
+        minCoreVersion: "0.1.0",
+        platforms: [.macOS, .iOS],
+        permissions: [.network],
+        domains: ["example.com"]
+    )
+    try store.installPlugin(
+        PluginInstallRecord(
+            manifest: manifest,
+            trustLevel: .official,
+            installPath: packageURL.deletingLastPathComponent().path,
+            packagePath: packageURL.path,
+            verification: PluginPackageVerificationResult(
+                pluginID: manifest.id,
+                version: manifest.version,
+                sha256: PluginPackageVerifier.sha256Hex(packageData),
+                signedBy: "status-foundry-dev"
+            ),
+            signature: "dev-signature",
+            packageDefinition: try PluginPackageDefinition.decode(from: packageData),
+            installedAt: now
+        )
+    )
+    let service = PluginRuntimeService(store: store)
+
+    await #expect(throws: PluginRuntimeServiceError.missingPermission(pluginID: manifest.id, permission: .network)) {
+        _ = try await service.runInstalledPluginRequest(
+            PluginRuntimeRequest(
+                pluginID: manifest.id,
+                requestID: "check_site",
+                accountID: "acct_example",
+                accountName: "Example",
+                now: now
+            )
+        )
+    }
 }
 
 @Test func pluginRuntimeServiceRunsNextQueuedConfiguredWebsiteJob() async throws {
@@ -190,6 +260,7 @@ import Testing
             installedAt: now
         )
     )
+    try grantRuntimePermissions(manifest.permissions, pluginID: manifest.id, store: store, at: now)
     try store.upsertTrigger(
         TriggerDefinition(
             id: "trg_com_status_website_refresh_site",
@@ -294,6 +365,7 @@ import Testing
             installedAt: now
         )
     )
+    try grantRuntimePermissions(manifest.permissions, pluginID: manifest.id, store: store, at: now)
     try store.upsertTrigger(
         TriggerDefinition(
             id: "trg_com_status_website_poll_site",
@@ -731,6 +803,7 @@ import Testing
             installedAt: now
         )
     )
+    try grantRuntimePermissions(manifest.permissions, pluginID: manifest.id, store: store, at: now)
     try store.upsertTrigger(
         TriggerDefinition(
             id: "trg_com_status_weather_current",
@@ -840,6 +913,7 @@ import Testing
             installedAt: now
         )
     )
+    try grantRuntimePermissions(manifest.permissions, pluginID: manifest.id, store: store, at: now)
     try store.upsertTrigger(
         TriggerDefinition(
             id: "trg_com_status_github_refresh",
@@ -949,6 +1023,7 @@ import Testing
             installedAt: now
         )
     )
+    try grantRuntimePermissions(manifest.permissions, pluginID: manifest.id, store: store, at: now)
     try store.upsertTrigger(
         TriggerDefinition(
             id: "trg_com_status_jira_search",
@@ -1054,6 +1129,7 @@ import Testing
             installedAt: now
         )
     )
+    try grantRuntimePermissions(manifest.permissions, pluginID: manifest.id, store: store, at: now)
     try store.upsertTrigger(
         TriggerDefinition(
             id: "trg_com_status_appstoreconnect_refresh",
@@ -1230,6 +1306,12 @@ private func insertRuntimePluginFixture(_ database: SQLiteDatabase, pluginID: St
         """,
         bindings: [.text(pluginID), .text(pluginID), .text(now), .text(now)]
     )
+}
+
+private func grantRuntimePermissions(_ permissions: [PluginPermission], pluginID: String, store: StatusPersistenceStore, at date: Date) throws {
+    for permission in permissions {
+        try store.setPluginPermission(pluginID: pluginID, permission: permission, granted: true, grantedAt: date)
+    }
 }
 
 private func runtimeStoredZip(files: [(String, Data)]) -> Data {

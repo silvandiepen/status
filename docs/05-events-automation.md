@@ -37,6 +37,7 @@ The same pipeline is used for:
 - `InMemoryJobQueue` tracks queued/running/success/failed job lifecycle for tests and app scaffolding.
 - `StatusPersistenceStore` can round-trip trigger definitions and job records through SQLite.
 - `PluginRuntimeService` can enqueue configured manual and due cron plugin jobs and execute specific queued jobs, preserving `Trigger → Job → request/mapping → audit` provenance for app-initiated refreshes.
+- Runtime plugin execution now enforces stored permission grants before side effects: network calls require `network`, scheduled due checks require `background-refresh`, credential reads require `keychain`, and JWT/private-key credentials require `private-key`.
 - Inserted events from a successful plugin run are immediately evaluated against the stored rule set, so manual app refreshes now continue through `Event → Rule → Action → Audit`.
 - Plugin mapping commits can persist resources, events, dashboard metrics, and metric points in one audited job output.
 - Audit entries can now attach job, event, and action-run provenance; persisted event ingestion and job lifecycle audit rows use those references.

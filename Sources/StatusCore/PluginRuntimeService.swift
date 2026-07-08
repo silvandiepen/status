@@ -35,6 +35,7 @@ public enum PluginRuntimeServiceError: Error, Equatable, LocalizedError, Sendabl
     case queuedJobUnavailable(String)
     case runnableTriggerUnavailable(String)
     case triggerRequestUnavailable(String)
+    case missingPermission(pluginID: String, permission: PluginPermission)
 
     public var errorDescription: String? {
         switch self {
@@ -50,6 +51,8 @@ public enum PluginRuntimeServiceError: Error, Equatable, LocalizedError, Sendabl
             "No enabled runnable trigger is configured for plugin: \(pluginID)"
         case .triggerRequestUnavailable(let triggerID):
             "Trigger does not declare a plugin request: \(triggerID)"
+        case .missingPermission(let pluginID, let permission):
+            "Plugin \(pluginID) requires granted permission before it can run: \(permission.rawValue)"
         }
     }
 }
@@ -127,6 +130,9 @@ public final class PluginRuntimeService: @unchecked Sendable {
     public func enqueueDueConfiguredPluginJobs(now: Date = Date()) throws -> [JobRecord] {
         var jobs: [JobRecord] = []
         for var trigger in try store.triggers() where isDueCronTrigger(trigger, at: now) {
+            guard try hasGrantedPermission(pluginID: trigger.pluginID, permission: .backgroundRefresh) else {
+                continue
+            }
             guard let requestID = trigger.requestID,
                   let accountID = try configuredAccountID(for: trigger) else {
                 continue
@@ -247,6 +253,11 @@ public final class PluginRuntimeService: @unchecked Sendable {
             let packagePath = installedVersion.packagePath else {
             throw PluginRuntimeServiceError.packageUnavailable(request.pluginID)
         }
+        try requireGrantedPermissionIfDeclared(
+            pluginID: request.pluginID,
+            manifest: installedVersion.manifest,
+            permission: .network
+        )
 
         let packageData = try Data(contentsOf: URL(fileURLWithPath: packagePath))
         let definition = try PluginPackageDefinition.decode(from: packageData)
@@ -401,6 +412,25 @@ public final class PluginRuntimeService: @unchecked Sendable {
         return try store.accountConfigurations(pluginID: trigger.pluginID).first?.id
     }
 
+    private func hasGrantedPermission(pluginID: String, permission: PluginPermission) throws -> Bool {
+        try store.pluginPermissions(pluginID: pluginID).contains { record in
+            record.permission == permission && record.granted
+        }
+    }
+
+    private func requireGrantedPermission(pluginID: String, permission: PluginPermission) throws {
+        guard try hasGrantedPermission(pluginID: pluginID, permission: permission) else {
+            throw PluginRuntimeServiceError.missingPermission(pluginID: pluginID, permission: permission)
+        }
+    }
+
+    private func requireGrantedPermissionIfDeclared(pluginID: String, manifest: PluginManifest, permission: PluginPermission) throws {
+        guard manifest.permissions.contains(permission) else {
+            return
+        }
+        try requireGrantedPermission(pluginID: pluginID, permission: permission)
+    }
+
     private func resolvedHeaders(
         base headers: [String: String],
         pluginID: String,
@@ -410,6 +440,19 @@ public final class PluginRuntimeService: @unchecked Sendable {
         var resolved = headers
         guard let credentialRef = configuration.credentialRef else {
             return resolved
+        }
+        let manifest = try store.installedPluginVersions(pluginID: pluginID)
+            .sorted(by: { $0.installedAt > $1.installedAt })
+            .first?
+            .manifest
+        if let manifest {
+            try requireGrantedPermissionIfDeclared(pluginID: pluginID, manifest: manifest, permission: .keychain)
+            if manifest.permissions.contains(.privateKey),
+               configuration.authType == AuthKind.jwtAPIKey.rawValue || configuration.authType == AuthKind.privateKeyJWT.rawValue {
+                try requireGrantedPermission(pluginID: pluginID, permission: .privateKey)
+            }
+        } else {
+            try requireGrantedPermission(pluginID: pluginID, permission: .keychain)
         }
         guard let credentialStore,
               let data = try credentialStore.read(reference: credentialRef) else {
