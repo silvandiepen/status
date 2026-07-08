@@ -63,19 +63,25 @@ public final class PluginRuntimeService: @unchecked Sendable {
     private let credentialStore: CredentialStore?
     private let actionRunner: ActionRunner
     private let effectDispatcher: ActionEffectDispatcher
+    private let baseBackoffSeconds: TimeInterval
+    private let maxBackoffSeconds: TimeInterval
 
     public init(
         store: StatusPersistenceStore,
         transport: PluginRequestHTTPTransport = URLSessionPluginRequestTransport(),
         credentialStore: CredentialStore? = KeychainCredentialStore(),
         actionRunner: ActionRunner = ActionRunner(),
-        effectDispatcher: ActionEffectDispatcher = NoopActionEffectDispatcher()
+        effectDispatcher: ActionEffectDispatcher = NoopActionEffectDispatcher(),
+        baseBackoffSeconds: TimeInterval = 60,
+        maxBackoffSeconds: TimeInterval = 3_600
     ) {
         self.store = store
         self.transport = transport
         self.credentialStore = credentialStore
         self.actionRunner = actionRunner
         self.effectDispatcher = effectDispatcher
+        self.baseBackoffSeconds = baseBackoffSeconds
+        self.maxBackoffSeconds = maxBackoffSeconds
     }
 
     public func saveAccountConfiguration(_ configuration: PluginAccountConfiguration, now: Date = Date()) throws {
@@ -183,8 +189,18 @@ public final class PluginRuntimeService: @unchecked Sendable {
     ) async throws -> [PluginRequestJobResult] {
         let jobs = try enqueueDueConfiguredPluginJobs(now: now)
         var results: [PluginRequestJobResult] = []
+        var firstError: Error?
         for job in jobs {
-            results.append(try await runQueuedPluginJob(jobID: job.id, headers: headers, now: now))
+            do {
+                results.append(try await runQueuedPluginJob(jobID: job.id, headers: headers, now: now))
+            } catch {
+                if firstError == nil {
+                    firstError = error
+                }
+            }
+        }
+        if results.isEmpty, let firstError {
+            throw firstError
         }
         return results
     }
@@ -342,6 +358,7 @@ public final class PluginRuntimeService: @unchecked Sendable {
             if let job = try store.job(id: jobID) {
                 try store.insertJobAuditEntry(for: job, timestamp: request.now)
             }
+            try recordTriggerSuccess(triggerID: triggerID, at: request.now)
             try processAutomation(for: result)
             return result
         } catch {
@@ -361,6 +378,7 @@ public final class PluginRuntimeService: @unchecked Sendable {
             if let job = try store.job(id: jobID) {
                 try store.insertJobAuditEntry(for: job, timestamp: request.now)
             }
+            try recordTriggerFailure(triggerID: triggerID, at: request.now)
             throw error
         }
     }
@@ -382,6 +400,27 @@ public final class PluginRuntimeService: @unchecked Sendable {
         if let failedJob = try store.job(id: job.id) {
             try store.insertJobAuditEntry(for: failedJob, timestamp: date)
         }
+        try recordTriggerFailure(triggerID: job.triggerID, at: date)
+    }
+
+    private func recordTriggerSuccess(triggerID: String, at date: Date) throws {
+        guard var trigger = try store.trigger(id: triggerID), trigger.kind == .cron else {
+            return
+        }
+        trigger.failureCount = 0
+        trigger.lastRunAt = date
+        trigger.nextRunAt = nextRunDate(for: trigger, from: date)
+        try store.upsertTrigger(trigger, updatedAt: date)
+    }
+
+    private func recordTriggerFailure(triggerID: String, at date: Date) throws {
+        guard var trigger = try store.trigger(id: triggerID), trigger.kind == .cron else {
+            return
+        }
+        trigger.failureCount += 1
+        trigger.lastRunAt = date
+        trigger.nextRunAt = date.addingTimeInterval(backoffDelay(forFailureCount: trigger.failureCount))
+        try store.upsertTrigger(trigger, updatedAt: date)
     }
 
     private func insertSkippedTriggerAudit(
@@ -442,6 +481,13 @@ public final class PluginRuntimeService: @unchecked Sendable {
             return nil
         }
         return date.addingTimeInterval(intervalSeconds)
+    }
+
+    private func backoffDelay(forFailureCount failureCount: Int) -> TimeInterval {
+        guard failureCount > 0 else { return 0 }
+        let exponent = min(failureCount - 1, 10)
+        let delay = baseBackoffSeconds * pow(2, Double(exponent))
+        return min(delay, maxBackoffSeconds)
     }
 
     private func configuredAccountIDs(for trigger: TriggerDefinition) throws -> [String] {
