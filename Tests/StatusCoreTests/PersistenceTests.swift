@@ -82,6 +82,34 @@ import Testing
     #expect(userVersion == .integer(Int64(StatusDatabaseMigrator.currentUserVersion)))
 }
 
+@Test func migrationAddsNotificationPreferencesTable() throws {
+    let database = try temporaryDatabase()
+    try database.executeBatch(
+        """
+        CREATE TABLE notifications (
+          id TEXT PRIMARY KEY,
+          event_id TEXT,
+          status_item_id TEXT,
+          mode TEXT NOT NULL,
+          title TEXT NOT NULL,
+          body TEXT NOT NULL,
+          delivered_at TEXT,
+          created_at TEXT NOT NULL
+        );
+        PRAGMA user_version = 3;
+        """
+    )
+
+    try StatusDatabaseMigrator.migrate(database)
+
+    let columns = try database.query("PRAGMA table_info('notification_preferences')")
+        .map { try $0.requiredText("name") }
+    let userVersion = try database.query("PRAGMA user_version").first?["user_version"]
+
+    #expect(columns == ["id", "scope", "plugin_id", "event_type", "mode", "created_at", "updated_at"])
+    #expect(userVersion == .integer(Int64(StatusDatabaseMigrator.currentUserVersion)))
+}
+
 @Test func eventStatusItemAndAuditEntryRoundTripThroughSQLite() throws {
     let database = try temporaryDatabase()
     try StatusDatabaseMigrator.migrate(database)
@@ -269,6 +297,62 @@ import Testing
     expected.deliveredAt = now.addingTimeInterval(1)
     #expect(try store.notification(id: notification.id) == expected)
     #expect(try store.notifications(limit: 5) == [expected])
+}
+
+@Test func notificationPreferencesRoundTripAndResolveByPrecedence() throws {
+    let database = try temporaryDatabase()
+    try StatusDatabaseMigrator.migrate(database)
+    let store = StatusPersistenceStore(database: database)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let event = Event(
+        id: "evt_01workflowfailed",
+        provider: "github",
+        type: "github.workflow.failed",
+        resourceID: "res_status_repo",
+        resourceName: "status",
+        severity: .warning,
+        title: "Workflow failed",
+        summary: "CI failed on main.",
+        timestamp: now,
+        fingerprint: "github:workflow.failed:res_status_repo:failure"
+    )
+    let pluginPreference = NotificationPreference(
+        id: "ntp_github",
+        scope: .plugin,
+        pluginID: "github",
+        mode: .digest,
+        createdAt: now,
+        updatedAt: now
+    )
+    let eventPreference = NotificationPreference(
+        id: "ntp_github_workflow_failed",
+        scope: .event,
+        pluginID: "github",
+        eventType: "github.workflow.failed",
+        mode: .disabled,
+        createdAt: now,
+        updatedAt: now.addingTimeInterval(1)
+    )
+
+    try store.upsertNotificationPreference(pluginPreference)
+    try store.upsertNotificationPreference(eventPreference)
+
+    #expect(try store.notificationPreference(id: pluginPreference.id) == pluginPreference)
+    #expect(try store.notificationPreferences(pluginID: "github") == [eventPreference, pluginPreference])
+    #expect(try store.effectiveNotificationMode(for: event, defaultMode: .immediate) == .disabled)
+    let otherEvent = Event(
+        id: "evt_02",
+        provider: "github",
+        type: "github.issue.opened",
+        resourceID: "res_status_repo",
+        resourceName: "status",
+        severity: .notice,
+        title: "Issue opened",
+        summary: "An issue was opened.",
+        timestamp: now,
+        fingerprint: "github:issue.opened:res_status_repo:1"
+    )
+    #expect(try store.effectiveNotificationMode(for: otherEvent, defaultMode: .immediate) == .digest)
 }
 
 @Test func ruleRoundTripsThroughSQLite() throws {

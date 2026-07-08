@@ -107,6 +107,20 @@ public struct ActionRuntimeEffects: Equatable, Sendable {
         return effects
     }
 
+    public func replacingNotifications(_ notifications: [ActionRuntimeNotification]) -> ActionRuntimeEffects {
+        var copy = self
+        copy.notifications = notifications
+        return copy
+    }
+
+    public var hasDispatchableEffects: Bool {
+        notifications.isEmpty == false ||
+        inboxEventIDs.isEmpty == false ||
+        openedURLs.isEmpty == false ||
+        auditNotes.isEmpty == false ||
+        webhooks.isEmpty == false
+    }
+
     fileprivate mutating func recordNotification(
         title: String,
         body: String,

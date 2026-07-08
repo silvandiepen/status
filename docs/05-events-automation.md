@@ -46,13 +46,14 @@ The same pipeline is used for:
 - Rules persist to SQLite with structured condition/action JSON, and the automation pipeline can evaluate the stored local rule set for an event.
 - macOS and iOS expose app-owned rule toggles so suggested plugin rules remain disabled by default but can be explicitly enabled by the user.
 - macOS and iOS provide first platform adapters for safe runtime effects: local notifications and opening URLs. Notification permission is requested by the app shell, not by plugins. Immediate local notifications are stored before platform dispatch and marked delivered after successful effect dispatch.
+- Notification preferences persist locally as plugin-level defaults and event-type overrides. The automation pipeline resolves them before dispatch; event-level preferences win over plugin defaults, and only `immediate` notifications are sent to the platform dispatcher.
 - The native shells start an app-alive background loop that asks the core to run due configured plugin jobs every five minutes. Due checks still respect each trigger's stored schedule.
 - Unscoped due cron triggers enqueue one job per configured plugin account; account-scoped cron triggers enqueue only for their declared account.
 - Due cron triggers that cannot enqueue because of missing `background-refresh` permission, missing request metadata, or missing account configuration write stable skipped audit rows instead of failing silently.
 - Failed cron jobs update the persisted trigger failure count and next retry time with exponential backoff; successful cron jobs reset the failure count and restore the normal schedule.
 - Declarative plugin requests enforce each request's `timeoutSeconds` value in the shared request runner; when omitted, the runner uses a 30-second default.
 
-OS-level background execution, richer retry policy controls, and richer notification preference controls remain planned work.
+OS-level background execution, richer retry policy controls, and notification-center history controls remain planned work.
 
 ## Triggers
 
@@ -358,7 +359,7 @@ Examples:
 
 Plugins do not send notifications directly.
 
-Plugins declare notification-worthy events. The core decides based on user settings.
+Plugins declare notification-worthy events. The core decides based on user settings. Preferences are stored by plugin/provider and optional event type, so a user can set a quiet default for a plugin and still allow immediate alerts for a critical event class.
 
 Notification modes:
 

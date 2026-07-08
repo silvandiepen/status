@@ -53,6 +53,48 @@ import Testing
     #expect(notificationRecord.deliveredAt != nil)
 }
 
+@Test func automationPipelineAppliesStoredNotificationPreferencesBeforeDispatch() async throws {
+    let database = try temporaryDatabase()
+    try StatusDatabaseMigrator.migrate(database)
+    let store = StatusPersistenceStore(database: database)
+    let event = workflowFailedEvent()
+    let rule = Rule(
+        id: "rul_notify",
+        name: "Notify workflow failure",
+        enabled: true,
+        provider: "github",
+        eventType: "github.workflow.failed",
+        conditions: [],
+        actions: [
+            RuleActionDefinition(action: "notification.show", parameters: ["title": "Build failed"])
+        ]
+    )
+    let now = Date(timeIntervalSince1970: 1_783_433_530)
+    try store.insertEvent(event)
+    try store.upsertNotificationPreference(
+        NotificationPreference(
+            id: "ntp_github_workflow_failed",
+            scope: .event,
+            pluginID: "github",
+            eventType: "github.workflow.failed",
+            mode: .dashboardOnly,
+            createdAt: now,
+            updatedAt: now
+        )
+    )
+    let runner = ActionRunner(now: { now })
+    let dispatcher = RecordingActionEffectDispatcher()
+    let pipeline = AutomationPipeline(store: store, actionRunner: runner, effectDispatcher: dispatcher)
+
+    let result = try await pipeline.process(event: event, rules: [rule])
+
+    let actionRun = try #require(result.actionResults.first?.actionRun)
+    #expect(dispatcher.dispatchedEffects.isEmpty)
+    let notificationRecord = try #require(try store.notification(id: "ntf_\(actionRun.id)"))
+    #expect(notificationRecord.mode == .dashboardOnly)
+    #expect(notificationRecord.deliveredAt == nil)
+}
+
 @Test func automationPipelineIgnoresRulesThatDoNotMatch() async throws {
     let database = try temporaryDatabase()
     try StatusDatabaseMigrator.migrate(database)

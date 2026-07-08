@@ -466,6 +466,78 @@ public final class StatusPersistenceStore {
         ).map(notification(from:))
     }
 
+    public func upsertNotificationPreference(_ preference: NotificationPreference) throws {
+        try database.execute(
+            """
+            INSERT INTO notification_preferences
+            (id, scope, plugin_id, event_type, mode, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              scope = excluded.scope,
+              plugin_id = excluded.plugin_id,
+              event_type = excluded.event_type,
+              mode = excluded.mode,
+              updated_at = excluded.updated_at
+            """,
+            bindings: [
+                .text(preference.id),
+                .text(preference.scope.rawValue),
+                .text(preference.pluginID),
+                preference.eventType.map { .text($0) } ?? .null,
+                .text(preference.mode.rawValue),
+                .text(ISO8601.string(from: preference.createdAt)),
+                .text(ISO8601.string(from: preference.updatedAt))
+            ]
+        )
+    }
+
+    public func notificationPreference(id: String) throws -> NotificationPreference? {
+        guard let row = try database.query("SELECT * FROM notification_preferences WHERE id = ?", bindings: [.text(id)]).first else {
+            return nil
+        }
+        return try notificationPreference(from: row)
+    }
+
+    public func notificationPreferences(pluginID: String? = nil) throws -> [NotificationPreference] {
+        let rows: [[String: SQLiteValue]]
+        if let pluginID {
+            rows = try database.query(
+                """
+                SELECT * FROM notification_preferences
+                WHERE plugin_id = ?
+                ORDER BY scope ASC, event_type ASC, id ASC
+                """,
+                bindings: [.text(pluginID)]
+            )
+        } else {
+            rows = try database.query(
+                """
+                SELECT * FROM notification_preferences
+                ORDER BY plugin_id ASC, scope ASC, event_type ASC, id ASC
+                """
+            )
+        }
+        return try rows.map(notificationPreference(from:))
+    }
+
+    public func effectiveNotificationMode(for event: Event, defaultMode: NotificationMode) throws -> NotificationMode {
+        if let eventPreference = try notificationPreference(
+            pluginID: event.provider,
+            scope: .event,
+            eventType: event.type
+        ) {
+            return eventPreference.mode
+        }
+        if let pluginPreference = try notificationPreference(
+            pluginID: event.provider,
+            scope: .plugin,
+            eventType: nil
+        ) {
+            return pluginPreference.mode
+        }
+        return defaultMode
+    }
+
     public func upsertRule(_ rule: Rule, updatedAt: Date) throws {
         try database.execute(
             """
@@ -1568,6 +1640,47 @@ public final class StatusPersistenceStore {
             body: row.requiredText("body"),
             deliveredAt: try row.optionalText("delivered_at").map(ISO8601.date(from:)),
             createdAt: ISO8601.date(from: row.requiredText("created_at"))
+        )
+    }
+
+    private func notificationPreference(
+        pluginID: String,
+        scope: NotificationPreferenceScope,
+        eventType: String?
+    ) throws -> NotificationPreference? {
+        let row: [String: SQLiteValue]?
+        switch scope {
+        case .plugin:
+            row = try database.query(
+                """
+                SELECT * FROM notification_preferences
+                WHERE plugin_id = ? AND scope = 'plugin'
+                """,
+                bindings: [.text(pluginID)]
+            ).first
+        case .event:
+            guard let eventType else { return nil }
+            row = try database.query(
+                """
+                SELECT * FROM notification_preferences
+                WHERE plugin_id = ? AND scope = 'event' AND event_type = ?
+                """,
+                bindings: [.text(pluginID), .text(eventType)]
+            ).first
+        }
+        guard let row else { return nil }
+        return try notificationPreference(from: row)
+    }
+
+    private func notificationPreference(from row: [String: SQLiteValue]) throws -> NotificationPreference {
+        try NotificationPreference(
+            id: row.requiredText("id"),
+            scope: NotificationPreferenceScope(rawValue: row.requiredText("scope")) ?? .plugin,
+            pluginID: row.requiredText("plugin_id"),
+            eventType: row.optionalText("event_type"),
+            mode: NotificationMode(rawValue: row.requiredText("mode")) ?? .immediate,
+            createdAt: ISO8601.date(from: row.requiredText("created_at")),
+            updatedAt: ISO8601.date(from: row.requiredText("updated_at"))
         )
     }
 

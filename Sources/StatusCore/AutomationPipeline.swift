@@ -43,11 +43,15 @@ public final class AutomationPipeline {
             }
         }
         let effects = actionRunner.effects.effects(since: cursor)
-        try persistNotifications(effects.notifications)
+        let notifications = try resolvedNotifications(effects.notifications)
+        try persistNotifications(notifications)
         do {
             try await executeProviderActions(effects.providerActions)
-            try await effectDispatcher.dispatch(effects)
-            try markNotificationsDelivered(effects.notifications)
+            let dispatchableEffects = effects.replacingNotifications(notifications.filter { $0.mode == .immediate })
+            if dispatchableEffects.hasDispatchableEffects {
+                try await effectDispatcher.dispatch(dispatchableEffects)
+            }
+            try markNotificationsDelivered(notifications)
         } catch let failure as ActionEffectDispatchFailure {
             try recordDispatchFailure(failure)
             throw failure
@@ -99,6 +103,18 @@ public final class AutomationPipeline {
                     createdAt: Date()
                 )
             )
+        }
+    }
+
+    private func resolvedNotifications(_ notifications: [ActionRuntimeNotification]) throws -> [ActionRuntimeNotification] {
+        try notifications.map { notification in
+            guard let eventID = notification.eventID,
+                  let event = try store.event(id: eventID) else {
+                return notification
+            }
+            var resolved = notification
+            resolved.mode = try store.effectiveNotificationMode(for: event, defaultMode: notification.mode)
+            return resolved
         }
     }
 

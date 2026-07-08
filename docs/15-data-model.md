@@ -49,6 +49,7 @@ job_  jobs
 rul_  rules
 arn_  action_runs
 ntf_  notifications
+ntp_  notification_preferences
 aud_  audit_entries
 syn_  sync_state
 ```
@@ -125,11 +126,11 @@ SQLiteDatabase
 
 StatusDatabaseMigrator
 → applies schema v0
-→ sets PRAGMA user_version = 3
+→ sets PRAGMA user_version = 4
 
 StatusPersistenceStore
 → first round-trip store for events, status items, audit entries,
-  and resource state snapshots
+  resource state snapshots, notifications, and notification preferences
 ```
 
 This is an implementation starting point, not a rejection of GRDB. GRDB can still replace or wrap this layer later if it materially reduces persistence complexity. The schema contract in this document remains authoritative either way.
@@ -524,8 +525,32 @@ CREATE TABLE notifications (
   delivered_at TEXT,                            -- NULL until delivered or queued for digest
   created_at   TEXT NOT NULL
 );
+```
 
-Current implementation stores the columns above. `rule_id`, `dismissed_at`, and `action_url` remain planned extensions for richer notification preferences and notification-center history.
+Current implementation stores the columns above. `rule_id`, `dismissed_at`, and `action_url` remain planned extensions for notification-center history.
+
+### notification_preferences
+
+Notification preferences are owned by the core app, not plugins. Event-level preferences override plugin-level preferences. If no preference exists, the rule action's notification mode is used.
+
+```sql
+CREATE TABLE notification_preferences (
+  id         TEXT PRIMARY KEY,                  -- ntp_
+  scope      TEXT NOT NULL,                     -- plugin | event
+  plugin_id  TEXT NOT NULL,                     -- plugin/provider id
+  event_type TEXT,                              -- required when scope = event
+  mode       TEXT NOT NULL,                     -- immediate | digest | dashboardOnly | silentAutomation | disabled
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_notification_preferences_plugin
+  ON notification_preferences (plugin_id)
+  WHERE scope = 'plugin';
+
+CREATE UNIQUE INDEX idx_notification_preferences_event
+  ON notification_preferences (plugin_id, event_type)
+  WHERE scope = 'event';
 ```
 
 ### audit_entries

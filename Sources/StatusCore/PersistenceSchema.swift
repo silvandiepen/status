@@ -1,7 +1,7 @@
 import Foundation
 
 public enum StatusDatabaseMigrator {
-    public static let currentUserVersion = 3
+    public static let currentUserVersion = 4
 
     public static func migrate(_ database: SQLiteDatabase) throws {
         try database.executeBatch("""
@@ -24,6 +24,9 @@ public enum StatusDatabaseMigrator {
                 column: "signed_by",
                 definition: "TEXT"
             )
+        }
+        if numericUserVersion > 0 && numericUserVersion < 4 {
+            try database.executeBatch(notificationPreferencesSchema)
         }
         try database.executeBatch("PRAGMA user_version = \(currentUserVersion);")
     }
@@ -261,6 +264,8 @@ public enum StatusDatabaseMigrator {
       created_at   TEXT NOT NULL
     );
 
+    \(notificationPreferencesSchema)
+
     CREATE TABLE IF NOT EXISTS audit_entries (
       id          TEXT PRIMARY KEY,
       title       TEXT NOT NULL,
@@ -286,5 +291,23 @@ public enum StatusDatabaseMigrator {
     );
 
     COMMIT;
+    """
+
+    private static let notificationPreferencesSchema = """
+    CREATE TABLE IF NOT EXISTS notification_preferences (
+      id         TEXT PRIMARY KEY,
+      scope      TEXT NOT NULL,
+      plugin_id  TEXT NOT NULL,
+      event_type TEXT,
+      mode       TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_preferences_plugin
+      ON notification_preferences (plugin_id)
+      WHERE scope = 'plugin';
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_preferences_event
+      ON notification_preferences (plugin_id, event_type)
+      WHERE scope = 'event';
     """
 }
