@@ -32,7 +32,7 @@ const pillars = [
           Connect your tools. See what changed. Act only when needed.
         </p>
         <div :class="bemm('actions')">
-          <Button href="/plugins/" variant="primary">Browse plugins</Button>
+          <Button href="/download/" variant="primary">Get beta</Button>
           <Button href="/docs/" variant="outline">Read docs</Button>
         </div>
       </div>

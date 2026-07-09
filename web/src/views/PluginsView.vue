@@ -86,6 +86,9 @@ function domainLabel(plugin: RegistryPlugin) {
             <dd>{{ domainLabel(plugin) }}</dd>
           </div>
         </dl>
+        <RouterLink :class="bemm('plugin-link')" :to="`/plugins/${plugin.id}/`">
+          View distribution details
+        </RouterLink>
       </article>
     </section>
   </main>

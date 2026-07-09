@@ -74,6 +74,13 @@ Initial pages:
 - privacy/security;
 - changelog.
 
+Current website implementation:
+
+- `web/src/main.ts` defines static-first routes for the initial page set;
+- plugin detail pages read generated registry metadata and expose package, manifest, signature, hash, permissions, and domains;
+- privacy/security and changelog pages are maintained as first-party static pages until account-backed services exist;
+- the primary navigation keeps product routes visible, while footer links expose privacy/security, changelog, and the registry API.
+
 The website can read public plugin metadata from the same registry data used by the app, but it must not be required for the native app to run.
 
 ## Plugin package hosting

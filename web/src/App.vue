@@ -11,13 +11,19 @@ const bemm = useBemm('site-shell', { return: 'string' })
         Status
       </RouterLink>
       <nav :class="bemm('nav')" aria-label="Primary navigation">
+        <RouterLink to="/download/">Download</RouterLink>
         <RouterLink to="/plugins/">Plugins</RouterLink>
         <RouterLink to="/developers/">Developers</RouterLink>
         <RouterLink to="/docs/">Docs</RouterLink>
-        <a href="https://status-registry.hakobs.com/v1/plugins">Registry API</a>
       </nav>
     </header>
 
     <RouterView />
+
+    <footer :class="bemm('footer')">
+      <RouterLink to="/privacy/">Privacy and security</RouterLink>
+      <RouterLink to="/changelog/">Changelog</RouterLink>
+      <a href="https://status-registry.hakobs.com/v1/plugins">Registry API</a>
+    </footer>
   </div>
 </template>
