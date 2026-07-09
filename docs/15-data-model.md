@@ -205,7 +205,9 @@ CREATE UNIQUE INDEX idx_plugin_permissions_plugin_permission
 
 ### accounts
 
-A connected provider account. The credential lives in the Keychain; only the reference is stored.
+A connected provider account. In product language this is also the v1 storage primitive for a configured **App**: a user-facing instance created from a plugin with its own display name, credentials, settings, resources, triggers, rules, notifications, dashboard tile choices, and detail view choices. The credential lives in the Keychain; only the reference is stored.
+
+The table keeps the `accounts` name in schema v0 because it is already implemented and accurately stores provider identity. Do not rename it just to satisfy product terminology. Add an explicit `apps` table only if a future migration needs configuration that is no longer account-shaped, such as accountless manual apps, multi-account apps, or richer per-app dashboard layout state.
 
 ```sql
 CREATE TABLE accounts (
@@ -469,6 +471,8 @@ CREATE INDEX idx_jobs_trigger ON jobs (trigger_id, created_at);
 
 Automation definitions. The when/if/then structure from `docs/05-events-automation.md` is stored as JSON because it is evaluated, not queried.
 
+Product direction: rules should become app-scoped by default. The schema v0 table below is the current implemented shape. The next rules migration should add `scope TEXT NOT NULL DEFAULT 'app'` and `account_id TEXT REFERENCES accounts(id) ON DELETE CASCADE`, then reserve `scope = cross_app` for explicit cross-app automations where the JSON payload names both the source app/account and target app/action.
+
 ```sql
 CREATE TABLE rules (
   id                TEXT PRIMARY KEY,           -- rul_
@@ -532,7 +536,7 @@ Current implementation stores the columns above and the native settings UI can r
 
 ### notification_preferences
 
-Notification preferences are owned by the core app, not plugins. Event-level preferences override plugin-level preferences. If no preference exists, the rule action's notification mode is used.
+Notification preferences are owned by the core app, not plugins. The schema v0 table below is the current implemented shape. Product direction: notification preferences should become app-scoped by default through an `account_id` column. Event-level preferences override app-level preferences. Plugin-level defaults from package metadata are only defaults used when no configured app preference exists. If no preference exists, the rule action's notification mode is used.
 
 ```sql
 CREATE TABLE notification_preferences (

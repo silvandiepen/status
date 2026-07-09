@@ -582,8 +582,8 @@ public struct PluginSettingsContainerView: View {
                     .frame(maxWidth: 820, alignment: .leading)
             } else {
                 EmptyPluginState(
-                    title: "Integration unavailable",
-                    detail: "This integration is not installed on this device."
+                    title: "App unavailable",
+                    detail: "This plugin is not installed on this device."
                 )
                 .padding(24)
                 .frame(maxWidth: 820, alignment: .leading)
@@ -918,7 +918,7 @@ private struct PluginStoreHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text("Integrations")
+                Text("Apps")
                     .font(.system(size: 42, weight: .semibold, design: .default))
                 Spacer(minLength: 12)
                 if let installLocalPlugin {
@@ -936,7 +936,7 @@ private struct PluginStoreHeader: View {
                     .disabled(isInstallingLocalPlugin)
                 }
             }
-            Text("\(installedCount) installed, \(availableCount) available from the Status registry.")
+            Text("\(installedCount) configured, \(availableCount) plugins available from the Status registry.")
                 .font(.title3)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -968,11 +968,11 @@ private struct InstalledPluginSection: View {
     let requestRemoval: (InstalledPlugin) -> Void
 
     var body: some View {
-        PluginSection(title: "Installed") {
+        PluginSection(title: "Configured apps") {
             if plugins.isEmpty {
                 EmptyPluginState(
-                    title: "No plugins installed",
-                    detail: "Install read-only integrations from the registry to start collecting status events."
+                    title: "No apps configured",
+                    detail: "Create an app from a bundled, local, or registry plugin to start collecting status events."
                 )
             } else {
                 VStack(spacing: 10) {
@@ -1002,7 +1002,7 @@ private struct AvailablePluginSection: View {
     let install: (RegistryPluginSummary) -> Void
 
     var body: some View {
-        PluginSection(title: "Registry") {
+        PluginSection(title: "Plugins") {
             if plugins.isEmpty {
                 EmptyPluginState(
                     title: "Registry unavailable",
@@ -1101,12 +1101,12 @@ private struct InstalledPluginRow: View {
 
     private var accountSummary: String {
         if accounts.isEmpty {
-            return "No accounts configured"
+            return "No apps configured"
         }
         if accounts.count == 1 {
             return accounts[0].accountName
         }
-        return "\(accounts.count) accounts"
+        return "\(accounts.count) apps"
     }
 }
 
@@ -1235,7 +1235,7 @@ private struct PluginSettingsPanel: View {
             PluginDeclaredViewsPanel(plugin: plugin, resources: resources)
             if canConfigure {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Integration name")
+                    Text("App name")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                     TextField(
@@ -1648,12 +1648,12 @@ private struct PluginAccountPicker: View {
     var body: some View {
         HStack(spacing: 10) {
             if accounts.isEmpty {
-                Text("New account")
+                Text("New app")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
                 Picker(
-                    "Account",
+                    "App",
                     selection: Binding(
                         get: { selectedAccountID ?? accounts.first?.id ?? "" },
                         set: { select($0) }
@@ -1663,7 +1663,7 @@ private struct PluginAccountPicker: View {
                         Text(account.accountName).tag(account.id)
                     }
                     if let selectedAccountID, selectedAccountID.hasPrefix("__new__:") {
-                        Text("New account").tag(selectedAccountID)
+                        Text("New app").tag(selectedAccountID)
                     }
                 }
                 .pickerStyle(.menu)
@@ -1671,7 +1671,7 @@ private struct PluginAccountPicker: View {
             Button {
                 addAccount()
             } label: {
-                Label("Add account", systemImage: "plus")
+                Label("Add app", systemImage: "plus")
             }
             .buttonStyle(.bordered)
         }

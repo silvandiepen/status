@@ -6,7 +6,7 @@ This is the canonical product and technical specification for Status.
 
 Status is a native macOS and iOS app that gives the user one operational overview across services such as App Store Connect, YouTube, Jira, GitHub, Cloudflare, Stripe, uptime checks, RSS feeds, and custom webhooks.
 
-Status is built around events, not pages. Integrations emit events. The core evaluates them, turns them into status cards, notifications, actions, automations, and audit entries.
+Status is built around events, not pages. Apps emit events through declarative plugins. The core evaluates those events, turns them into status cards, notifications, actions, automations, and audit entries.
 
 ## Platform targets
 
@@ -76,7 +76,7 @@ Trigger sources:
 
 ### Plugin
 
-A declarative integration package.
+A declarative integration package available from the registry, bundled with the app, or installed locally in Developer Mode.
 
 Fields:
 
@@ -99,6 +99,29 @@ Fields:
 - actions;
 - views;
 - suggested rules.
+
+### App
+
+A configured user-facing instance created from a plugin.
+
+Rules:
+
+- a plugin can be available without any configured app;
+- one plugin can create many apps with different accounts, credentials, settings, rules, notification preferences, dashboard tile configuration, resources, metrics, and source links;
+- the dashboard and sidebar show apps, not raw plugin packages;
+- the plugin catalog shows available plugins and starts app setup;
+- each app has an editable local display name;
+- app settings open separately from the plugin catalog;
+- rules and notification preferences are app-scoped by default;
+- cross-app rules exist only when the user explicitly links two or more apps.
+
+Examples:
+
+- `Status Foundry GitHub` and `Hakobs GitHub` can both use the GitHub plugin;
+- `Hakobs App Store Connect` can use the App Store Connect plugin;
+- `status.hakobs.com uptime` can use the Website Uptime plugin.
+
+Implementation note: the current local `accounts` and configured-plugin records are the v1 storage start for Apps. Product language should use **Plugin** for registry/package availability and **App** for configured instances. A later persistence migration may add an explicit `apps` table if the `accounts` name becomes limiting.
 
 ### Account
 
@@ -201,7 +224,7 @@ Every action run should produce an audit entry.
 
 ## Plugin philosophy
 
-Plugins are not executable apps. They are integration definitions.
+Plugins are not executable apps. They are integration definitions used to create configured Status apps.
 
 Allowed:
 
@@ -246,7 +269,7 @@ Supported view primitives:
 - automation builder;
 - audit log.
 
-Plugins may declare which views apply and which fields to show.
+Plugins may declare which views apply and which fields to show. Each configured app can choose which supported dashboard tile and detail views are enabled for that app. The app dashboard tile is intentionally compact: it should show the most important current state, recent critical events, or key metrics for that configured app. Clicking a tile or sidebar app opens that app's detail page, rendered from plugin-declared view descriptors and local app settings.
 
 The same plugin should render differently but natively on macOS and iOS.
 
@@ -255,6 +278,7 @@ The same plugin should render differently but natively on macOS and iOS.
 Local data:
 
 - SQLite database for cache, resources, events, metrics, rules, action runs, sync state, plugin installs.
+- Configured apps are currently stored as account/configuration rows tied to a plugin. The product concept is App; the storage name can remain `accounts` for v1 until a migration is worth the churn.
 
 Secrets:
 
@@ -338,12 +362,14 @@ The first MVP should prove:
 
 1. A native macOS dashboard can show normalized status from multiple sources.
 2. Plugins can be installed without being bundled.
-3. A plugin can define auth, requests, mappings, events, and views.
-4. Events can become notifications.
-5. Rules can run safe actions.
-6. The audit log can explain what happened.
+3. One plugin can create multiple configured apps with separate names, credentials, settings, dashboard tiles, and detail views.
+4. A plugin can define auth, requests, mappings, events, actions, rules, and views.
+5. Events can become app-scoped notifications.
+6. App-scoped rules can run safe actions.
+7. Cross-app rules can run only when explicitly configured.
+8. The audit log can explain what happened.
 
-Minimum MVP integrations:
+Minimum MVP plugins:
 
 - Website uptime;
 - App Store Connect;

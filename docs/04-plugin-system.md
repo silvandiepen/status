@@ -60,7 +60,9 @@ Example:
 
 The manifest does not list emitted events or actions. `events.json` is the single source of truth for event declarations and `actions.json` for actions, so the two lists cannot drift apart.
 
-Each integration declares its own app-owned visual identity through `icon` and `accentColor`. `icon` is an SF Symbol name, optionally prefixed with `sf:`, and `accentColor` is a `#RRGGBB` hex color. These fields are metadata only: plugins still do not ship custom UI, and Status decides how the icon/color appear in the sidebar, collapsed integration strip, catalog, settings window, notifications, and future mobile surfaces.
+Each plugin declares its own app-owned visual identity through `icon` and `accentColor`. `icon` is an SF Symbol name, optionally prefixed with `sf:`, and `accentColor` is a `#RRGGBB` hex color. These fields are metadata only: plugins still do not ship custom UI, and Status decides how the icon/color appear in the app sidebar, collapsed app strip, plugin catalog, app settings window, notifications, and future mobile surfaces. GitHub and App Store Connect must use recognizable, stable icons in the official packages.
+
+Official plugins should also include `icon.svg` when the provider has a recognizable brand mark and the license allows redistribution. Status still owns rendering, sizing, tinting, and fallback behavior. The manifest `icon` remains the native fallback symbol; `icon.svg` is the preferred catalog/sidebar asset for plugins such as GitHub and App Store Connect once the native renderer supports packaged vector icons.
 
 ## Permissions
 
@@ -103,9 +105,11 @@ Example:
 
 ## Setup Schema
 
-`setup.schema.json` describes account setup fields that the app renders with native, app-owned controls. Field identifiers use the canonical `key` property; the Swift package decoder also accepts the earlier `id` spelling for compatibility with local development packages. The installed plugin projection exposes this schema to the integration settings surface, so labels, placeholders, defaults, select options, and required state come from the plugin package while validation, persistence, and execution stay in StatusCore.
+`setup.schema.json` describes account setup fields that the app renders with native, app-owned controls. Field identifiers use the canonical `key` property; the Swift package decoder also accepts the earlier `id` spelling for compatibility with local development packages. The installed plugin projection exposes this schema to the app settings surface, so labels, placeholders, defaults, select options, and required state come from the plugin package while validation, persistence, and execution stay in StatusCore.
 
-Current implementation renders and stores plain setup fields (`text`, `url`, `hostname`, `number`, `toggle`, and `select`) as non-secret local account configuration. Bearer-token, api-key header, basic-auth, and JWT API-key auth fields render as native inputs and store secret material in Keychain; SQLite stores only the `kc_` credential reference on the account row. JWT API-key credentials are signed and injected by the core request engine for App Store Connect-style ES256 flows. The native integrations screen is a catalog of installed and registry plugins; detailed account setup opens separately, with macOS using an integration settings window. Users can add, select, rename, edit, save, and manually run multiple configured accounts per plugin. The runtime can execute unscoped due cron triggers across every configured account for the plugin.
+Current implementation renders and stores plain setup fields (`text`, `url`, `hostname`, `number`, `toggle`, and `select`) as non-secret local app/account configuration. Bearer-token, api-key header, basic-auth, and JWT API-key auth fields render as native inputs and store secret material in Keychain; SQLite stores only the `kc_` credential reference on the configured app/account row. JWT API-key credentials are signed and injected by the core request engine for App Store Connect-style ES256 flows.
+
+The native **Plugins** screen is a catalog of bundled, installed, local-dev, and registry plugins. Setting up a plugin creates a user-facing **App**. Detailed app setup opens separately, with macOS using an app settings window. Users can add, select, rename, edit, save, and manually run multiple configured apps per plugin. The runtime can execute unscoped due cron triggers across every configured app for the plugin.
 
 ## Auth
 
@@ -121,7 +125,7 @@ jwt-api-key
 private-key-jwt
 ```
 
-`oauth2` stays in the schema but no v1 plugin may use it; the auth decision and MVP auth paths live in `docs/07-security-privacy.md`.
+`oauth2` stays in the schema but no v1 plugin may use it until the native OAuth client, PKCE redirect handling, token refresh, and provider ownership rules are fully implemented. When OAuth is available for a plugin, the plugin declares the OAuth setup shape and Status owns the native authorization flow, token storage, refresh behavior, and audit output. The auth decision and MVP auth paths live in `docs/07-security-privacy.md`.
 
 The plugin defines the auth shape. The app renders the setup form and stores secrets in Keychain.
 
@@ -351,7 +355,7 @@ Example:
 
 The app renders every view natively. Plugins do not ship view code. In v1 the
 package decoder loads `views.json`, the package build script validates view
-types and referenced resource types, and the integration settings surface
+types and referenced resource types, and the app settings surface
 renders these descriptor types against locally stored resources:
 
 - `overview_cards`
@@ -364,6 +368,59 @@ renders these descriptor types against locally stored resources:
 `resource_list` and `resource_detail` must declare `resourceType`. `fields`
 must reference normalized resource fields produced by `mappings.json`; missing
 fields are simply omitted from the rendered native view.
+
+Each plugin should provide enough view descriptors for:
+
+- a dashboard tile for every configured app;
+- an app detail page opened from the dashboard tile, sidebar, or app strip;
+- setup and settings sections for each configured app;
+- notification/rule controls scoped to the app;
+- direct source links back to the provider where the user can act.
+
+The dashboard tile is app-configurable. The plugin declares supported tile slots and fields; the user chooses which supported tile content appears for each configured app. For GitHub, this can include latest workflow runs, recent commits by the configured user, review requests, assigned issues, or failing repositories. For App Store Connect, this can include review state, build processing state, ratings movement, and direct App Store Connect links.
+
+## What plugins can do
+
+A v1 plugin can declare:
+
+- manifest metadata, visual identity, category, documentation links, and compatibility;
+- auth and setup fields rendered by Status;
+- required permissions and domains;
+- declarative HTTP requests and pagination;
+- mappings into resources, events, metrics, and source links;
+- controlled write actions that Status must permission and audit;
+- dashboard tile and app detail view descriptors;
+- app-scoped notification defaults;
+- disabled suggested app-scoped rules;
+- cross-app rule presets only when they explicitly name the source app event and target app action;
+- fixture files and documentation for validation and website publishing.
+
+## What plugins cannot do
+
+A v1 plugin cannot:
+
+- ship arbitrary executable code;
+- ship custom native or web UI;
+- read or write Keychain secrets directly;
+- send notifications directly;
+- bypass app-scoped rule and notification settings;
+- call undeclared domains;
+- access another app's credentials;
+- perform destructive actions;
+- enable suggested rules automatically;
+- publish itself to the public registry without Status review and signing.
+
+## App-scoped rules and notifications
+
+Rules live with the configured app by default. A GitHub app's workflow rules belong in that GitHub app's settings. An App Store Connect app's review-state notifications belong in that App Store Connect app's settings. The global rule surface should only show explicit cross-app automations, such as:
+
+- when App Store Connect emits `app.review.rejected`, create a GitHub issue in a selected GitHub app;
+- when Website Uptime emits `website.down`, create a Jira issue in a selected Jira app;
+- when GitHub emits `github.workflow.failed`, add a Status inbox item and open a provider URL.
+
+Plugin rule presets install disabled. Enabling a preset requires the user to choose the configured app, inspect conditions, confirm permission requirements, and preview the audit output where possible.
+
+Plugins can declare many event-level notification defaults. Status must expose them under the configured app's settings, not as duplicated global rule rows. App-level preferences override plugin defaults; event-level preferences override app-level preferences.
 
 ## Rule presets
 
@@ -417,8 +474,8 @@ Current native implementation status:
 - Verified install records persist plugin metadata, version integrity data, and permission grant defaults to SQLite; install is rejected if verification metadata does not match the manifest id/version.
 - `PluginInstaller` orchestrates registry metadata lookup, revocation fetch, package/manifest download, package verification, package definition decoding, local file writes, and SQLite install recording.
 - Installed package definitions materialize into local runtime records: `triggers.json` becomes enabled trigger definitions and `rules.presets.json` becomes disabled suggested rules. `actions.json` is decoded into the installed package definition so the app can inspect declared write actions and their request bindings; install-time package decoding rejects action declarations that reference missing requests. Presets are never enabled automatically.
-- The shared native integrations screen loads installed plugins from SQLite, fetches compatible registry entries from `status-registry.hakobs.com`, shows requested domains and permissions, installs through `PluginInstaller`, opens plugin/account settings separately from the catalog row, persists installed permission grants and trigger enablement through native toggles, and removes installed plugins through `StatusPersistenceStore.uninstallPlugin`. Permission grants are enforced by the runtime: network requests require a granted `network` permission, due cron enqueueing requires `background-refresh`, credential reads require `keychain`, and JWT/private-key credentials require `private-key`. Removal is confirmed in the app and deletes active plugin metadata, versions, permission grants, account setup, triggers, suggested rules, and local resources; historical events and audit entries remain for traceability.
-- `PluginRuntimeService` now provides the first app-facing execution path for installed declarative plugins. The macOS integration settings window and iOS settings presentation render setup, bearer-token, api-key, basic-auth, and JWT API-key auth fields from installed plugin package metadata and expose a Run action for any installed plugin with a configured account and enabled manual trigger; users can add multiple accounts, select an account, edit its local display name and setup values, and run a manual check for that account. Integration rows show the plugin icon/color, configured-account count or name, and most recent persisted job status while keeping detailed settings out of the catalog page. The settings screens keep the Website registry check as a diagnostic shortcut. Installed plugin setup/auth metadata is projected from the local package into the app-owned setup row, so labels, placeholders, options, defaults, and required state come from `setup.schema.json` and `auth.json`. The setup path saves non-secret user configuration locally and stores bearer tokens, API-key bundles, basic auth bundles, or JWT credential bundles in Keychain; the run path enqueues manual or due cron trigger jobs, checks required permission grants, injects bearer/api-key/basic/JWT credentials at request time, executes `requests.json` and `mappings.json`, stores normalized resources/events/metric points locally, emits metric drop events from persisted points, evaluates inserted events against stored rules, dispatches allowed runtime action effects through the platform shell, records the job/action runs, and writes audit output. Provider-backed rule actions use the same package request renderer and credential injection: the runtime finds the installed plugin that declares the action, selects the configured account, renders the bound request with account/action/event scopes, requires `write-actions`, and records the response on the action run. Unscoped due cron triggers run once per configured account; account-scoped triggers target only that account. Due cron triggers that cannot enqueue because of missing background permission, request metadata, or account configuration write stable skipped audit rows. This is intentionally a narrow proving path; configurable metric thresholds and OS-level background runners are still planned work.
+- The shared native plugin catalog loads installed plugins from SQLite, fetches compatible registry entries from `status-registry.hakobs.com`, shows requested domains and permissions, installs through `PluginInstaller`, opens app/account settings separately from the catalog row, persists installed permission grants and trigger enablement through native toggles, and removes installed plugins through `StatusPersistenceStore.uninstallPlugin`. Permission grants are enforced by the runtime: network requests require a granted `network` permission, due cron enqueueing requires `background-refresh`, credential reads require `keychain`, and JWT/private-key credentials require `private-key`. Removal is confirmed in the app and deletes active plugin metadata, versions, permission grants, configured app/account setup, triggers, suggested rules, and local resources; historical events and audit entries remain for traceability.
+- `PluginRuntimeService` now provides the first app-facing execution path for installed declarative plugins. The macOS app settings window and iOS settings presentation render setup, bearer-token, api-key, basic-auth, and JWT API-key auth fields from installed plugin package metadata and expose a Run action for any installed plugin with a configured app/account and enabled manual trigger; users can add multiple apps/accounts, select one, edit its local display name and setup values, and run a manual check for that configured app. App rows show the plugin icon/color, configured-app count or name, and most recent persisted job status while keeping detailed settings out of the catalog page. The settings screens keep the Website registry check as a diagnostic shortcut. Installed plugin setup/auth metadata is projected from the local package into the app-owned setup row, so labels, placeholders, options, defaults, and required state come from `setup.schema.json` and `auth.json`. The setup path saves non-secret user configuration locally and stores bearer tokens, API-key bundles, basic auth bundles, or JWT credential bundles in Keychain; the run path enqueues manual or due cron trigger jobs, checks required permission grants, injects bearer/api-key/basic/JWT credentials at request time, executes `requests.json` and `mappings.json`, stores normalized resources/events/metric points locally, emits metric drop events from persisted points, evaluates inserted events against stored app-scoped rules, dispatches allowed runtime action effects through the platform shell, records the job/action runs, and writes audit output. Provider-backed rule actions use the same package request renderer and credential injection: the runtime finds the installed plugin that declares the action, selects the configured app/account, renders the bound request with account/action/event scopes, requires `write-actions`, and records the response on the action run. Unscoped due cron triggers run once per configured app/account; account-scoped triggers target only that account. Due cron triggers that cannot enqueue because of missing background permission, request metadata, or account configuration write stable skipped audit rows. This is intentionally a narrow proving path; configurable metric thresholds and OS-level background runners are still planned work.
 - Bundled plugin source lives in `plugins/bundled/*`. Each bundled plugin ships declarative package files such as `requests.json`, `triggers.json`, `events.json`, `mappings.json`, and `rules.presets.json`. `npm run plugins:build` validates each manifest plus core cross-file references, builds deterministic `.statusplugin.zip` artifacts, computes registry SHA-256 values, and refreshes Worker metadata/artifacts; `npm run plugins:check` fails when generated registry data is stale. Native shells record a `sync_state` bootstrap marker after first bundled install so bundled plugins are available on fresh databases but are not silently reinstalled after a user removes them.
 - Example plugin source lives in `plugins/examples/*`. Example packages are validated by `npm run plugins:check` but are not signed, published to the registry, or bundled into the native apps. `plugins/examples/mock-operations` is the starter template for third-party authors and demonstrates every v1 package file shape.
 
@@ -455,8 +512,8 @@ Registry entry example:
 ## Install flow
 
 ```txt
-Open Integrations
-→ Browse plugin store
+Open Plugins
+→ Browse bundled, installed, local-dev, and registry plugins
 → Select plugin
 → Check compatibility
 → Fetch version metadata from registry Worker
@@ -465,6 +522,7 @@ Open Integrations
 → Check revocation list
 → Show permissions
 → Install package
+→ Create or choose an app from that plugin
 → Register triggers
 → Store suggested rules disabled
 → Render setup form
@@ -490,10 +548,10 @@ Developer mode should show warnings for unsigned plugins. The current core
 implementation has a `LocalPluginInstaller` that packages a local folder into
 the same deterministic ZIP format used by the registry, installs it as
 `local-dev`, records `signedBy: local-dev`, and returns an explicit unsigned
-warning with the plugin ID, permissions, and domains. The macOS integrations
+warning with the plugin ID, permissions, and domains. The macOS plugin
 catalog exposes this path as an **Install Local** developer-mode action that
-opens a folder picker and refreshes installed integrations after success.
-Integration settings also expose a **Preview Fixture** developer action on
+opens a folder picker and refreshes installed plugins after success.
+App settings also expose a **Preview Fixture** developer action on
 macOS: the user chooses a JSON fixture payload, Status runs the installed
 plugin's mappings against it, and the app shows mapped resource/event/metric
 counts without committing any output to SQLite.
@@ -532,6 +590,27 @@ Third-party plugin support should be staged.
 - optional marketplace features.
 
 Third-party plugins must follow the same v1 restrictions as official plugins: declarative files only, declared domains, explicit permissions, no custom UI, no arbitrary code, and no direct Keychain access.
+
+## Plugin documentation
+
+Every official or verified third-party plugin must include documentation that can be rendered on the Status website from the plugin source repository.
+
+Required documentation:
+
+- plugin purpose and boundaries;
+- setup prerequisites;
+- exact credential steps;
+- requested permissions and domains;
+- supported auth modes, including OAuth availability when implemented;
+- resources, events, metrics, actions, and view descriptors;
+- dashboard tile options;
+- app detail views;
+- app-scoped rule and notification presets;
+- direct provider links exposed by Status;
+- troubleshooting and revocation notes;
+- fixture data used by validation tests.
+
+For App Store Connect, documentation must explain how to find or create the issuer ID, key ID, `.p8` private key, app ID, required API access, and the least-privilege setup path. The doc must also state that Status shows review/build state and links back to App Store Connect; it does not submit builds, edit metadata, or reply to review automatically.
 
 ## v1 restrictions
 

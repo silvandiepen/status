@@ -34,10 +34,10 @@ private struct IOSRootView: View {
 
             NavigationStack {
                 PluginStoreContainerView(viewModel: makePluginStoreViewModel(platform: .iOS))
-                    .navigationTitle("Integrations")
+                    .navigationTitle("Apps")
             }
             .tabItem {
-                Label("Integrations", systemImage: "puzzlepiece.extension")
+                Label("Apps", systemImage: "puzzlepiece.extension")
             }
 
             NavigationStack {

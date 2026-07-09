@@ -30,6 +30,7 @@ Summary:
 - Milestone 1 skeleton and mocked UI can run in parallel with Milestone 0;
 - the biggest risks are data model ambiguity, plugin schema ambiguity, mapping-language scope, event deduplication semantics, OAuth, plugin signing, iOS data posture, and missing test strategy.
 - plugin distribution is planned for Cloudflare: Pages for the site, R2 for packages, Workers for the registry API.
+- product terminology is now Plugin for available packages and App for configured user instances created from plugins.
 
 Use the checkup as the rationale for Milestone 0. Use this file as the execution plan.
 
@@ -129,7 +130,7 @@ Acceptance: dashboard answers the five questions in `docs/02-requirements.md` fr
 
 ### WP-1.5 iOS shell — iOS Agent
 
-Tab navigation (Overview, Alerts, Integrations, Settings), rendering the same StatusUI primitives compactly with mock data.
+Tab navigation (Overview, Alerts, Apps, Settings), rendering the same StatusUI primitives compactly with mock data.
 
 Depends: WP-1.1, WP-1.4 (shares primitives).
 Acceptance: same mock model renders natively on iOS; no macOS-only API leaks into StatusUI.
@@ -207,13 +208,13 @@ Status: Implemented for the v1 native settings surface.
 views.json descriptors → StatusUI primitives with plugin-specified fields.
 Plugin packages now decode `views.json`, bundled packages include basic
 descriptors, the package builder validates view type/resource references, and
-integration settings render descriptor-driven native lists, detail panels,
+app settings render descriptor-driven native lists, detail panels,
 metric-style grids, timelines, and alert lists from persisted resources.
-Integration rows, sidebars, and the collapsed macOS integration strip use
-plugin-declared SF Symbol icons plus `#RRGGBB` accent colors from manifest
-metadata. The integrations page remains a catalog for installed/available
-plugins; detailed account setup opens separately, with macOS using a dedicated
-integration settings window.
+App rows, sidebars, and the collapsed macOS app strip use plugin-declared SF
+Symbol icons plus `#RRGGBB` accent colors from manifest metadata. The Plugins
+page remains a catalog for bundled/installed/registry plugins; creating or
+editing a configured App opens separately, with macOS using a dedicated app
+settings window.
 
 Depends: WP-3.1, WP-1.4.
 Acceptance: sample plugin's overview/list/detail views render natively on macOS and iOS.
@@ -222,8 +223,8 @@ Acceptance: sample plugin's overview/list/detail views render natively on macOS 
 
 Status: Partially implemented in core/tooling/UI. `LocalPluginInstaller` can install
 a local folder as `local-dev` with explicit unsigned warnings, the macOS
-integrations catalog exposes an **Install Local** developer-mode folder picker,
-the macOS integration settings surface exposes a non-persisting **Preview
+plugin catalog exposes an **Install Local** developer-mode folder picker,
+the macOS app settings surface exposes a non-persisting **Preview
 Fixture** JSON mapping preview, the local plugin validator prints package
 checksums without publishing, and
 `plugins/examples/mock-operations` exercises every package file plus request
@@ -236,6 +237,34 @@ Local plugin folder install with unsigned warnings, schema validation UI, test-r
 Depends: WP-3.1–3.5.
 Acceptance: roadmap Phase 3 acceptance criteria all pass using the sample plugin.
 
+### WP-3.7 Plugin/App terminology migration — Product Agent + Design Agent
+
+Update user-facing app language without renaming persistence tables yet: Plugins are available packages; Apps are configured user instances created from plugins. Rename navigation, empty states, settings titles, install/setup copy, and documentation. Keep Swift model/database names stable unless a separate schema migration is explicitly planned.
+
+Depends: WP-3.1–3.5.
+Acceptance: the UI no longer presents configured instances as "integrations"; the plugin catalog and app settings are distinct; one plugin can visibly create multiple apps with separate display names.
+
+### WP-3.8 App dashboard tiles and detail pages — Design Agent + macOS Agent
+
+Extend view descriptors and StatusUI so every configured app can render a dashboard tile and an app detail page. The plugin declares supported tile/detail fields; the user can choose the tile content for each configured app. Clicking a dashboard tile, sidebar item, or collapsed app-strip icon opens the configured app detail page.
+
+Depends: WP-3.5, WP-3.7.
+Acceptance: GitHub can show recent workflow runs/commits/review requests in its app detail page; App Store Connect can show review/build state; every configured app has a tile even when the plugin exposes only minimal data.
+
+### WP-3.8a Packaged plugin brand icons — Design Agent + Plugin Agent
+
+Add native support for packaged `icon.svg` assets while keeping the manifest `icon` SF Symbol as fallback. Update bundled GitHub and App Store Connect plugins with legally usable, recognizable icons, validate icon presence for official plugins, and render the packaged icon in the plugin catalog, app sidebar, collapsed app strip, app settings, dashboard tiles, and notification surfaces.
+
+Depends: WP-3.7.
+Acceptance: GitHub and App Store Connect no longer rely on generic SF Symbol fallbacks; missing/invalid SVG assets fail official plugin validation but local-dev plugins may still use fallback symbols.
+
+### WP-3.9 App-scoped rules and notifications — Architecture Agent + Design Agent
+
+Move ordinary rules and notification preferences into configured app settings. Keep a global automation surface only for explicit cross-app rules that connect a source app event to a target app action. Plugin presets remain disabled and must be enabled per configured app.
+
+Depends: WP-2.3, WP-3.7.
+Acceptance: app settings show event-level notification controls and plugin-suggested rules for that app; the global rules screen shows only cross-app automations; enabling a preset records required permissions and audit preview data.
+
 ## Milestone 4 — Built-in plugins (roadmap Phase 4)
 
 Fully parallel once Milestone 3 is done; each is a self-contained package under `plugins/bundled/`, each meeting the integration acceptance criteria in `docs/06-integrations.md`.
@@ -244,6 +273,13 @@ Fully parallel once Milestone 3 is done; each is a self-contained package under 
 - **WP-4.2 Manual status** — Plugin Agent.
 - **WP-4.3 RSS/feed** — Plugin Agent.
 - **WP-4.4 Generic webhook (local model per WP-0.9 decision)** — Plugin Agent + Security Agent.
+
+### WP-4.5 Official plugin documentation template — Product Agent + Plugin Agent
+
+Create the source documentation template every official plugin must ship: purpose, boundaries, setup prerequisites, credential steps, permissions/domains, resources, events, metrics, actions, dashboard tile options, app detail views, app-scoped rules/notifications, troubleshooting, and fixtures. Wire the website/docs generator to render plugin docs from plugin source metadata without hand-copying.
+
+Depends: WP-3.7.
+Acceptance: App Store Connect, GitHub, Website Uptime, and Mock Operations each have renderable plugin documentation pages.
 
 ## Milestone 5 — App Store Connect plugin (roadmap Phase 5)
 
@@ -260,10 +296,17 @@ Full package with JWT api-key auth, app/version/build resources, review-state ev
 Depends: WP-5.1, Milestone 3.
 Acceptance: roadmap Phase 5 criteria against a real Apple Developer account.
 
+### WP-5.3 ASC setup documentation — Product Agent + Integration Agent
+
+Write and validate the App Store Connect plugin setup guide: issuer ID, API key creation, key ID, `.p8` private key, app ID, API access, least-privilege setup, expected events, dashboard tile options, and explicit non-goals.
+
+Depends: WP-5.1, WP-4.5.
+Acceptance: a new user can configure the ASC app from the documentation alone, and the website page is generated from the plugin source docs.
+
 ## Milestone 6 — Notifications and rules (roadmap Phase 6)
 
-- **WP-6.1 Notification engine** — macOS Agent. Modes (immediate/digest/dashboard-only/silent/disabled), per-plugin defaults, per-event preferences. Depends: WP-2.3.
-- **WP-6.2 Rules engine** — Architecture Agent. Trigger matching, v1 condition operators, action queueing, enable/disable. Depends: WP-2.3.
+- **WP-6.1 Notification engine** — macOS Agent. Modes (immediate/digest/dashboard-only/silent/disabled), app-level defaults, per-event preferences. Depends: WP-2.3 and WP-3.9.
+- **WP-6.2 Rules engine** — Architecture Agent. Trigger matching, v1 condition operators, action queueing, enable/disable, app-scoped defaults, and explicit cross-app automation bindings. Depends: WP-2.3 and WP-3.9.
 - **WP-6.3 Built-in actions and action runner** — macOS Agent. notification.show, status.inbox.add, status.open_url, webhook.post, audit.note; safety levels enforced. Depends: WP-6.2, WP-2.5.
 - **WP-6.4 Rule builder and audit log UI** — Design Agent. Compact native builder per `docs/05-events-automation.md`; audit log view. Depends: WP-6.2.
 - **WP-6.5 Rule presets loading** — Plugin Agent. Depends: WP-6.2, WP-3.1.

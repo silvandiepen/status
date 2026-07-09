@@ -50,6 +50,18 @@ The permanent record of what an automation or action did and why: the rule, the 
 
 A declarative integration package: manifest, auth definition, requests, mappings, triggers, events, actions, views, and rule presets. A plugin is an adapter, not a mini-app: it ships no executable code and no custom UI. Formal schemas live in `schemas/plugin/v1/`.
 
+### App
+
+A configured instance created from a plugin. Apps are what the user sets up, names, sees in the sidebar/dashboard, and manages day to day. One plugin can be used by multiple apps with different accounts, credentials, settings, rules, notification preferences, and dashboard tile configuration.
+
+Examples:
+
+- "Hakobs App Store Connect" using the App Store Connect plugin;
+- "Status Foundry GitHub" using the GitHub plugin;
+- "status.hakobs.com uptime" using the Website Uptime plugin.
+
+In implementation terms, the current local `accounts`/configured-plugin records are the start of this App concept. The product language should say **Plugin** for registry/package availability and **App** for a configured user-facing instance. Use "integration" only as a broad explanatory synonym, not as a primary navigation label.
+
 ### Account
 
 A connected user identity at a provider: an Apple Developer account, a GitHub account or organization, an Atlassian site. Accounts hold Keychain references to credentials, never the credentials themselves.
@@ -72,3 +84,4 @@ The shared scale for events and status items: `ok`, `notice`, `warning`, `critic
 - **StatusItem vs Notification**: the status item is what appears in the dashboard and inbox; the notification is the optional interruption about it.
 - **Action vs ActionLink**: an action does something and is audited; an action link just takes the user somewhere.
 - **Rule vs Action**: the rule decides; the action does.
+- **Plugin vs App**: a plugin is available; an app is configured. Installing or enabling a plugin does not by itself create the user's operational surface. Setting up an app from that plugin does.

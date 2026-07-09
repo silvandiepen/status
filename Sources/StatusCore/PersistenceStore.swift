@@ -1638,18 +1638,18 @@ public final class StatusPersistenceStore {
         now: Date
     ) -> String {
         if statusItems.isEmpty, recentEvents.isEmpty, integrations.isEmpty, auditEntries.isEmpty {
-            return "No tracked events or integrations are stored on this device yet."
+            return "No tracked events or apps are stored on this device yet."
         }
 
         let openCount = statusItems.count
         let integrationCount = integrations.count
         let eventCount = recentEvents.count
         if openCount == 0 {
-            return "\(integrationCount) \(plural("integration", count: integrationCount)) tracked, \(eventCount) \(plural("recent event", count: eventCount)), no open attention items."
+            return "\(integrationCount) \(plural("app", count: integrationCount)) tracked, \(eventCount) \(plural("recent event", count: eventCount)), no open attention items."
         }
 
         let newest = statusItems.map(\.updatedAt).max() ?? now
-        return "\(openCount) open attention \(plural("item", count: openCount)) across \(integrationCount) \(plural("integration", count: integrationCount)). Newest update: \(lastRefreshDescription(ISO8601.string(from: newest)))."
+        return "\(openCount) open attention \(plural("item", count: openCount)) across \(integrationCount) \(plural("app", count: integrationCount)). Newest update: \(lastRefreshDescription(ISO8601.string(from: newest)))."
     }
 
     private func plural(_ singular: String, count: Int) -> String {

@@ -413,7 +413,7 @@ public struct DashboardSnapshot: Codable, Equatable, Sendable {
 
     public static let empty = DashboardSnapshot(
         headline: "All clear",
-        summary: "No tracked events or integrations are stored on this device yet.",
+        summary: "No tracked events or apps are stored on this device yet.",
         statusItems: [],
         recentEvents: [],
         metrics: [],

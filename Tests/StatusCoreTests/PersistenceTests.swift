@@ -591,7 +591,7 @@ import Testing
     let snapshot = try store.dashboardSnapshot(now: now)
 
     #expect(snapshot.headline == "Everything tracked is okay")
-    #expect(snapshot.summary == "1 integration tracked, 0 recent events, no open attention items.")
+    #expect(snapshot.summary == "1 app tracked, 0 recent events, no open attention items.")
     #expect(snapshot.integrations == [
         IntegrationSummary(
             id: manifest.id,

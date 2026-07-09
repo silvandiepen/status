@@ -1,8 +1,39 @@
-# Integrations
+# Official Plugins and App Ideas
 
-Status should start with a small set of useful integrations, then grow through installable plugins.
+Status should start with a small set of useful official plugins, then grow through installable registry plugins. A plugin is the available package. An app is a configured instance created from a plugin. One plugin can support many apps with different names, accounts, credentials, rules, notifications, dashboard tiles, and detail settings.
 
-## Integration categories
+## Official plugin boundaries
+
+An official Status plugin should make a provider easier to monitor, not replace the provider's full product. The plugin should answer what changed, what is stuck, what needs attention, and where to act next. It should expose direct links back to the provider for deep work.
+
+Official plugins must have:
+
+- stable icon and accent color used everywhere the plugin/app appears;
+- setup flow and provider-specific setup documentation;
+- permissions and declared domains;
+- support for multiple configured apps/accounts when the provider allows it;
+- editable local display name per configured app;
+- dashboard tile options;
+- app detail views;
+- resource list or equivalent detail surface;
+- event declarations and notification defaults;
+- app-scoped rule presets, disabled by default;
+- direct source links;
+- error handling;
+- audit output for actions;
+- fixture data and schema validation;
+- documentation renderable on the Status website.
+
+Official plugins should avoid:
+
+- pretending to be the provider's full dashboard;
+- high-risk write actions in v1;
+- noisy notification defaults;
+- provider-specific custom UI code;
+- hidden OAuth or credential behavior;
+- data collection beyond declared setup and permissions.
+
+## Plugin categories
 
 ### Developer operations
 
@@ -44,7 +75,7 @@ Status should start with a small set of useful integrations, then grow through i
 - generic webhook
 - weather
 
-## Bundled integrations
+## Bundled plugins
 
 Bundled plugins should be universal and low-risk.
 
@@ -61,9 +92,9 @@ Weather, optional
 
 These make the app useful before a user installs anything.
 
-## Store integrations
+## Registry plugins
 
-Installable plugins should be optional.
+Installable plugins should be optional and served through the Cloudflare registry API, with immutable packages in R2 and metadata on the website.
 
 Recommended first store plugins:
 
@@ -110,6 +141,16 @@ app.build.processing_failed
 ```
 
 Current implementation note: the bundled App Store Connect package uses `jwt-api-key` auth (`issuerId`, `keyId`, `.p8` private key) and asks for one `appId` during native setup. Manual refresh can list apps with JSON:API pagination; the scheduled review-state check uses the configured `appId` directly until the runtime supports chained per-resource requests.
+
+Required documentation:
+
+- where to find or create the issuer ID;
+- where to create an API key and retrieve the key ID;
+- how to download and store the `.p8` private key;
+- where to find the App Store Connect app ID;
+- required App Store Connect API access;
+- least-privilege setup guidance;
+- limitations: Status reads review/build/app status and opens App Store Connect links; it does not submit builds, edit metadata, or reply to review.
 
 Views:
 
@@ -228,6 +269,13 @@ Purpose:
 - show basic channel metrics;
 - show latest uploads;
 - warn about unusual drops.
+- link to relevant YouTube Studio pages for deeper creator work.
+
+Boundary:
+
+- Status is a creator status surface, not a YouTube Studio replacement;
+- show the most important channel/profile state, latest published content, key metrics, and attention items;
+- do not upload videos, change metadata, manage comments, or replace analytics exploration.
 
 Resources:
 
@@ -384,7 +432,42 @@ Purpose:
 
 Avoid turning Status into a weather app.
 
-## Integration priority
+## Additional official plugin candidates
+
+Developer operations:
+
+- Vercel: deployments, failed builds, project links, domain issues.
+- Netlify: deployments, form submissions, build failures, domain/SSL attention.
+- Supabase: project health, database/storage usage, edge function errors.
+- Sentry: new issues, regressions, release health, assigned issues.
+- Hetzner: server status, resource usage, invoices/limits where read-only APIs allow.
+- Docker Hub/GitHub Container Registry: image publish status and failed builds where available.
+
+Creator and publishing:
+
+- RSS/feed: recent posts and feed errors.
+- Plausible/Fathom: traffic changes, top pages, uptime-adjacent marketing signals.
+- Mastodon/Bluesky/LinkedIn, later: post/account status only if API access is stable and low-risk.
+
+Business:
+
+- Stripe: payment failures, disputes, MRR/volume summary, payouts.
+- Paddle: payments, subscriptions, payouts, disputes.
+- Lemon Squeezy: orders, subscriptions, license events.
+
+Communication:
+
+- Gmail/Email: unread/action-required summaries and email draft actions only.
+- Slack: mentions, channel alerts, workflow events; no automatic posting in v1.
+- Discord: server/channel alerts and webhook-based events.
+
+Local/basic:
+
+- Manual status: user-entered status tile and events.
+- Network check: local connectivity and DNS checks.
+- Weather: severe weather notices and current local state only.
+
+## Plugin priority
 
 Recommended order:
 
@@ -399,25 +482,29 @@ Recommended order:
 9. Sentry.
 10. Plausible/Fathom.
 
-## Integration acceptance criteria
+## Plugin acceptance criteria
 
-Each integration should have:
+Each official plugin should have:
 
-- a stable icon and color used everywhere the integration appears;
-- setup flow;
+- a stable icon and color used everywhere the plugin or configured app appears;
+- setup flow and setup documentation;
 - permissions screen;
-- support for multiple configured accounts/resources when the provider allows it;
-- editable local display name per configured account;
+- support for multiple configured apps/accounts/resources when the provider allows it;
+- editable local display name per configured app;
+- app dashboard tile configuration;
+- app detail page configuration;
 - resource list;
 - at least one event type;
 - at least one useful status item;
+- app-scoped notification defaults;
+- app-scoped suggested rules disabled by default;
 - direct source links;
 - error handling;
 - audit output for actions;
-- docs and example plugin manifest.
+- docs, fixtures, and example plugin manifest.
 
-## Integration philosophy
+## Plugin philosophy
 
-An integration is successful when it saves a dashboard visit.
+A plugin is successful when each configured app saves a dashboard visit.
 
 If a plugin only mirrors data without deciding what matters, it is not finished.

@@ -104,7 +104,7 @@ private struct IntegrationSection: View {
     let integrations: [IntegrationSummary]
 
     var body: some View {
-        SectionBlock(title: "Integrations") {
+        SectionBlock(title: "Apps") {
             VStack(spacing: 10) {
                 ForEach(integrations) { integration in
                     HStack(spacing: 12) {

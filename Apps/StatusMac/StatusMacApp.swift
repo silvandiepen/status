@@ -13,7 +13,7 @@ struct StatusMacApp: App {
         }
         .windowStyle(.titleBar)
 
-        WindowGroup("Integration Settings", id: "integration-settings", for: String.self) { $pluginID in
+        WindowGroup("App Settings", id: "integration-settings", for: String.self) { $pluginID in
             if let pluginID {
                 MacPluginSettingsWindow(pluginID: pluginID)
             }
@@ -31,7 +31,7 @@ private struct MacPluginSettingsWindow: View {
             pluginID: pluginID
         )
         .frame(minWidth: 640, minHeight: 520)
-        .navigationTitle("Integration Settings")
+        .navigationTitle("App Settings")
     }
 
     private func makePluginStoreViewModel(platform: PluginPlatform) -> PluginStoreViewModel {
@@ -175,9 +175,9 @@ private struct MacRootView: View {
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             List(selection: $selection) {
-                Section("Integrations") {
+                Section("Apps") {
                     if sidebarPlugins.isEmpty {
-                        Text(sidebarPluginError ?? "No integrations installed")
+                        Text(sidebarPluginError ?? "No apps configured")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
@@ -210,7 +210,7 @@ private struct MacRootView: View {
                         Label("Alerts", systemImage: "bell")
                     }
                     NavigationLink(value: MacSection.integrations) {
-                        Label("Integrations", systemImage: "puzzlepiece.extension")
+                        Label("Apps", systemImage: "puzzlepiece.extension")
                     }
                     NavigationLink(value: MacSection.rules) {
                         Label("Rules", systemImage: "slider.horizontal.3")
@@ -251,7 +251,7 @@ private struct MacRootView: View {
                         }
                     )
                 }
-                    .navigationTitle("Integrations")
+                    .navigationTitle("Apps")
             case .rules:
                 detailWithIntegrationTabs {
                     RulesContainerView(viewModel: makeRulesViewModel())
