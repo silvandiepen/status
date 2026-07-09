@@ -54,6 +54,8 @@ public final class PluginStoreViewModel: ObservableObject {
     @Published public private(set) var savingRuleID: String?
     @Published public private(set) var dashboardTileFields: [String: [String]]
     @Published public private(set) var savingDashboardTileFieldKey: String?
+    @Published public private(set) var oauthConnectionURLs: [String: URL]
+    @Published public private(set) var oauthConnectionErrors: [String: String]
 
     private let loadInstalled: () throws -> [InstalledPlugin]
     private let loadAvailable: () async throws -> [RegistryPluginSummary]
@@ -115,6 +117,8 @@ public final class PluginStoreViewModel: ObservableObject {
         self.rulePresets = [:]
         self.appRules = [:]
         self.dashboardTileFields = [:]
+        self.oauthConnectionURLs = [:]
+        self.oauthConnectionErrors = [:]
         self.loadInstalled = loadInstalled
         self.loadAvailable = loadAvailable
         self.loadRuntimeStatuses = loadRuntimeStatuses
@@ -351,6 +355,21 @@ public final class PluginStoreViewModel: ObservableObject {
         }
     }
 
+    public func beginOAuthConnection(_ plugin: InstalledPlugin) {
+        let key = setupKey(for: plugin)
+        oauthConnectionURLs[key] = nil
+        oauthConnectionErrors[key] = nil
+        do {
+            guard let auth = plugin.auth, auth.type == .oauth2 else {
+                oauthConnectionErrors[key] = "This plugin does not use OAuth."
+                return
+            }
+            oauthConnectionURLs[key] = try PluginOAuth.authorizationRequest(pluginID: plugin.id, auth: auth).url
+        } catch {
+            oauthConnectionErrors[key] = error.localizedDescription
+        }
+    }
+
     public func run(_ plugin: InstalledPlugin) async {
         guard runningPluginID == nil else { return }
         guard let account = selectedAccount(for: plugin) else {
@@ -552,6 +571,8 @@ public struct PluginStoreContainerView: View {
             savingRuleID: viewModel.savingRuleID,
             dashboardTileFields: viewModel.dashboardTileFields,
             savingDashboardTileFieldKey: viewModel.savingDashboardTileFieldKey,
+            oauthConnectionURLs: viewModel.oauthConnectionURLs,
+            oauthConnectionErrors: viewModel.oauthConnectionErrors,
             canConfigure: { plugin in
                 viewModel.canConfigure(plugin)
             },
@@ -571,6 +592,9 @@ public struct PluginStoreContainerView: View {
                 Task {
                     await viewModel.saveSetup(plugin)
                 }
+            },
+            beginOAuthConnection: { plugin in
+                viewModel.beginOAuthConnection(plugin)
             },
             canRun: { plugin in
                 viewModel.canRun(plugin)
@@ -765,6 +789,8 @@ public struct PluginSettingsContainerView: View {
             savingRuleID: viewModel.savingRuleID,
             selectedDashboardTileFields: viewModel.dashboardTileFields[key, default: []],
             savingDashboardTileFieldKey: viewModel.savingDashboardTileFieldKey,
+            oauthConnectionURL: viewModel.oauthConnectionURLs[key],
+            oauthConnectionError: viewModel.oauthConnectionErrors[key],
             updateSetupValue: { plugin, fieldID, value in
                 viewModel.updateSetupValue(plugin, fieldID: fieldID, value: value)
             },
@@ -779,6 +805,9 @@ public struct PluginSettingsContainerView: View {
             },
             saveSetup: { plugin in
                 Task { await viewModel.saveSetup(plugin) }
+            },
+            beginOAuthConnection: { plugin in
+                viewModel.beginOAuthConnection(plugin)
             },
             canRun: viewModel.canRun(plugin),
             isRunning: viewModel.runningPluginID == plugin.id,
@@ -915,12 +944,15 @@ public struct PluginStoreView: View {
     private let savingRuleID: String?
     private let dashboardTileFields: [String: [String]]
     private let savingDashboardTileFieldKey: String?
+    private let oauthConnectionURLs: [String: URL]
+    private let oauthConnectionErrors: [String: String]
     private let canConfigure: (InstalledPlugin) -> Bool
     private let updateSetupValue: (InstalledPlugin, String, String) -> Void
     private let updateAccountDisplayName: (InstalledPlugin, String) -> Void
     private let selectAccount: (InstalledPlugin, String) -> Void
     private let addAccount: (InstalledPlugin) -> Void
     private let saveSetup: (InstalledPlugin) -> Void
+    private let beginOAuthConnection: (InstalledPlugin) -> Void
     private let canRun: (InstalledPlugin) -> Bool
     private let run: (InstalledPlugin) -> Void
     private let install: (RegistryPluginSummary) -> Void
@@ -966,12 +998,15 @@ public struct PluginStoreView: View {
         savingRuleID: String? = nil,
         dashboardTileFields: [String: [String]] = [:],
         savingDashboardTileFieldKey: String? = nil,
+        oauthConnectionURLs: [String: URL] = [:],
+        oauthConnectionErrors: [String: String] = [:],
         canConfigure: @escaping (InstalledPlugin) -> Bool = { _ in false },
         updateSetupValue: @escaping (InstalledPlugin, String, String) -> Void = { _, _, _ in },
         updateAccountDisplayName: @escaping (InstalledPlugin, String) -> Void = { _, _ in },
         selectAccount: @escaping (InstalledPlugin, String) -> Void = { _, _ in },
         addAccount: @escaping (InstalledPlugin) -> Void = { _ in },
         saveSetup: @escaping (InstalledPlugin) -> Void = { _ in },
+        beginOAuthConnection: @escaping (InstalledPlugin) -> Void = { _ in },
         canRun: @escaping (InstalledPlugin) -> Bool = { _ in false },
         run: @escaping (InstalledPlugin) -> Void = { _ in },
         install: @escaping (RegistryPluginSummary) -> Void = { _ in },
@@ -1014,12 +1049,15 @@ public struct PluginStoreView: View {
         self.savingRuleID = savingRuleID
         self.dashboardTileFields = dashboardTileFields
         self.savingDashboardTileFieldKey = savingDashboardTileFieldKey
+        self.oauthConnectionURLs = oauthConnectionURLs
+        self.oauthConnectionErrors = oauthConnectionErrors
         self.canConfigure = canConfigure
         self.updateSetupValue = updateSetupValue
         self.updateAccountDisplayName = updateAccountDisplayName
         self.selectAccount = selectAccount
         self.addAccount = addAccount
         self.saveSetup = saveSetup
+        self.beginOAuthConnection = beginOAuthConnection
         self.canRun = canRun
         self.run = run
         self.install = install
@@ -1132,11 +1170,14 @@ public struct PluginStoreView: View {
             savingRuleID: savingRuleID,
             selectedDashboardTileFields: dashboardTileFields[setupKey(pluginID: plugin.id, accountID: selectedAccountID), default: []],
             savingDashboardTileFieldKey: savingDashboardTileFieldKey,
+            oauthConnectionURL: oauthConnectionURLs[setupKey(pluginID: plugin.id, accountID: selectedAccountID)],
+            oauthConnectionError: oauthConnectionErrors[setupKey(pluginID: plugin.id, accountID: selectedAccountID)],
             updateSetupValue: updateSetupValue,
             updateAccountDisplayName: updateAccountDisplayName,
             selectAccount: selectAccount,
             addAccount: addAccount,
             saveSetup: saveSetup,
+            beginOAuthConnection: beginOAuthConnection,
             canRun: canRun(plugin),
             isRunning: runningPluginID == plugin.id,
             runResult: runResults[setupKey(pluginID: plugin.id, accountID: selectedAccountID)],
@@ -1387,11 +1428,14 @@ private struct PluginSettingsPanel: View {
     let savingRuleID: String?
     let selectedDashboardTileFields: [String]
     let savingDashboardTileFieldKey: String?
+    let oauthConnectionURL: URL?
+    let oauthConnectionError: String?
     let updateSetupValue: (InstalledPlugin, String, String) -> Void
     let updateAccountDisplayName: (InstalledPlugin, String) -> Void
     let selectAccount: (InstalledPlugin, String) -> Void
     let addAccount: (InstalledPlugin) -> Void
     let saveSetup: (InstalledPlugin) -> Void
+    let beginOAuthConnection: (InstalledPlugin) -> Void
     let canRun: Bool
     let isRunning: Bool
     let runResult: String?
@@ -1526,6 +1570,14 @@ private struct PluginSettingsPanel: View {
                         select: { selectAccount(plugin, $0) },
                         addAccount: { addAccount(plugin) }
                     )
+                    if plugin.usesOAuth {
+                        PluginOAuthConnectionPanel(
+                            plugin: plugin,
+                            authorizationURL: oauthConnectionURL,
+                            error: oauthConnectionError,
+                            connect: { beginOAuthConnection(plugin) }
+                        )
+                    }
                     DashboardTileFieldsPanel(
                         selectedAccountID: selectedPersistedAccountID,
                         availableFields: availableDashboardTileFields,
@@ -2154,6 +2206,43 @@ private struct PluginPermissionToggle: View {
     }
 }
 
+private struct PluginOAuthConnectionPanel: View {
+    let plugin: InstalledPlugin
+    let authorizationURL: URL?
+    let error: String?
+    let connect: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("OAuth")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Button {
+                connect()
+            } label: {
+                Label("Connect account", systemImage: "person.crop.circle.badge.checkmark")
+            }
+            .buttonStyle(.bordered)
+            if let authorizationURL {
+                Link("Open authorization page", destination: authorizationURL)
+                    .font(.caption)
+            }
+            if let error {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(Color.statusSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(plugin.name) OAuth connection")
+    }
+}
+
 private struct PluginSetupFieldRow: View {
     let field: PackagedPluginSetupField
     let value: String
@@ -2237,6 +2326,10 @@ private extension PackagedPluginSetupFieldType {
 private extension InstalledPlugin {
     var configurationFields: [PackagedPluginSetupField] {
         ((auth?.fields ?? []) + (setup?.fields ?? [])).filter { $0.type.isLocallyPersistableSetupField }
+    }
+
+    var usesOAuth: Bool {
+        auth?.type == .oauth2
     }
 }
 

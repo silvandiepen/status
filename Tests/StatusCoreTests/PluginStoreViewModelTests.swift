@@ -187,3 +187,54 @@ import StatusCore
     #expect(savedRule.accountID == account.id)
     #expect(savedRule.provider == plugin.id)
 }
+
+@MainActor
+@Test func pluginStoreViewModelBuildsOAuthConnectionURL() async throws {
+    let plugin = InstalledPlugin(
+        id: "com.status.oauthgithub",
+        name: "OAuth GitHub",
+        author: "Status Foundry",
+        description: "OAuth GitHub checks.",
+        category: "development",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/com.status.oauthgithub",
+        auth: PackagedPluginAuth(
+            type: .oauth2,
+            provider: "github",
+            applicationId: "status-foundry.github",
+            oauth2: PackagedPluginOAuth2(
+                authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
+                tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
+                redirectURI: "status://oauth/github",
+                scopes: ["repo"]
+            )
+        ),
+        installedAt: Date(timeIntervalSince1970: 1_783_433_520),
+        updatedAt: Date(timeIntervalSince1970: 1_783_433_520)
+    )
+    let viewModel = PluginStoreViewModel(
+        loadInstalled: { [plugin] },
+        loadAvailable: { [] },
+        installPlugin: { _ in },
+        canConfigurePlugin: { _ in true }
+    )
+
+    await viewModel.reload()
+    viewModel.beginOAuthConnection(plugin)
+
+    let selectedAccountID = viewModel.selectedAccountIDs[plugin.id]
+    let url = try #require(viewModel.oauthConnectionURLs["\(plugin.id):\(selectedAccountID ?? "__new__:")"])
+    let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+    let query = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).compactMap { item in
+        item.value.map { (item.name, $0) }
+    })
+    #expect(url.host == "github.com")
+    #expect(query["response_type"] == "code")
+    #expect(query["client_id"] == "status-foundry.github")
+    #expect(query["redirect_uri"] == "status://oauth/github")
+    #expect(query["scope"] == "repo")
+    #expect(query["code_challenge_method"] == "S256")
+    #expect(query["code_challenge"]?.isEmpty == false)
+    #expect(viewModel.oauthConnectionErrors["\(plugin.id):\(selectedAccountID ?? "__new__:")"] == nil)
+}
