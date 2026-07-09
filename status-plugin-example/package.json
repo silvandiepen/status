@@ -1,0 +1,10 @@
+{
+  "name": "status-plugin-example",
+  "private": true,
+  "type": "module",
+  "description": "Minimal Status plugin template — validate locally before installing in the app.",
+  "scripts": {
+    "validate": "node scripts/validate.mjs",
+    "check": "node scripts/validate.mjs"
+  }
+}

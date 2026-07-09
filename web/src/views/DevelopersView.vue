@@ -20,7 +20,7 @@ const devBemm = useBemm('developers-guide', { return: 'string' })
           </p>
           <div :class="bemm('links')">
             <RouterLink to="/docs/plugin-author-guide/">Read the full guide</RouterLink>
-            <a :href="guide.template.monorepoUrl" target="_blank" rel="noopener">Open example template</a>
+            <a :href="guide.template.standaloneUrl" target="_blank" rel="noopener">Fork example template</a>
           </div>
         </div>
       </section>
@@ -36,11 +36,14 @@ const devBemm = useBemm('developers-guide', { return: 'string' })
                 <code>{{ guide.template.monorepoPath }}</code>
               </p>
               <p>
-                Planned standalone repo:
-                <code>{{ guide.template.futureRepo }}</code>
+                Standalone template:
+                <code>{{ guide.template.standaloneRepo }}</code>
               </p>
+              <a :href="guide.template.standaloneUrl" target="_blank" rel="noopener">
+                Fork standalone template
+              </a>
               <a :href="guide.template.monorepoUrl" target="_blank" rel="noopener">
-                View template on GitHub
+                View monorepo copy
               </a>
             </article>
 

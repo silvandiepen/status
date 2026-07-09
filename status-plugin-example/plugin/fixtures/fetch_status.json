@@ -1,0 +1,20 @@
+{
+  "services": [
+    {
+      "id": "api",
+      "name": "API",
+      "state": "degraded",
+      "region": "eu-west",
+      "errorRatePercent": 7.5,
+      "dashboardUrl": "https://example.com/services/api"
+    },
+    {
+      "id": "worker",
+      "name": "Worker",
+      "state": "healthy",
+      "region": "us-east",
+      "errorRatePercent": 0.2,
+      "dashboardUrl": "https://example.com/services/worker"
+    }
+  ]
+}

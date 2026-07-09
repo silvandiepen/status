@@ -1,10 +1,11 @@
 {
   "template": {
     "title": "Example template",
-    "summary": "Start from Mock Operations in the main repository. A standalone status-plugin-example repo is planned for fork-friendly authoring.",
+    "summary": "Fork status-plugin-example for a minimal standalone template, or copy plugins/examples/mock-operations from the monorepo.",
     "monorepoPath": "plugins/examples/mock-operations",
     "monorepoUrl": "https://github.com/statusfoundry/status/tree/main/plugins/examples/mock-operations",
-    "futureRepo": "status-plugin-example"
+    "standaloneRepo": "status-plugin-example",
+    "standaloneUrl": "https://github.com/statusfoundry/status/tree/main/status-plugin-example"
   },
   "packageFiles": [
     { "file": "manifest.json", "purpose": "Plugin ID, version, permissions, domains, platforms" },
@@ -48,6 +49,10 @@
     {
       "label": "Validate the example template",
       "command": "npm run plugins:validate-local -- plugins/examples/mock-operations"
+    },
+    {
+      "label": "Validate standalone template (after sync)",
+      "command": "npm run plugin-example:check"
     }
   ],
   "restrictions": [

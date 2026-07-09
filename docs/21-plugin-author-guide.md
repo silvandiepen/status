@@ -34,11 +34,15 @@ Copy that folder, rename it, and replace the example provider with your real HTT
 
 ### Standalone template repository
 
-A separate `status-plugin-example` repository is planned so authors can fork a minimal template without cloning the full Status monorepo. Until that repository is published, use `plugins/examples/mock-operations` in the main repository:
+Fork the minimal template without cloning the full Status monorepo:
+
+[status-plugin-example](https://github.com/statusfoundry/status/tree/main/status-plugin-example)
+
+That directory is generated from `plugins/examples/mock-operations` and includes bundled schemas plus `npm run validate`. Maintainers regenerate it with `npm run plugin-example:sync` from the monorepo root.
+
+You can also copy the example directly from the main repository:
 
 [github.com/statusfoundry/status/tree/main/plugins/examples/mock-operations](https://github.com/statusfoundry/status/tree/main/plugins/examples/mock-operations)
-
-When `status-plugin-example` exists, it should stay in sync with that folder and carry the same validation commands documented here.
 
 ## Local prerequisites
 
