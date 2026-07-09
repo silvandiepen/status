@@ -238,3 +238,72 @@ import StatusCore
     #expect(query["code_challenge"]?.isEmpty == false)
     #expect(viewModel.oauthConnectionErrors["\(plugin.id):\(selectedAccountID ?? "__new__:")"] == nil)
 }
+
+@MainActor
+@Test func pluginStoreViewModelCompletesOAuthCallbackForPendingConnection() async throws {
+    let plugin = InstalledPlugin(
+        id: "com.status.oauthgithub",
+        name: "OAuth GitHub",
+        author: "Status Foundry",
+        description: "OAuth GitHub checks.",
+        category: "development",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/com.status.oauthgithub",
+        auth: PackagedPluginAuth(
+            type: .oauth2,
+            provider: "github",
+            applicationId: "status-foundry.github",
+            oauth2: PackagedPluginOAuth2(
+                authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
+                tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
+                redirectURI: "status://oauth/github",
+                scopes: ["repo"]
+            )
+        ),
+        setup: PackagedPluginSetup(title: "Repository", fields: [
+            PackagedPluginSetupField(id: "owner", label: "Owner", type: .text, required: true),
+            PackagedPluginSetupField(id: "repo", label: "Repository", type: .text, required: true)
+        ]),
+        installedAt: Date(timeIntervalSince1970: 1_783_433_520),
+        updatedAt: Date(timeIntervalSince1970: 1_783_433_520)
+    )
+    var completed: [(pluginID: String, accountID: String?, displayName: String?, values: [String: String], callbackURL: URL)] = []
+    let viewModel = PluginStoreViewModel(
+        loadInstalled: { [plugin] },
+        loadAvailable: { [] },
+        installPlugin: { _ in },
+        canConfigurePlugin: { _ in true },
+        completeOAuthConnection: { plugin, accountID, displayName, values, _, callbackURL in
+            completed.append((plugin.id, accountID, displayName, values, callbackURL))
+            return "Saved OAuth app."
+        }
+    )
+
+    await viewModel.reload()
+    viewModel.updateSetupValue(plugin, fieldID: "owner", value: "statusfoundry")
+    viewModel.updateSetupValue(plugin, fieldID: "repo", value: "status")
+    viewModel.updateAccountDisplayName(plugin, value: "Status Repo")
+    viewModel.beginOAuthConnection(plugin)
+
+    let selectedAccountID = viewModel.selectedAccountIDs[plugin.id]
+    let key = "\(plugin.id):\(selectedAccountID ?? "__new__:")"
+    let authorizationURL = try #require(viewModel.oauthConnectionURLs[key])
+    let state = try #require(URLComponents(url: authorizationURL, resolvingAgainstBaseURL: false)?
+        .queryItems?
+        .first { $0.name == "state" }?
+        .value)
+    let callbackURL = try #require(URL(string: "status://oauth/github?code=code-456&state=\(state)"))
+
+    await viewModel.completeOAuthConnection(callbackURL: callbackURL)
+
+    let completion = try #require(completed.first)
+    #expect(completion.pluginID == plugin.id)
+    #expect(completion.accountID == nil)
+    #expect(completion.displayName == "Status Repo")
+    #expect(completion.values == ["owner": "statusfoundry", "repo": "status"])
+    #expect(completion.callbackURL == callbackURL)
+    #expect(viewModel.setupResults[key] == "Saved OAuth app.")
+    #expect(viewModel.oauthConnectionURLs[key] == nil)
+    #expect(viewModel.oauthConnectionErrors[key] == nil)
+}

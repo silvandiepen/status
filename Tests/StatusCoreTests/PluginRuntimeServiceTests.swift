@@ -1682,6 +1682,44 @@ import Testing
     #expect(try store.job(id: job.id)?.status == .success)
 }
 
+@Test func pluginOAuthExchangesAuthorizationCodeForTokenSet() async throws {
+    let auth = PackagedPluginAuth(
+        type: .oauth2,
+        provider: "github",
+        applicationId: "status-foundry.github",
+        oauth2: PackagedPluginOAuth2(
+            authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
+            tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
+            redirectURI: "status://oauth/github",
+            scopes: ["repo"]
+        )
+    )
+    let request = try PluginOAuth.authorizationRequest(
+        pluginID: "com.status.oauthgithub",
+        auth: auth,
+        state: "state-123",
+        codeVerifier: "verifier-123"
+    )
+    let callback = try #require(URL(string: "status://oauth/github?code=code-456&state=state-123"))
+    let tokenURL = try #require(URL(string: "https://github.com/login/oauth/access_token"))
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+
+    let tokenSet = try await PluginOAuth.tokenSet(
+        pluginID: "com.status.oauthgithub",
+        auth: auth,
+        request: request,
+        callbackURL: callback,
+        transport: RuntimeOAuthCodeExchangeTransport(tokenURL: tokenURL),
+        now: now
+    )
+
+    #expect(tokenSet.accessToken == "oauth_access")
+    #expect(tokenSet.refreshToken == "oauth_refresh")
+    #expect(tokenSet.tokenType == "Bearer")
+    #expect(tokenSet.scope == "repo")
+    #expect(tokenSet.expiresAt == now.addingTimeInterval(3_600))
+}
+
 @Test func pluginRuntimeServiceRefreshesExpiredOAuthTokenBeforeRequest() async throws {
     let database = try temporaryRuntimeDatabase()
     let store = StatusPersistenceStore(database: database)
@@ -2156,6 +2194,36 @@ private struct RuntimeOAuthRefreshTransport: PluginRequestHTTPTransport {
         #expect(request.url == apiURL)
         #expect(request.headers["Authorization"] == "Bearer fresh_access")
         return PluginHTTPResponse(data: Data("{}".utf8), statusCode: 200, url: apiURL)
+    }
+}
+
+private struct RuntimeOAuthCodeExchangeTransport: PluginRequestHTTPTransport {
+    var tokenURL: URL
+
+    func response(for request: PluginHTTPRequest) async throws -> PluginHTTPResponse {
+        #expect(request.method == "POST")
+        #expect(request.url == tokenURL)
+        #expect(request.headers["Accept"] == "application/json")
+        #expect(request.headers["Content-Type"] == "application/x-www-form-urlencoded")
+        let body = try #require(request.body.flatMap { String(data: $0, encoding: .utf8) })
+        #expect(body.contains("client_id=status-foundry.github"))
+        #expect(body.contains("code=code-456"))
+        #expect(body.contains("code_verifier=verifier-123"))
+        #expect(body.contains("grant_type=authorization_code"))
+        #expect(body.contains("redirect_uri=status%3A%2F%2Foauth%2Fgithub"))
+        return PluginHTTPResponse(
+            data: Data("""
+            {
+              "access_token": "oauth_access",
+              "refresh_token": "oauth_refresh",
+              "token_type": "Bearer",
+              "expires_in": 3600,
+              "scope": "repo"
+            }
+            """.utf8),
+            statusCode: 200,
+            url: tokenURL
+        )
     }
 }
 

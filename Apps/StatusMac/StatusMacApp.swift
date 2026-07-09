@@ -81,13 +81,22 @@ private struct MacPluginSettingsWindow: View {
         } runPlugin: { plugin, account in
             try await runConfiguredPluginCheck(pluginID: plugin.id, accountID: account.id, accountName: account.accountName)
         } canConfigurePlugin: { plugin in
-            plugin.auth?.fields.isEmpty == false || plugin.setup?.fields.contains(where: \.type.isPlainConfigurationField) == true
+            plugin.auth?.type == .oauth2 || plugin.auth?.fields.isEmpty == false || plugin.setup?.fields.contains(where: \.type.isPlainConfigurationField) == true
         } loadAccounts: { plugin in
             try LocalStatusStore.openApplicationSupportStore().accountConfigurations(pluginID: plugin.id)
         } loadConfigurationValues: { plugin, accountID in
             try configuredPluginValues(pluginID: plugin.id, accountID: accountID)
         } saveConfigurationValues: { plugin, accountID, displayName, values in
             try savePluginSetup(plugin: plugin, accountID: accountID, displayName: displayName, values: values)
+        } completeOAuthConnection: { plugin, accountID, displayName, values, request, callbackURL in
+            try await saveOAuthPluginSetup(
+                plugin: plugin,
+                accountID: accountID,
+                displayName: displayName,
+                values: values,
+                request: request,
+                callbackURL: callbackURL
+            )
         }
     }
 
@@ -133,6 +142,36 @@ private struct MacPluginSettingsWindow: View {
         let service = PluginRuntimeService(store: store)
         return try PluginSetupConfiguration.saveValues(
             values,
+            for: plugin,
+            service: service,
+            credentialStore: KeychainCredentialStore(),
+            accountID: accountID,
+            displayNameOverride: displayName
+        )
+    }
+
+    private func saveOAuthPluginSetup(
+        plugin: InstalledPlugin,
+        accountID: String?,
+        displayName: String?,
+        values: [String: String],
+        request: PluginOAuthAuthorizationRequest,
+        callbackURL: URL
+    ) async throws -> String {
+        guard let auth = plugin.auth else {
+            throw PluginOAuthError.missingOAuthConfiguration(plugin.id)
+        }
+        let tokenSet = try await PluginOAuth.tokenSet(
+            pluginID: plugin.id,
+            auth: auth,
+            request: request,
+            callbackURL: callbackURL
+        )
+        let store = try LocalStatusStore.openApplicationSupportStore()
+        let service = PluginRuntimeService(store: store)
+        return try PluginSetupConfiguration.saveOAuthTokenSet(
+            tokenSet,
+            setupValues: values,
             for: plugin,
             service: service,
             credentialStore: KeychainCredentialStore(),
@@ -468,13 +507,22 @@ private struct MacRootView: View {
         } runPlugin: { plugin, account in
             try await runConfiguredPluginCheck(pluginID: plugin.id, accountID: account.id, accountName: account.accountName)
         } canConfigurePlugin: { plugin in
-            plugin.auth?.fields.isEmpty == false || plugin.setup?.fields.contains(where: \.type.isPlainConfigurationField) == true
+            plugin.auth?.type == .oauth2 || plugin.auth?.fields.isEmpty == false || plugin.setup?.fields.contains(where: \.type.isPlainConfigurationField) == true
         } loadAccounts: { plugin in
             try LocalStatusStore.openApplicationSupportStore().accountConfigurations(pluginID: plugin.id)
         } loadConfigurationValues: { plugin, accountID in
             try configuredPluginValues(pluginID: plugin.id, accountID: accountID)
         } saveConfigurationValues: { plugin, accountID, displayName, values in
             try savePluginSetup(plugin: plugin, accountID: accountID, displayName: displayName, values: values)
+        } completeOAuthConnection: { plugin, accountID, displayName, values, request, callbackURL in
+            try await saveOAuthPluginSetup(
+                plugin: plugin,
+                accountID: accountID,
+                displayName: displayName,
+                values: values,
+                request: request,
+                callbackURL: callbackURL
+            )
         }
     }
 
@@ -763,6 +811,36 @@ private struct MacRootView: View {
         let service = PluginRuntimeService(store: store)
         return try PluginSetupConfiguration.saveValues(
             values,
+            for: plugin,
+            service: service,
+            credentialStore: KeychainCredentialStore(),
+            accountID: accountID,
+            displayNameOverride: displayName
+        )
+    }
+
+    private func saveOAuthPluginSetup(
+        plugin: InstalledPlugin,
+        accountID: String?,
+        displayName: String?,
+        values: [String: String],
+        request: PluginOAuthAuthorizationRequest,
+        callbackURL: URL
+    ) async throws -> String {
+        guard let auth = plugin.auth else {
+            throw PluginOAuthError.missingOAuthConfiguration(plugin.id)
+        }
+        let tokenSet = try await PluginOAuth.tokenSet(
+            pluginID: plugin.id,
+            auth: auth,
+            request: request,
+            callbackURL: callbackURL
+        )
+        let store = try LocalStatusStore.openApplicationSupportStore()
+        let service = PluginRuntimeService(store: store)
+        return try PluginSetupConfiguration.saveOAuthTokenSet(
+            tokenSet,
+            setupValues: values,
             for: plugin,
             service: service,
             credentialStore: KeychainCredentialStore(),

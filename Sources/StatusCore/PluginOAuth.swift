@@ -95,6 +95,10 @@ public enum PluginOAuthError: Error, Equatable, LocalizedError, Sendable {
     case invalidAuthorizationURL(String)
     case missingApplicationID(String)
     case missingRefreshToken(String)
+    case authorizationCallbackMissingCode
+    case authorizationStateMismatch
+    case authorizationDenied(String)
+    case tokenExchangeFailed(statusCode: Int)
     case tokenRefreshFailed(statusCode: Int)
     case invalidTokenResponse
 
@@ -108,6 +112,14 @@ public enum PluginOAuthError: Error, Equatable, LocalizedError, Sendable {
             "OAuth plugin is missing a public application ID: \(pluginID)"
         case .missingRefreshToken(let pluginID):
             "OAuth token is expired and no refresh token is available: \(pluginID)"
+        case .authorizationCallbackMissingCode:
+            "OAuth callback did not include an authorization code."
+        case .authorizationStateMismatch:
+            "OAuth callback state did not match the active connection request."
+        case .authorizationDenied(let message):
+            "OAuth authorization was denied: \(message)"
+        case .tokenExchangeFailed(let statusCode):
+            "OAuth token exchange failed with HTTP \(statusCode)."
         case .tokenRefreshFailed(let statusCode):
             "OAuth token refresh failed with HTTP \(statusCode)."
         case .invalidTokenResponse:
@@ -153,6 +165,46 @@ public enum PluginOAuth {
         return PluginOAuthAuthorizationRequest(url: url, codeVerifier: codeVerifier, state: state)
     }
 
+    public static func tokenSet(
+        pluginID: String,
+        auth: PackagedPluginAuth,
+        request: PluginOAuthAuthorizationRequest,
+        callbackURL: URL,
+        transport: PluginRequestHTTPTransport = URLSessionPluginRequestTransport(),
+        now: Date = Date()
+    ) async throws -> PluginOAuthTokenSet {
+        guard auth.type == .oauth2, let config = auth.oauth2 else {
+            throw PluginOAuthError.missingOAuthConfiguration(pluginID)
+        }
+        guard let clientID = auth.applicationId?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty else {
+            throw PluginOAuthError.missingApplicationID(pluginID)
+        }
+        let callback = try callbackParameters(callbackURL, expectedState: request.state)
+        let body = formURLEncoded([
+            "grant_type": "authorization_code",
+            "code": callback.code,
+            "redirect_uri": config.redirectURI,
+            "client_id": clientID,
+            "code_verifier": request.codeVerifier
+        ])
+        let response = try await transport.response(
+            for: PluginHTTPRequest(
+                method: "POST",
+                url: config.tokenURL,
+                headers: [
+                    "Accept": "application/json",
+                    "Content-Type": "application/x-www-form-urlencoded"
+                ],
+                body: Data(body.utf8),
+                timeoutSeconds: 30
+            )
+        )
+        guard (200..<300).contains(response.statusCode) else {
+            throw PluginOAuthError.tokenExchangeFailed(statusCode: response.statusCode)
+        }
+        return try tokenSet(from: response.data, now: now)
+    }
+
     public static func codeChallenge(for verifier: String) -> String {
         let digest = SHA256.hash(data: Data(verifier.utf8))
         return Data(digest).base64URLEncodedString()
@@ -162,6 +214,54 @@ public enum PluginOAuth {
         var bytes = [UInt8](repeating: 0, count: byteCount)
         _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
         return Data(bytes).base64URLEncodedString()
+    }
+
+    private static func callbackParameters(_ callbackURL: URL, expectedState: String) throws -> (code: String, state: String) {
+        let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)
+        let queryItems = components?.queryItems ?? []
+        let fields = Dictionary(uniqueKeysWithValues: queryItems.compactMap { item in
+            item.value.map { (item.name, $0) }
+        })
+        if let error = fields["error"] {
+            throw PluginOAuthError.authorizationDenied(fields["error_description"] ?? error)
+        }
+        guard fields["state"] == expectedState else {
+            throw PluginOAuthError.authorizationStateMismatch
+        }
+        guard let code = fields["code"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              code.isEmpty == false else {
+            throw PluginOAuthError.authorizationCallbackMissingCode
+        }
+        return (code, expectedState)
+    }
+
+    private static func tokenSet(from data: Data, now: Date) throws -> PluginOAuthTokenSet {
+        let response = try JSONDecoder().decode(PluginOAuthTokenResponse.self, from: data)
+        guard let accessToken = response.accessToken?.trimmingCharacters(in: .whitespacesAndNewlines),
+              accessToken.isEmpty == false else {
+            throw PluginOAuthError.invalidTokenResponse
+        }
+        return PluginOAuthTokenSet(
+            accessToken: accessToken,
+            refreshToken: response.refreshToken?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty,
+            tokenType: response.tokenType?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty ?? "Bearer",
+            scope: response.scope?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty,
+            expiresAt: response.expiresIn.map { now.addingTimeInterval($0) }
+        )
+    }
+
+    private static func formURLEncoded(_ fields: [String: String]) -> String {
+        fields
+            .sorted { $0.key < $1.key }
+            .map { key, value in
+                "\(urlFormEncode(key))=\(urlFormEncode(value))"
+            }
+            .joined(separator: "&")
+    }
+
+    private static func urlFormEncode(_ value: String) -> String {
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+        return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
     }
 }
 

@@ -804,8 +804,7 @@ public final class PluginRuntimeService: ProviderActionExecutor, @unchecked Send
     }
 
     private func urlFormEncode(_ value: String) -> String {
-        var allowed = CharacterSet.urlQueryAllowed
-        allowed.remove(charactersIn: "+&=")
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
         return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
     }
 

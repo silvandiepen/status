@@ -56,6 +56,7 @@ public final class PluginStoreViewModel: ObservableObject {
     @Published public private(set) var savingDashboardTileFieldKey: String?
     @Published public private(set) var oauthConnectionURLs: [String: URL]
     @Published public private(set) var oauthConnectionErrors: [String: String]
+    @Published public private(set) var completingOAuthConnectionKey: String?
 
     private let loadInstalled: () throws -> [InstalledPlugin]
     private let loadAvailable: () async throws -> [RegistryPluginSummary]
@@ -77,6 +78,8 @@ public final class PluginStoreViewModel: ObservableObject {
     private let loadAccounts: (InstalledPlugin) throws -> [PluginAccountConfiguration]
     private let loadConfigurationValues: (InstalledPlugin, String?) throws -> [String: String]
     private let saveConfigurationValues: (InstalledPlugin, String?, String?, [String: String]) async throws -> String
+    private let completeOAuthConnection: (InstalledPlugin, String?, String?, [String: String], PluginOAuthAuthorizationRequest, URL) async throws -> String
+    private var oauthConnectionRequests: [String: PluginOAuthAuthorizationRequest]
 
     public init(
         initialCatalog: PluginStoreCatalog = PluginStoreCatalog(),
@@ -99,7 +102,10 @@ public final class PluginStoreViewModel: ObservableObject {
         canConfigurePlugin: @escaping (InstalledPlugin) -> Bool = { _ in false },
         loadAccounts: @escaping (InstalledPlugin) throws -> [PluginAccountConfiguration] = { _ in [] },
         loadConfigurationValues: @escaping (InstalledPlugin, String?) throws -> [String: String] = { _, _ in [:] },
-        saveConfigurationValues: @escaping (InstalledPlugin, String?, String?, [String: String]) async throws -> String = { _, _, _, _ in "" }
+        saveConfigurationValues: @escaping (InstalledPlugin, String?, String?, [String: String]) async throws -> String = { _, _, _, _ in "" },
+        completeOAuthConnection: @escaping (InstalledPlugin, String?, String?, [String: String], PluginOAuthAuthorizationRequest, URL) async throws -> String = { _, _, _, _, _, _ in
+            "OAuth callback received."
+        }
     ) {
         self.catalog = initialCatalog
         self.runResults = [:]
@@ -119,6 +125,8 @@ public final class PluginStoreViewModel: ObservableObject {
         self.dashboardTileFields = [:]
         self.oauthConnectionURLs = [:]
         self.oauthConnectionErrors = [:]
+        self.completingOAuthConnectionKey = nil
+        self.oauthConnectionRequests = [:]
         self.loadInstalled = loadInstalled
         self.loadAvailable = loadAvailable
         self.loadRuntimeStatuses = loadRuntimeStatuses
@@ -139,6 +147,7 @@ public final class PluginStoreViewModel: ObservableObject {
         self.loadAccounts = loadAccounts
         self.loadConfigurationValues = loadConfigurationValues
         self.saveConfigurationValues = saveConfigurationValues
+        self.completeOAuthConnection = completeOAuthConnection
     }
 
     public func reload() async {
@@ -364,9 +373,45 @@ public final class PluginStoreViewModel: ObservableObject {
                 oauthConnectionErrors[key] = "This plugin does not use OAuth."
                 return
             }
-            oauthConnectionURLs[key] = try PluginOAuth.authorizationRequest(pluginID: plugin.id, auth: auth).url
+            let request = try PluginOAuth.authorizationRequest(pluginID: plugin.id, auth: auth)
+            oauthConnectionRequests[key] = request
+            oauthConnectionURLs[key] = request.url
         } catch {
             oauthConnectionErrors[key] = error.localizedDescription
+        }
+    }
+
+    public func completeOAuthConnection(callbackURL: URL) async {
+        guard completingOAuthConnectionKey == nil else { return }
+        guard let match = oauthConnectionRequests.first(where: { _, request in
+            callbackURL.queryValue(named: "state") == request.state
+        }) else {
+            oauthConnectionErrors["oauth:callback"] = "No pending OAuth connection matches this callback."
+            return
+        }
+        guard let pluginID = pluginID(fromSetupKey: match.key),
+              let plugin = catalog.installed.first(where: { $0.id == pluginID }) else {
+            oauthConnectionErrors[match.key] = "OAuth plugin is no longer installed."
+            return
+        }
+
+        completingOAuthConnectionKey = match.key
+        setupResults[match.key] = nil
+        setupErrors[match.key] = nil
+        oauthConnectionErrors[match.key] = nil
+        defer { completingOAuthConnectionKey = nil }
+
+        do {
+            let accountID = persistedAccountID(from: accountID(fromSetupKey: match.key))
+            let accountName = accountDisplayNames[match.key]
+            let values = setupValues[match.key, default: defaultSetupValues(for: plugin)]
+            setupResults[match.key] = try await completeOAuthConnection(plugin, accountID, accountName, values, match.value, callbackURL)
+            oauthConnectionRequests[match.key] = nil
+            oauthConnectionURLs[match.key] = nil
+            await reload()
+        } catch {
+            oauthConnectionErrors[match.key] = error.localizedDescription
+            setupErrors[match.key] = error.localizedDescription
         }
     }
 
@@ -501,6 +546,18 @@ public final class PluginStoreViewModel: ObservableObject {
 
     private func setupKey(for plugin: InstalledPlugin) -> String {
         setupKey(pluginID: plugin.id, accountID: selectedAccountIDs[plugin.id])
+    }
+
+    private func pluginID(fromSetupKey key: String) -> String? {
+        key.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init)
+    }
+
+    private func accountID(fromSetupKey key: String) -> String? {
+        let parts = key.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+        guard parts.count == 2 else {
+            return nil
+        }
+        return String(parts[1])
     }
 
     private func setupKey(pluginID: String, accountID: String?) -> String {
@@ -661,6 +718,11 @@ public struct PluginStoreContainerView: View {
         .refreshable {
             await viewModel.reload()
         }
+        .onOpenURL { url in
+            Task {
+                await viewModel.completeOAuthConnection(callbackURL: url)
+            }
+        }
     }
 
     private func runLocalPluginInstall() {
@@ -761,6 +823,11 @@ public struct PluginSettingsContainerView: View {
         }
         .refreshable {
             await viewModel.reload()
+        }
+        .onOpenURL { url in
+            Task {
+                await viewModel.completeOAuthConnection(callbackURL: url)
+            }
         }
     }
 
@@ -2426,6 +2493,15 @@ private extension String {
         replacingOccurrences(of: #"([a-z0-9])([A-Z])"#, with: "$1 $2", options: .regularExpression)
             .replacingOccurrences(of: "_", with: " ")
             .capitalized
+    }
+}
+
+private extension URL {
+    func queryValue(named name: String) -> String? {
+        URLComponents(url: self, resolvingAgainstBaseURL: false)?
+            .queryItems?
+            .first { $0.name == name }?
+            .value
     }
 }
 
