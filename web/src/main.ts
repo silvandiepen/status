@@ -15,6 +15,7 @@ const router = createRouter({
     { path: '/plugins/:pluginId/', component: () => import('./views/PluginDetailView.vue') },
     { path: '/developers/', component: () => import('./views/DevelopersView.vue') },
     { path: '/docs/', component: () => import('./views/DocsView.vue') },
+    { path: '/docs/:docSlug/', component: () => import('./views/DocDetailView.vue') },
     { path: '/privacy/', component: () => import('./views/PrivacyView.vue') },
     { path: '/changelog/', component: () => import('./views/ChangelogView.vue') },
   ],

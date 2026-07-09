@@ -133,6 +133,12 @@ Rebuild bundled plugin packages and generated registry data:
 npm run plugins:build
 ```
 
+Rebuild generated website documentation data:
+
+```sh
+npm run docs:build
+```
+
 ## Cloudflare surfaces
 
 Current deployed surfaces:
@@ -183,7 +189,7 @@ This repository now contains a working foundation:
 - bundled official plugin packages that bootstrap locally before registry access;
 - native plugin store UI that browses and installs registry plugins;
 - Vue/TypeScript/Sass website using `@sil/ui` and `bemm`;
-- public docs, plugin, and developer website pages;
+- public docs, plugin, and developer website pages with local documentation detail routes;
 - bundled App Store Connect, GitHub, and Website Uptime plugin sources;
 - deterministic plugin package builder and generated registry artifacts;
 - Cloudflare registry Worker and deployment workflows;

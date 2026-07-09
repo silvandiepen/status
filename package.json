@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 web",
     "build": "npm run web:build",
-    "check": "npm run plugins:check && npm run typecheck && npm run web:build && npm run registry:test && npm run registry:check",
+    "check": "npm run plugins:check && npm run docs:check && npm run typecheck && npm run web:build && npm run registry:test && npm run registry:check",
     "typecheck": "vue-tsc --noEmit",
+    "docs:build": "node scripts/build-web-docs.mjs",
+    "docs:check": "node scripts/build-web-docs.mjs --check",
     "plugins:build": "node scripts/build-plugin-packages.mjs",
     "plugins:check": "node scripts/build-plugin-packages.mjs --check",
     "plugins:upload-r2": "node scripts/upload-plugin-artifacts-to-r2.mjs",

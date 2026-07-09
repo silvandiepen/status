@@ -20,9 +20,9 @@ const documents = docsData.documents
     </section>
 
     <section :class="bemm('list')" aria-label="Documentation">
-      <Card v-for="document in documents" :key="document.path" :title="document.title" :class="bemm('item')">
+      <Card v-for="document in documents" :key="document.slug" :title="document.title" :class="bemm('item')">
         <p>{{ document.summary }}</p>
-        <a :href="document.path">Open source document</a>
+        <RouterLink :to="document.path">Read document</RouterLink>
       </Card>
     </section>
   </main>
