@@ -16,7 +16,7 @@ public struct DashboardView: View {
                 DashboardHeader(snapshot: snapshot)
                 AttentionSection(items: snapshot.statusItems)
                 MetricGrid(metrics: snapshot.metrics)
-                IntegrationSection(integrations: snapshot.integrations, openApp: openApp)
+                AppSection(apps: snapshot.integrations, openApp: openApp)
                 EventSection(events: snapshot.recentEvents)
                 AuditSection(entries: snapshot.auditEntries)
             }
@@ -102,43 +102,43 @@ private struct MetricGrid: View {
     }
 }
 
-private struct IntegrationSection: View {
-    let integrations: [IntegrationSummary]
+private struct AppSection: View {
+    let apps: [IntegrationSummary]
     let openApp: ((IntegrationSummary) -> Void)?
 
     var body: some View {
         SectionBlock(title: "Apps") {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
-                ForEach(integrations) { integration in
-                    appTile(for: integration)
+                ForEach(apps) { app in
+                    appTile(for: app)
                 }
             }
         }
     }
 
     @ViewBuilder
-    private func appTile(for integration: IntegrationSummary) -> some View {
+    private func appTile(for app: IntegrationSummary) -> some View {
         let tile = VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 10) {
-                IntegrationIcon(provider: integration.provider, size: 30)
+                IntegrationIcon(provider: app.provider, size: 30)
                 Spacer(minLength: 12)
-                SeverityDot(severity: integration.severity)
+                SeverityDot(severity: app.severity)
                     .padding(.top, 5)
             }
             VStack(alignment: .leading, spacing: 4) {
-                Text(integration.name)
+                Text(app.name)
                     .font(.headline)
                     .lineLimit(2)
-                Text(integration.state)
+                Text(app.state)
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(.secondary)
-                Text(integration.lastSyncDescription)
+                Text(app.lastSyncDescription)
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
-            if integration.tileItems.isEmpty == false {
+            if app.tileItems.isEmpty == false {
                 VStack(alignment: .leading, spacing: 6) {
-                    ForEach(integration.tileItems.prefix(3)) { item in
+                    ForEach(app.tileItems.prefix(3)) { item in
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Text(item.label)
                                 .font(.caption2)
@@ -164,12 +164,12 @@ private struct IntegrationSection: View {
 
         if let openApp {
             Button {
-                openApp(integration)
+                openApp(app)
             } label: {
                 tile
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(Text("Open \(integration.name)"))
+            .accessibilityLabel(Text("Open \(app.name)"))
         } else {
             tile
         }
