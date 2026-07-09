@@ -95,6 +95,7 @@ public enum PluginOAuthError: Error, Equatable, LocalizedError, Sendable {
     case invalidAuthorizationURL(String)
     case missingApplicationID(String)
     case missingRefreshToken(String)
+    case invalidRedirectURI(String)
     case authorizationCallbackMissingCode
     case authorizationStateMismatch
     case authorizationRedirectMismatch(expected: String, actual: String)
@@ -113,6 +114,8 @@ public enum PluginOAuthError: Error, Equatable, LocalizedError, Sendable {
             "OAuth plugin is missing a public application ID: \(pluginID)"
         case .missingRefreshToken(let pluginID):
             "OAuth token is expired and no refresh token is available: \(pluginID)"
+        case .invalidRedirectURI(let redirectURI):
+            "OAuth redirect URI must match status://oauth/{provider}: \(redirectURI)"
         case .authorizationCallbackMissingCode:
             "OAuth callback did not include an authorization code."
         case .authorizationStateMismatch:
@@ -144,6 +147,7 @@ public enum PluginOAuth {
         guard let clientID = auth.applicationId?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty else {
             throw PluginOAuthError.missingApplicationID(pluginID)
         }
+        try validateConfiguredRedirectURI(config.redirectURI, provider: auth.provider, pluginID: pluginID)
         guard var components = URLComponents(url: config.authorizationURL, resolvingAgainstBaseURL: false) else {
             throw PluginOAuthError.invalidAuthorizationURL(config.authorizationURL.absoluteString)
         }
@@ -182,6 +186,7 @@ public enum PluginOAuth {
         guard let clientID = auth.applicationId?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty else {
             throw PluginOAuthError.missingApplicationID(pluginID)
         }
+        try validateConfiguredRedirectURI(config.redirectURI, provider: auth.provider, pluginID: pluginID)
         try validateCallbackRedirect(callbackURL, redirectURI: config.redirectURI)
         let callback = try callbackParameters(callbackURL, expectedState: request.state)
         let body = formURLEncoded([
@@ -250,6 +255,20 @@ public enum PluginOAuth {
                 expected: normalizedRedirectDescription(redirectURI),
                 actual: normalizedRedirectDescription(callbackURL.absoluteString)
             )
+        }
+    }
+
+    private static func validateConfiguredRedirectURI(_ redirectURI: String, provider: String?, pluginID: String) throws {
+        guard let provider = provider?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty else {
+            throw PluginOAuthError.missingOAuthConfiguration(pluginID)
+        }
+        guard let components = URLComponents(string: redirectURI),
+              components.scheme == "status",
+              components.host == "oauth",
+              components.path == "/\(provider)",
+              components.query == nil,
+              components.fragment == nil else {
+            throw PluginOAuthError.invalidRedirectURI(redirectURI)
         }
     }
 

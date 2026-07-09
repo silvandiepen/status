@@ -1819,6 +1819,29 @@ import Testing
     #expect(tokenSet.expiresAt == now.addingTimeInterval(3_600))
 }
 
+@Test func pluginOAuthRejectsInvalidConfiguredRedirectBeforeAuthorizationURL() throws {
+    let auth = PackagedPluginAuth(
+        type: .oauth2,
+        provider: "github",
+        applicationId: "status-foundry.github",
+        oauth2: PackagedPluginOAuth2(
+            authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
+            tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
+            redirectURI: "status://oauth/google",
+            scopes: ["repo"]
+        )
+    )
+
+    #expect(throws: PluginOAuthError.invalidRedirectURI("status://oauth/google")) {
+        _ = try PluginOAuth.authorizationRequest(
+            pluginID: "com.status.oauthgithub",
+            auth: auth,
+            state: "state-123",
+            codeVerifier: "verifier-123"
+        )
+    }
+}
+
 @Test func pluginOAuthRejectsCallbackRedirectMismatchBeforeTokenExchange() async throws {
     let auth = PackagedPluginAuth(
         type: .oauth2,
@@ -1841,6 +1864,37 @@ import Testing
     let tokenURL = try #require(URL(string: "https://github.com/login/oauth/access_token"))
 
     await #expect(throws: PluginOAuthError.authorizationRedirectMismatch(expected: "status://oauth/github", actual: "status://oauth/gitlab")) {
+        _ = try await PluginOAuth.tokenSet(
+            pluginID: "com.status.oauthgithub",
+            auth: auth,
+            request: request,
+            callbackURL: callback,
+            transport: RuntimeFailingOAuthTransport(tokenURL: tokenURL)
+        )
+    }
+}
+
+@Test func pluginOAuthRejectsInvalidConfiguredRedirectBeforeTokenExchange() async throws {
+    let auth = PackagedPluginAuth(
+        type: .oauth2,
+        provider: "github",
+        applicationId: "status-foundry.github",
+        oauth2: PackagedPluginOAuth2(
+            authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
+            tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
+            redirectURI: "status://oauth/google",
+            scopes: ["repo"]
+        )
+    )
+    let request = PluginOAuthAuthorizationRequest(
+        url: try #require(URL(string: "https://github.com/login/oauth/authorize")),
+        codeVerifier: "verifier-123",
+        state: "state-123"
+    )
+    let callback = try #require(URL(string: "status://oauth/google?code=code-456&state=state-123"))
+    let tokenURL = try #require(URL(string: "https://github.com/login/oauth/access_token"))
+
+    await #expect(throws: PluginOAuthError.invalidRedirectURI("status://oauth/google")) {
         _ = try await PluginOAuth.tokenSet(
             pluginID: "com.status.oauthgithub",
             auth: auth,
