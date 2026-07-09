@@ -73,6 +73,41 @@ export const registry = {
       ]
     },
     {
+      "id": "com.status.gitlab",
+      "name": "GitLab",
+      "summary": "Track GitLab pipelines, merge requests, issues, and project activity.",
+      "description": "Read-only GitLab project events for failed pipelines, merge requests, issues, and project activity.",
+      "category": "developer",
+      "icon": "sf:shippingbox",
+      "accentColor": "#FC6D26",
+      "author": "Status Foundry",
+      "trustLevel": "official",
+      "permissions": [
+        "network",
+        "keychain",
+        "background-refresh"
+      ],
+      "domains": [
+        "gitlab.com"
+      ],
+      "versions": [
+        {
+          "version": "0.1.0",
+          "minCoreVersion": "0.1.0",
+          "platforms": [
+            "macOS",
+            "iOS"
+          ],
+          "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.gitlab/0.1.0/com.status.gitlab-0.1.0.statusplugin.zip",
+          "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.gitlab/0.1.0/manifest.json",
+          "sha256": "9c74fc1a81bff60aac3634bc70f4827356eb80ea65246b6c195e31a2e04cbbb7",
+          "signature": "gc0Gm7lo1XRN4c8HpqLgoMqPqxHC1dIOuHEcRU8OOqRffmXlbMIZfIkRHYYMYrTEpT55Uj+/4POBKJWiorkhBg==",
+          "signedBy": "status-foundry-dev",
+          "releasedAt": "2026-07-09T12:00:00Z"
+        }
+      ]
+    },
+    {
       "id": "com.status.website",
       "name": "Website Uptime",
       "summary": "Track website health and response status.",

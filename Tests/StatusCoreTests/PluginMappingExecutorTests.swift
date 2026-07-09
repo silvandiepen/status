@@ -154,6 +154,95 @@ import Testing
     #expect(output.events[0].timestamp == ISO8601DateFormatter().date(from: "2026-07-07T20:15:30Z"))
 }
 
+@Test func pluginMappingExecutorMapsGitLabPipelineAndActivityEvents() throws {
+    let mappings = PackagedPluginMappings(events: [
+        PackagedEventMapping(
+            type: "gitlab.pipeline.failed",
+            request: "list_pipelines",
+            source: "$[*]",
+            when: .shorthand("$.status == 'failed'"),
+            resourceID: "{{account.projectId}}",
+            title: "Pipeline failed",
+            summary: "Pipeline {{id}} failed on {{ref}}.",
+            severity: .fixed(.warning),
+            actionURL: "{{web_url}}",
+            timestamp: "$.updated_at"
+        ),
+        PackagedEventMapping(
+            type: "gitlab.merge_request.opened",
+            request: "list_project_events",
+            source: "$[*]",
+            when: .shorthand("$.target_type == 'MergeRequest' && $.action_name == 'opened'"),
+            resourceID: "{{account.projectId}}",
+            title: "Merge request opened",
+            summary: "{{author.name}} opened a merge request.",
+            severity: .fixed(.notice),
+            actionURL: "{{target_url}}",
+            timestamp: "$.created_at"
+        )
+    ])
+    let account = MappingJSONValue.object(["projectId": .string("278964")])
+    let pipelineOutput = try PluginMappingExecutor.execute(
+        mappings,
+        input: PluginMappingExecutionInput(
+            pluginID: "com.status.gitlab",
+            accountID: "acct_gl",
+            provider: "com.status.gitlab",
+            requestID: "list_pipelines",
+            payload: decodeMappingJSON("""
+            [
+              {
+                "id": 101,
+                "status": "failed",
+                "ref": "main",
+                "web_url": "https://gitlab.com/statusfoundry/status/-/pipelines/101",
+                "updated_at": "2026-07-09T10:15:00Z"
+              },
+              {
+                "id": 102,
+                "status": "success",
+                "ref": "main",
+                "web_url": "https://gitlab.com/statusfoundry/status/-/pipelines/102",
+                "updated_at": "2026-07-09T10:20:00Z"
+              }
+            ]
+            """),
+            capturedAt: Date(timeIntervalSince1970: 1_783_433_520),
+            account: account
+        )
+    )
+    let activityOutput = try PluginMappingExecutor.execute(
+        mappings,
+        input: PluginMappingExecutionInput(
+            pluginID: "com.status.gitlab",
+            accountID: "acct_gl",
+            provider: "com.status.gitlab",
+            requestID: "list_project_events",
+            payload: decodeMappingJSON("""
+            [
+              {
+                "target_type": "MergeRequest",
+                "action_name": "opened",
+                "author": { "name": "Sil" },
+                "target_url": "https://gitlab.com/statusfoundry/status/-/merge_requests/1",
+                "created_at": "2026-07-09T11:00:00Z"
+              }
+            ]
+            """),
+            capturedAt: Date(timeIntervalSince1970: 1_783_433_520),
+            account: account
+        )
+    )
+
+    #expect(pipelineOutput.events.map(\.type) == ["gitlab.pipeline.failed"])
+    #expect(pipelineOutput.events[0].resourceID == "acct_gl:278964")
+    #expect(pipelineOutput.events[0].summary == "Pipeline 101 failed on main.")
+    #expect(pipelineOutput.events[0].actionURL?.absoluteString == "https://gitlab.com/statusfoundry/status/-/pipelines/101")
+    #expect(activityOutput.events.map(\.type) == ["gitlab.merge_request.opened"])
+    #expect(activityOutput.events[0].resourceID == "acct_gl:278964")
+    #expect(activityOutput.events[0].summary == "Sil opened a merge request.")
+}
+
 @Test func pluginMappingExecutorEvaluatesCanonicalConditionTrees() throws {
     let mappings = PackagedPluginMappings(events: [
         PackagedEventMapping(

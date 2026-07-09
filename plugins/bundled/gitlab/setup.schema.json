@@ -1,0 +1,14 @@
+{
+  "title": "Project to watch",
+  "description": "Configure one GitLab project for read-only pipeline and activity checks.",
+  "fields": [
+    {
+      "key": "projectId",
+      "label": "Project ID or URL-encoded path",
+      "type": "text",
+      "placeholder": "278964 or group%2Fproject",
+      "help": "Use the numeric project ID, or URL-encode a namespace path such as group%2Fproject.",
+      "required": true
+    }
+  ]
+}

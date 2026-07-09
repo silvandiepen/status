@@ -41,6 +41,25 @@
       "manifestResourceName": "com.status.github-0.1.0-manifest.json"
     },
     {
+      "id": "com.status.gitlab",
+      "version": "0.1.0",
+      "trustLevel": "official",
+      "minCoreVersion": "0.1.0",
+      "platforms": [
+        "macOS",
+        "iOS"
+      ],
+      "domains": [
+        "gitlab.com"
+      ],
+      "sha256": "9c74fc1a81bff60aac3634bc70f4827356eb80ea65246b6c195e31a2e04cbbb7",
+      "signature": "gc0Gm7lo1XRN4c8HpqLgoMqPqxHC1dIOuHEcRU8OOqRffmXlbMIZfIkRHYYMYrTEpT55Uj+/4POBKJWiorkhBg==",
+      "signedBy": "status-foundry-dev",
+      "releasedAt": "2026-07-09T12:00:00Z",
+      "packageResourceName": "com.status.gitlab-0.1.0.statusplugin.zip",
+      "manifestResourceName": "com.status.gitlab-0.1.0-manifest.json"
+    },
+    {
       "id": "com.status.website",
       "version": "0.1.0",
       "trustLevel": "official",

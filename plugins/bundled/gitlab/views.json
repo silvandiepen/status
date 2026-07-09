@@ -1,0 +1,25 @@
+{
+  "views": [
+    {
+      "id": "overview",
+      "type": "overview_cards",
+      "title": "GitLab Project",
+      "resourceType": "project",
+      "fields": ["defaultBranch", "visibility", "openIssues"]
+    },
+    {
+      "id": "projects",
+      "type": "resource_list",
+      "title": "Tracked Projects",
+      "resourceType": "project",
+      "fields": ["defaultBranch", "visibility", "openIssues"]
+    },
+    {
+      "id": "activity",
+      "type": "timeline",
+      "title": "Recent Project Activity",
+      "resourceType": "project",
+      "fields": ["name"]
+    }
+  ]
+}

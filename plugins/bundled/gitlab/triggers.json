@@ -1,0 +1,23 @@
+{
+  "triggers": [
+    {
+      "id": "poll_pipelines",
+      "type": "cron",
+      "label": "Check pipelines",
+      "defaultSchedule": "*/15 * * * *",
+      "request": "list_pipelines"
+    },
+    {
+      "id": "refresh_project",
+      "type": "manual",
+      "label": "Refresh project",
+      "request": "get_project"
+    },
+    {
+      "id": "refresh_activity",
+      "type": "manual",
+      "label": "Refresh project activity",
+      "request": "list_project_events"
+    }
+  ]
+}

@@ -39,6 +39,7 @@ Official plugins should avoid:
 
 - App Store Connect
 - GitHub
+- GitLab
 - Jira
 - Cloudflare
 - Sentry
@@ -101,6 +102,7 @@ Recommended first store plugins:
 ```txt
 App Store Connect
 GitHub
+GitLab
 Jira
 YouTube
 Cloudflare
@@ -216,6 +218,52 @@ Avoid v1:
 - merging PRs;
 - closing issues;
 - modifying branches.
+
+## GitLab plugin
+
+Purpose:
+
+- show tracked projects;
+- show failed pipelines;
+- show recent merge request and issue activity;
+- link directly to GitLab project, pipeline, merge request, and issue pages;
+- support multiple configured apps for different projects or accounts.
+
+Resources:
+
+```txt
+project
+pipeline
+merge_request
+issue
+release, later
+```
+
+Events:
+
+```txt
+gitlab.pipeline.failed
+gitlab.merge_request.opened
+gitlab.issue.opened
+gitlab.release.published, later
+```
+
+Current implementation note: the bundled GitLab package uses `api-key` header auth with `PRIVATE-TOKEN`, asks for one project ID or URL-encoded project path, reads project details, polls pipelines, and can manually refresh project activity. It is read-only and stores the token in Keychain through the shared plugin setup flow.
+
+Actions:
+
+```txt
+gitlab.openUrl
+gitlab.createIssue, later
+gitlab.addComment, later
+```
+
+Avoid v1:
+
+- merging merge requests;
+- closing issues;
+- modifying branches;
+- changing pipeline variables or project settings.
 
 ## Jira plugin
 
@@ -475,12 +523,13 @@ Recommended order:
 2. Generic webhook.
 3. App Store Connect.
 4. GitHub.
-5. Jira.
-6. YouTube.
-7. Cloudflare.
-8. Stripe.
-9. Sentry.
-10. Plausible/Fathom.
+5. GitLab.
+6. Jira.
+7. YouTube.
+8. Cloudflare.
+9. Stripe.
+10. Sentry.
+11. Plausible/Fathom.
 
 ## Plugin acceptance criteria
 

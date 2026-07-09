@@ -1,0 +1,27 @@
+{
+  "presets": [
+    {
+      "name": "Notify on failed GitLab pipelines",
+      "description": "Adds failed GitLab pipelines to the Status inbox and shows a local notification when enabled.",
+      "when": {
+        "eventType": "gitlab.pipeline.failed",
+        "provider": "com.status.gitlab"
+      },
+      "if": [
+        {
+          "field": "severity",
+          "operator": "matches_severity",
+          "value": "warning"
+        }
+      ],
+      "then": [
+        {
+          "action": "status.inbox.add"
+        },
+        {
+          "action": "notification.show"
+        }
+      ]
+    }
+  ]
+}

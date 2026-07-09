@@ -1,0 +1,28 @@
+{
+  "events": [
+    {
+      "type": "gitlab.pipeline.failed",
+      "label": "Pipeline failed",
+      "description": "A GitLab project pipeline completed with a failed status.",
+      "resourceType": "project",
+      "defaultSeverity": "warning",
+      "notificationDefault": "dashboard-only"
+    },
+    {
+      "type": "gitlab.merge_request.opened",
+      "label": "Merge request opened",
+      "description": "A merge request was opened on the tracked GitLab project.",
+      "resourceType": "project",
+      "defaultSeverity": "notice",
+      "notificationDefault": "digest"
+    },
+    {
+      "type": "gitlab.issue.opened",
+      "label": "Issue opened",
+      "description": "An issue was opened on the tracked GitLab project.",
+      "resourceType": "project",
+      "defaultSeverity": "notice",
+      "notificationDefault": "digest"
+    }
+  ]
+}

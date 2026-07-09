@@ -1,0 +1,54 @@
+{
+  "resources": [
+    {
+      "type": "project",
+      "request": "get_project",
+      "id": "$.id",
+      "name": "$.path_with_namespace",
+      "fields": {
+        "defaultBranch": "$.default_branch",
+        "visibility": "$.visibility",
+        "openIssues": "$.open_issues_count"
+      },
+      "actionUrl": "{{web_url}}"
+    }
+  ],
+  "events": [
+    {
+      "type": "gitlab.pipeline.failed",
+      "request": "list_pipelines",
+      "items": "$[*]",
+      "when": "$.status == 'failed'",
+      "resourceId": "{{account.projectId}}",
+      "title": "Pipeline failed",
+      "summary": "Pipeline {{id}} failed on {{ref}}.",
+      "severity": "warning",
+      "actionUrl": "{{web_url}}",
+      "timestamp": "$.updated_at"
+    },
+    {
+      "type": "gitlab.merge_request.opened",
+      "request": "list_project_events",
+      "items": "$[*]",
+      "when": "$.target_type == 'MergeRequest' && $.action_name == 'opened'",
+      "resourceId": "{{account.projectId}}",
+      "title": "Merge request opened",
+      "summary": "{{author.name}} opened a merge request.",
+      "severity": "notice",
+      "actionUrl": "{{target_url}}",
+      "timestamp": "$.created_at"
+    },
+    {
+      "type": "gitlab.issue.opened",
+      "request": "list_project_events",
+      "items": "$[*]",
+      "when": "$.target_type == 'Issue' && $.action_name == 'opened'",
+      "resourceId": "{{account.projectId}}",
+      "title": "Issue opened",
+      "summary": "{{author.name}} opened an issue.",
+      "severity": "notice",
+      "actionUrl": "{{target_url}}",
+      "timestamp": "$.created_at"
+    }
+  ]
+}

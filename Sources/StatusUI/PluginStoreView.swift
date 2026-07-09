@@ -2045,6 +2045,9 @@ public struct IntegrationVisual: Equatable {
         if key.contains("github") {
             return IntegrationVisual(systemImage: "chevron.left.forwardslash.chevron.right", color: .primary, brand: .github)
         }
+        if key.contains("gitlab") {
+            return IntegrationVisual(systemImage: "shippingbox", color: Color(red: 0.99, green: 0.43, blue: 0.15))
+        }
         if key.contains("appstore") {
             return IntegrationVisual(systemImage: "app.badge", color: .blue, brand: .appStoreConnect)
         }

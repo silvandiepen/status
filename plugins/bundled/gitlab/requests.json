@@ -1,0 +1,28 @@
+{
+  "requests": {
+    "get_project": {
+      "method": "GET",
+      "url": "https://gitlab.com/api/v4/projects/{{projectId}}",
+      "auth": "default",
+      "timeoutSeconds": 30
+    },
+    "list_pipelines": {
+      "method": "GET",
+      "url": "https://gitlab.com/api/v4/projects/{{projectId}}/pipelines",
+      "auth": "default",
+      "query": {
+        "per_page": "25"
+      },
+      "timeoutSeconds": 30
+    },
+    "list_project_events": {
+      "method": "GET",
+      "url": "https://gitlab.com/api/v4/projects/{{projectId}}/events",
+      "auth": "default",
+      "query": {
+        "per_page": "25"
+      },
+      "timeoutSeconds": 30
+    }
+  }
+}
