@@ -880,6 +880,8 @@ import Testing
             author: manifest.author.name,
             description: manifest.description,
             category: manifest.category,
+            iconPath: manifest.icon,
+            accentColor: manifest.accentColor,
             trustLevel: .official,
             installedVersion: manifest.version,
             installPath: "/Application Support/Status/Plugins/com.status.github",

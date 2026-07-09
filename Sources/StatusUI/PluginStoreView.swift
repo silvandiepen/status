@@ -2762,7 +2762,7 @@ public struct IntegrationVisual: Equatable {
         if icon.hasPrefix("sf:") {
             return String(icon.dropFirst(3))
         }
-        if icon.contains("/") || icon.contains(".") {
+        if icon.contains("/") {
             return nil
         }
         return icon

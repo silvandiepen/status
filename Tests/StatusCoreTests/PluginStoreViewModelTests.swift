@@ -3,6 +3,12 @@ import Testing
 import StatusCore
 @testable import StatusUI
 
+@Test func integrationVisualAcceptsDottedSFSymbolNamesWithoutPrefix() {
+    let visual = IntegrationVisual.visual(for: "com.status.example", icon: "app.badge", accentColor: "#2F80ED")
+
+    #expect(visual.systemImage == "app.badge")
+}
+
 @MainActor
 @Test func pluginStoreViewModelLoadsRuntimeStatusesForInstalledPlugins() async throws {
     let plugin = InstalledPlugin(

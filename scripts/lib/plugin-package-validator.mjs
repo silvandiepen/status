@@ -141,7 +141,7 @@ export function fail(message) {
 }
 
 export function validateManifest(manifest, sourceName, publishers = []) {
-  for (const field of ["id", "name", "version", "category", "description", "minCoreVersion"]) {
+  for (const field of ["id", "name", "version", "category", "description", "icon", "accentColor", "minCoreVersion"]) {
     if (typeof manifest[field] !== "string" || manifest[field].trim() === "") {
       fail(`${sourceName}: manifest.${field} is required`);
     }
@@ -187,13 +187,10 @@ export function validateManifest(manifest, sourceName, publishers = []) {
       fail(`${sourceName}: invalid domain ${domain}`);
     }
   }
-  if (manifest.permissions.includes("oauth")) {
-    fail(`${sourceName}: OAuth plugins are deferred past v1`);
-  }
-  if (manifest.icon !== undefined && (typeof manifest.icon !== "string" || manifest.icon.trim() === "")) {
+  if (/^(sf:)?[A-Za-z0-9][A-Za-z0-9._-]*$/.test(manifest.icon) === false) {
     fail(`${sourceName}: manifest.icon must be a non-empty SF Symbol name or sf: prefixed name`);
   }
-  if (manifest.accentColor !== undefined && /^#[0-9A-Fa-f]{6}$/.test(manifest.accentColor) === false) {
+  if (/^#[0-9A-Fa-f]{6}$/.test(manifest.accentColor) === false) {
     fail(`${sourceName}: manifest.accentColor must be a #RRGGBB hex color`);
   }
 }
@@ -438,6 +435,9 @@ function validateAuth(authFile, sourceName) {
   }
   if (authFile.type === "oauth2" && (typeof authFile.applicationId !== "string" || authFile.applicationId.trim() === "")) {
     fail(`${sourceName}: oauth2 auth requires applicationId`);
+  }
+  if (authFile.type === "oauth2" && (!authFile.oauth2 || typeof authFile.oauth2 !== "object" || Array.isArray(authFile.oauth2))) {
+    fail(`${sourceName}: oauth2 auth requires oauth2 endpoint configuration`);
   }
 }
 

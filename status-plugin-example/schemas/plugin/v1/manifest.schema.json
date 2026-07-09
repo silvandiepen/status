@@ -5,7 +5,7 @@
   "description": "Identity, compatibility, permissions, and declared domains for a Status plugin package. Emitted events are declared in events.json and actions in actions.json; the manifest does not duplicate them.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "name", "version", "author", "category", "description", "minCoreVersion", "platforms", "permissions"],
+  "required": ["id", "name", "version", "author", "category", "description", "icon", "accentColor", "minCoreVersion", "platforms", "permissions", "domains"],
   "properties": {
     "id": {
       "type": "string",
@@ -63,6 +63,7 @@
       "description": "SF Symbol name for the app-owned integration icon. A leading sf: prefix is accepted and stripped by native UI.",
       "minLength": 1,
       "maxLength": 80,
+      "pattern": "^(sf:)?[A-Za-z0-9][A-Za-z0-9._-]*$",
       "examples": ["sf:globe"]
     },
     "accentColor": {

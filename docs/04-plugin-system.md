@@ -60,7 +60,7 @@ Example:
 
 The manifest does not list emitted events or actions. `events.json` is the single source of truth for event declarations and `actions.json` for actions, so the two lists cannot drift apart.
 
-Each plugin declares its own app-owned visual identity through `icon` and `accentColor`. `icon` is an SF Symbol name, optionally prefixed with `sf:`, and `accentColor` is a `#RRGGBB` hex color. These fields are metadata only: plugins still do not ship custom UI, and Status decides how the icon/color appear in the app sidebar, collapsed app strip, plugin catalog, app settings window, notifications, and future mobile surfaces. GitHub and App Store Connect must use recognizable, stable icons in the official packages.
+Each plugin must declare its own app-owned visual identity through `icon` and `accentColor`. `icon` is an SF Symbol name, optionally prefixed with `sf:`, and `accentColor` is a `#RRGGBB` hex color. These fields are metadata only: plugins still do not ship custom UI, and Status decides how the icon/color appear in the app sidebar, collapsed app strip, plugin catalog, app settings window, notifications, and future mobile surfaces. GitHub and App Store Connect must use recognizable, stable icons in the official packages.
 
 Official plugins should also include `icon.svg` when the provider has a recognizable brand mark and the license allows redistribution. Status still owns rendering, sizing, tinting, and fallback behavior. The manifest `icon` remains the native fallback symbol; `icon.svg` is the preferred catalog/sidebar asset for plugins such as GitHub and App Store Connect once the native renderer supports packaged vector icons.
 

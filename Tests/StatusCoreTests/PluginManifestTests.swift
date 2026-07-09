@@ -45,6 +45,8 @@ import Testing
         author: PluginAuthor(name: "Status"),
         category: "Monitoring",
         description: "Checks websites chosen by the user.",
+        icon: "sf:globe",
+        accentColor: "#16A34A",
         minCoreVersion: "1.0.0",
         platforms: [.macOS, .iOS],
         permissions: [.network, .userConfiguredDomains, .backgroundRefresh],
@@ -96,6 +98,31 @@ import Testing
     try PluginManifestValidator.validate(
         PluginValidationInput(manifest: oauthManifest, authDefinitions: [auth])
     )
+}
+
+@Test func pluginManifestRequiresIconAndAccentColor() {
+    var manifest = appStoreConnectManifest()
+    manifest.icon = nil
+
+    #expect(throws: PluginValidationError.emptyField("icon")) {
+        try PluginManifestValidator.validate(PluginValidationInput(manifest: manifest))
+    }
+
+    manifest = appStoreConnectManifest()
+    manifest.accentColor = nil
+
+    #expect(throws: PluginValidationError.emptyField("accentColor")) {
+        try PluginManifestValidator.validate(PluginValidationInput(manifest: manifest))
+    }
+}
+
+@Test func pluginIconMustBeSFSymbolName() {
+    var manifest = appStoreConnectManifest()
+    manifest.icon = "icons/github.svg"
+
+    #expect(throws: PluginValidationError.invalidIcon("icons/github.svg")) {
+        try PluginManifestValidator.validate(PluginValidationInput(manifest: manifest))
+    }
 }
 
 @Test func accentColorMustBeHexColor() {

@@ -146,6 +146,8 @@ private func writeInvalidLocalPluginFixture() throws -> URL {
       "author": { "name": "Status Foundry" },
       "category": "developer",
       "description": "Invalid plugin fixture.",
+      "icon": "sf:exclamationmark.triangle",
+      "accentColor": "#EF4444",
       "minCoreVersion": "0.1.0",
       "platforms": ["macOS"],
       "permissions": ["network"],

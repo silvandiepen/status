@@ -34,6 +34,7 @@ public enum PluginValidationError: Error, Equatable, LocalizedError, Sendable {
     case oauthMissingProvider(String)
     case oauthMissingApplicationID(String)
     case oauthMissingConfiguration(String)
+    case invalidIcon(String)
     case invalidAccentColor(String)
 
     public var errorDescription: String? {
@@ -68,6 +69,8 @@ public enum PluginValidationError: Error, Equatable, LocalizedError, Sendable {
             "OAuth plugin must declare a public applicationId/client ID: \(pluginID)"
         case .oauthMissingConfiguration(let pluginID):
             "OAuth plugin must declare authorization and token endpoints: \(pluginID)"
+        case .invalidIcon(let value):
+            "Plugin icon must be an SF Symbol name, optionally prefixed with sf:: \(value)"
         case .invalidAccentColor(let value):
             "Plugin accentColor must be a #RRGGBB hex color: \(value)"
         }
@@ -123,8 +126,8 @@ public struct PluginManifest: Codable, Equatable, Sendable {
         author: PluginAuthor,
         category: String,
         description: String,
-        icon: String? = nil,
-        accentColor: String? = nil,
+        icon: String? = "sf:puzzlepiece.extension",
+        accentColor: String? = "#F59E0B",
         minCoreVersion: String,
         platforms: [PluginPlatform],
         permissions: [PluginPermission],
@@ -212,6 +215,14 @@ public enum PluginManifestValidator {
         try requireNonEmpty(manifest.author.name, field: "author.name")
         try requireNonEmpty(manifest.category, field: "category")
         try requireNonEmpty(manifest.description, field: "description")
+        guard let icon = manifest.icon else {
+            throw PluginValidationError.emptyField("icon")
+        }
+        try validateIcon(icon)
+        guard let accentColor = manifest.accentColor else {
+            throw PluginValidationError.emptyField("accentColor")
+        }
+        try validateAccentColor(accentColor)
 
         guard manifest.platforms.isEmpty == false else {
             throw PluginValidationError.noPlatform
@@ -225,9 +236,6 @@ public enum PluginManifestValidator {
 
         for domain in manifest.domains {
             try validateDomain(domain)
-        }
-        if let accentColor = manifest.accentColor {
-            try validateAccentColor(accentColor)
         }
 
         let declaredDomains = Set(manifest.domains.map { $0.lowercased() })
@@ -303,6 +311,18 @@ public enum PluginManifestValidator {
             throw PluginValidationError.domainContainsWildcard(domain)
         }
         try requireNonEmpty(domain, field: "domains")
+    }
+
+    private static func validateIcon(_ icon: String) throws {
+        let trimmed = icon.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else {
+            throw PluginValidationError.emptyField("icon")
+        }
+        let symbol = trimmed.hasPrefix("sf:") ? String(trimmed.dropFirst(3)) : trimmed
+        let isValid = symbol.range(of: #"^[A-Za-z0-9][A-Za-z0-9._-]*$"#, options: .regularExpression) != nil
+        if isValid == false {
+            throw PluginValidationError.invalidIcon(icon)
+        }
     }
 
     private static func validateAccentColor(_ accentColor: String) throws {
