@@ -45,6 +45,7 @@ public enum PluginSetupConfiguration {
         service: PluginRuntimeService,
         credentialStore: CredentialStore? = nil,
         accountID: String? = nil,
+        displayNameOverride: String? = nil,
         now: Date = Date()
     ) throws -> String {
         guard plugin.setup != nil || plugin.auth != nil else {
@@ -85,7 +86,9 @@ public enum PluginSetupConfiguration {
             normalized[field.id] = try normalize(trimmed, field: field)
         }
 
-        let displayName = displayName(for: plugin, values: normalized)
+        let displayName = displayNameOverride?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .nonEmpty ?? displayName(for: plugin, values: normalized)
         try service.saveAccountConfiguration(
             PluginAccountConfiguration(
                 id: accountID ?? self.accountID(pluginID: plugin.id, displayName: displayName),
@@ -211,6 +214,12 @@ public enum PluginSetupConfiguration {
         }
         let data = try JSONEncoder().encode(PluginAuthCredentialBundle(fields: credentialFields))
         return try credentialStore.store(data, label: "\(plugin.name) credentials")
+    }
+}
+
+private extension String {
+    var nonEmpty: String? {
+        isEmpty ? nil : self
     }
 }
 

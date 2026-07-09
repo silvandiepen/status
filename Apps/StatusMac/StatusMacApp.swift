@@ -11,16 +11,166 @@ struct StatusMacApp: App {
             MacRootView()
         }
         .windowStyle(.titleBar)
+
+        WindowGroup("Integration Settings", id: "integration-settings", for: String.self) { $pluginID in
+            if let pluginID {
+                MacPluginSettingsWindow(pluginID: pluginID)
+            }
+        }
+        .windowStyle(.titleBar)
+    }
+}
+
+private struct MacPluginSettingsWindow: View {
+    let pluginID: String
+
+    var body: some View {
+        PluginSettingsContainerView(
+            viewModel: makePluginStoreViewModel(platform: .macOS),
+            pluginID: pluginID
+        )
+        .frame(minWidth: 640, minHeight: 520)
+        .navigationTitle("Integration Settings")
+    }
+
+    private func makePluginStoreViewModel(platform: PluginPlatform) -> PluginStoreViewModel {
+        let registry = PluginRegistryClient(baseURL: URL(string: "https://status-registry.hakobs.com")!)
+        return PluginStoreViewModel {
+            try bootstrapBundledPlugins()
+            return try LocalStatusStore.openApplicationSupportStore().installedPlugins()
+        } loadAvailable: {
+            try await registry.plugins(platform: platform, coreVersion: "0.1.0")
+        } loadRuntimeStatuses: { plugins in
+            try pluginRuntimeStatuses(for: plugins)
+        } installPlugin: { _ in
+        } removePlugin: { _ in
+        } loadPermissions: { plugin in
+            try LocalStatusStore.openApplicationSupportStore().pluginPermissions(pluginID: plugin.id)
+        } setPermissionGrant: { plugin, permission, granted in
+            try LocalStatusStore.openApplicationSupportStore().setPluginPermission(
+                pluginID: plugin.id,
+                permission: permission,
+                granted: granted,
+                grantedAt: granted ? Date() : nil
+            )
+        } loadTriggers: { plugin in
+            try LocalStatusStore.openApplicationSupportStore()
+                .triggers()
+                .filter { $0.pluginID == plugin.id }
+        } setTriggerEnabled: { _, trigger, enabled in
+            try LocalStatusStore.openApplicationSupportStore().setTriggerEnabled(
+                id: trigger.id,
+                enabled: enabled,
+                updatedAt: Date()
+            )
+        } canRunPlugin: { plugin in
+            canRunConfiguredPlugin(pluginID: plugin.id)
+        } runPlugin: { plugin, account in
+            try await runConfiguredPluginCheck(pluginID: plugin.id, accountID: account.id, accountName: account.accountName)
+        } canConfigurePlugin: { plugin in
+            plugin.auth?.fields.isEmpty == false || plugin.setup?.fields.contains(where: \.type.isPlainConfigurationField) == true
+        } loadAccounts: { plugin in
+            try LocalStatusStore.openApplicationSupportStore().accountConfigurations(pluginID: plugin.id)
+        } loadConfigurationValues: { plugin, accountID in
+            try configuredPluginValues(pluginID: plugin.id, accountID: accountID)
+        } saveConfigurationValues: { plugin, accountID, displayName, values in
+            try savePluginSetup(plugin: plugin, accountID: accountID, displayName: displayName, values: values)
+        }
+    }
+
+    private func pluginRuntimeStatuses(for plugins: [InstalledPlugin]) throws -> [String: PluginRuntimeStatus] {
+        let store = try LocalStatusStore.openApplicationSupportStore()
+        return try Dictionary(uniqueKeysWithValues: plugins.compactMap { plugin in
+            guard let job = try store.recentJobs(pluginID: plugin.id, limit: 1).first else {
+                return nil
+            }
+            return (
+                plugin.id,
+                PluginRuntimeStatus(
+                    pluginID: job.pluginID,
+                    status: job.status,
+                    detail: job.error ?? "Job \(job.id) completed from \(job.triggerID).",
+                    timestamp: job.finishedAt ?? job.startedAt ?? job.queuedAt,
+                    emittedEventCount: job.emittedEventIDs.count
+                )
+            )
+        })
+    }
+
+    private func canRunConfiguredPlugin(pluginID: String) -> Bool {
+        guard let store = try? LocalStatusStore.openApplicationSupportStore(),
+              (try? store.accountConfigurations(pluginID: pluginID).isEmpty == false) == true else {
+            return false
+        }
+        return ((try? store.triggers()) ?? []).contains { trigger in
+            trigger.pluginID == pluginID && trigger.kind == .manual && trigger.enabled && trigger.requestID != nil
+        }
+    }
+
+    private func configuredPluginValues(pluginID: String, accountID: String?) throws -> [String: String] {
+        let store = try LocalStatusStore.openApplicationSupportStore()
+        if let accountID {
+            return try PluginSetupConfiguration.configuredValues(pluginID: pluginID, accountID: accountID, store: store)
+        }
+        return try PluginSetupConfiguration.configuredValues(pluginID: pluginID, store: store)
+    }
+
+    private func savePluginSetup(plugin: InstalledPlugin, accountID: String?, displayName: String?, values: [String: String]) throws -> String {
+        let store = try LocalStatusStore.openApplicationSupportStore()
+        let service = PluginRuntimeService(store: store)
+        return try PluginSetupConfiguration.saveValues(
+            values,
+            for: plugin,
+            service: service,
+            credentialStore: KeychainCredentialStore(),
+            accountID: accountID,
+            displayNameOverride: displayName
+        )
+    }
+
+    private func runConfiguredPluginCheck(pluginID: String, accountID: String, accountName: String) async throws -> String {
+        let store = try LocalStatusStore.openApplicationSupportStore()
+        let service = PluginRuntimeService(store: store, effectDispatcher: MacActionEffectDispatcher())
+        let job = try service.enqueueManualConfiguredPluginRun(
+            pluginID: pluginID,
+            accountID: accountID
+        )
+        let result = try await service.runQueuedPluginJob(jobID: job.id)
+        return "\(accountName): \(result.mappingOutput.resources.count) resource stored, \(result.mappingOutput.events.count) events processed."
+    }
+
+    private func pluginInstallRoot() throws -> URL {
+        let databaseURL = try LocalStatusStore.applicationSupportDatabaseURL()
+        let directory = databaseURL.deletingLastPathComponent().appendingPathComponent("Plugins", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
+    private func bootstrapBundledPlugins() throws {
+        let store = try LocalStatusStore.openApplicationSupportStore()
+        guard try store.syncState(ownerType: "app", ownerID: "bundled-plugins") != "installed" else {
+            return
+        }
+        let installer = BundledPluginInstaller(store: store, installRoot: try pluginInstallRoot())
+        try installer.installAll()
+        try store.upsertSyncState(
+            ownerType: "app",
+            ownerID: "bundled-plugins",
+            cursor: "installed",
+            updatedAt: Date()
+        )
     }
 }
 
 private struct MacRootView: View {
+    @Environment(\.openWindow) private var openWindow
+    @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
     @State private var selection: MacSection? = .overview
     @State private var sidebarPlugins: [InstalledPlugin] = []
     @State private var sidebarPluginError: String?
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             List(selection: $selection) {
                 Section("Integrations") {
                     if sidebarPlugins.isEmpty {
@@ -33,16 +183,10 @@ private struct MacRootView: View {
                                 selection = .integrations
                             } label: {
                                 Label {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(plugin.name)
-                                            .lineLimit(1)
-                                        Text(plugin.enabled ? "Enabled" : "Disabled")
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    }
+                                    Text(plugin.name)
+                                        .lineLimit(1)
                                 } icon: {
-                                    Image(systemName: plugin.enabled ? "puzzlepiece.extension" : "puzzlepiece.extension.fill")
-                                        .foregroundStyle(plugin.enabled ? .primary : .secondary)
+                                    IntegrationIcon(provider: plugin.id, size: 22)
                                 }
                             }
                             .buttonStyle(.plain)
@@ -75,29 +219,46 @@ private struct MacRootView: View {
         } detail: {
             switch selection ?? .overview {
             case .overview:
-                DashboardContainerView(viewModel: makeDashboardViewModel())
+                detailWithIntegrationTabs {
+                    DashboardContainerView(viewModel: makeDashboardViewModel())
+                }
                     .navigationTitle("Overview")
             case .alerts:
-                AlertsContainerView(viewModel: makeAlertsViewModel())
+                detailWithIntegrationTabs {
+                    AlertsContainerView(viewModel: makeAlertsViewModel())
+                }
                     .navigationTitle("Alerts")
             case .integrations:
-                PluginStoreContainerView(viewModel: makePluginStoreViewModel(platform: .macOS))
+                detailWithIntegrationTabs {
+                    PluginStoreContainerView(
+                        viewModel: makePluginStoreViewModel(platform: .macOS),
+                        openSettings: { plugin in
+                            openWindow(id: "integration-settings", value: plugin.id)
+                        }
+                    )
+                }
                     .navigationTitle("Integrations")
             case .rules:
-                RulesContainerView(viewModel: makeRulesViewModel())
+                detailWithIntegrationTabs {
+                    RulesContainerView(viewModel: makeRulesViewModel())
+                }
                     .navigationTitle("Rules")
             case .audit:
-                AuditLogContainerView(viewModel: makeAuditLogViewModel())
+                detailWithIntegrationTabs {
+                    AuditLogContainerView(viewModel: makeAuditLogViewModel())
+                }
                     .navigationTitle("Audit Log")
             case .settings:
-                StatusSettingsView(
-                    registryURL: registryBaseURL,
-                    databasePath: applicationDatabasePath(),
-                    pluginInstallPath: applicationPluginInstallPath(),
-                    runtimeAction: makeRegistryCheckAction(),
-                    notificationPreferencesViewModel: makeNotificationPreferencesViewModel(),
-                    notificationHistoryViewModel: makeNotificationHistoryViewModel()
-                )
+                detailWithIntegrationTabs {
+                    StatusSettingsView(
+                        registryURL: registryBaseURL,
+                        databasePath: applicationDatabasePath(),
+                        pluginInstallPath: applicationPluginInstallPath(),
+                        runtimeAction: makeRegistryCheckAction(),
+                        notificationPreferencesViewModel: makeNotificationPreferencesViewModel(),
+                        notificationHistoryViewModel: makeNotificationHistoryViewModel()
+                    )
+                }
                     .navigationTitle("Settings")
             }
         }
@@ -110,11 +271,36 @@ private struct MacRootView: View {
     private func loadSidebarPlugins() {
         do {
             try bootstrapBundledPlugins()
-            sidebarPlugins = try LocalStatusStore.openApplicationSupportStore().installedPlugins()
+            sidebarPlugins = try LocalStatusStore.openApplicationSupportStore().installedPlugins().filter(\.enabled)
             sidebarPluginError = nil
         } catch {
             sidebarPlugins = []
             sidebarPluginError = error.localizedDescription
+        }
+    }
+
+    @ViewBuilder
+    private func detailWithIntegrationTabs<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: 0) {
+            if columnVisibility == .detailOnly && sidebarPlugins.isEmpty == false {
+                HStack(spacing: 8) {
+                    ForEach(sidebarPlugins) { plugin in
+                        Button {
+                            selection = .integrations
+                        } label: {
+                            IntegrationIcon(provider: plugin.id, size: 28)
+                        }
+                        .buttonStyle(.plain)
+                        .help(plugin.name)
+                        .accessibilityLabel(Text(plugin.name))
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(.bar)
+            }
+            content()
         }
     }
 
@@ -179,8 +365,8 @@ private struct MacRootView: View {
             try LocalStatusStore.openApplicationSupportStore().accountConfigurations(pluginID: plugin.id)
         } loadConfigurationValues: { plugin, accountID in
             try configuredPluginValues(pluginID: plugin.id, accountID: accountID)
-        } saveConfigurationValues: { plugin, accountID, values in
-            try savePluginSetup(plugin: plugin, accountID: accountID, values: values)
+        } saveConfigurationValues: { plugin, accountID, displayName, values in
+            try savePluginSetup(plugin: plugin, accountID: accountID, displayName: displayName, values: values)
         }
     }
 
@@ -386,7 +572,7 @@ private struct MacRootView: View {
         return try PluginSetupConfiguration.configuredValues(pluginID: pluginID, store: store)
     }
 
-    private func savePluginSetup(plugin: InstalledPlugin, accountID: String?, values: [String: String]) throws -> String {
+    private func savePluginSetup(plugin: InstalledPlugin, accountID: String?, displayName: String?, values: [String: String]) throws -> String {
         let store = try LocalStatusStore.openApplicationSupportStore()
         let service = PluginRuntimeService(store: store)
         return try PluginSetupConfiguration.saveValues(
@@ -394,7 +580,8 @@ private struct MacRootView: View {
             for: plugin,
             service: service,
             credentialStore: KeychainCredentialStore(),
-            accountID: accountID
+            accountID: accountID,
+            displayNameOverride: displayName
         )
     }
 

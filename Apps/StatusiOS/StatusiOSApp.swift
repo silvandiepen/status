@@ -137,8 +137,8 @@ private struct IOSRootView: View {
             try LocalStatusStore.openApplicationSupportStore().accountConfigurations(pluginID: plugin.id)
         } loadConfigurationValues: { plugin, accountID in
             try configuredPluginValues(pluginID: plugin.id, accountID: accountID)
-        } saveConfigurationValues: { plugin, accountID, values in
-            try savePluginSetup(plugin: plugin, accountID: accountID, values: values)
+        } saveConfigurationValues: { plugin, accountID, displayName, values in
+            try savePluginSetup(plugin: plugin, accountID: accountID, displayName: displayName, values: values)
         }
     }
 
@@ -344,7 +344,7 @@ private struct IOSRootView: View {
         return try PluginSetupConfiguration.configuredValues(pluginID: pluginID, store: store)
     }
 
-    private func savePluginSetup(plugin: InstalledPlugin, accountID: String?, values: [String: String]) throws -> String {
+    private func savePluginSetup(plugin: InstalledPlugin, accountID: String?, displayName: String?, values: [String: String]) throws -> String {
         let store = try LocalStatusStore.openApplicationSupportStore()
         let service = PluginRuntimeService(store: store)
         return try PluginSetupConfiguration.saveValues(
@@ -352,7 +352,8 @@ private struct IOSRootView: View {
             for: plugin,
             service: service,
             credentialStore: KeychainCredentialStore(),
-            accountID: accountID
+            accountID: accountID,
+            displayNameOverride: displayName
         )
     }
 

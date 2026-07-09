@@ -403,8 +403,11 @@ Recommended order:
 
 Each integration should have:
 
+- a stable icon and color used everywhere the integration appears;
 - setup flow;
 - permissions screen;
+- support for multiple configured accounts/resources when the provider allows it;
+- editable local display name per configured account;
 - resource list;
 - at least one event type;
 - at least one useful status item;

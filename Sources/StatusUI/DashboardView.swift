@@ -108,7 +108,7 @@ private struct IntegrationSection: View {
             VStack(spacing: 10) {
                 ForEach(integrations) { integration in
                     HStack(spacing: 12) {
-                        SeverityDot(severity: integration.severity)
+                        IntegrationIcon(provider: integration.provider, size: 30)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(integration.name)
                                 .font(.headline)

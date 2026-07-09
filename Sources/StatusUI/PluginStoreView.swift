@@ -37,6 +37,7 @@ public final class PluginStoreViewModel: ObservableObject {
     @Published public private(set) var runResults: [String: String]
     @Published public private(set) var runErrors: [String: String]
     @Published public private(set) var setupValues: [String: [String: String]]
+    @Published public private(set) var accountDisplayNames: [String: String]
     @Published public private(set) var configuredAccounts: [String: [PluginAccountConfiguration]]
     @Published public private(set) var selectedAccountIDs: [String: String]
     @Published public private(set) var savingSetupPluginID: String?
@@ -62,7 +63,7 @@ public final class PluginStoreViewModel: ObservableObject {
     private let canConfigurePlugin: (InstalledPlugin) -> Bool
     private let loadAccounts: (InstalledPlugin) throws -> [PluginAccountConfiguration]
     private let loadConfigurationValues: (InstalledPlugin, String?) throws -> [String: String]
-    private let saveConfigurationValues: (InstalledPlugin, String?, [String: String]) async throws -> String
+    private let saveConfigurationValues: (InstalledPlugin, String?, String?, [String: String]) async throws -> String
 
     public init(
         initialCatalog: PluginStoreCatalog = PluginStoreCatalog(),
@@ -80,12 +81,13 @@ public final class PluginStoreViewModel: ObservableObject {
         canConfigurePlugin: @escaping (InstalledPlugin) -> Bool = { _ in false },
         loadAccounts: @escaping (InstalledPlugin) throws -> [PluginAccountConfiguration] = { _ in [] },
         loadConfigurationValues: @escaping (InstalledPlugin, String?) throws -> [String: String] = { _, _ in [:] },
-        saveConfigurationValues: @escaping (InstalledPlugin, String?, [String: String]) async throws -> String = { _, _, _ in "" }
+        saveConfigurationValues: @escaping (InstalledPlugin, String?, String?, [String: String]) async throws -> String = { _, _, _, _ in "" }
     ) {
         self.catalog = initialCatalog
         self.runResults = [:]
         self.runErrors = [:]
         self.setupValues = [:]
+        self.accountDisplayNames = [:]
         self.configuredAccounts = [:]
         self.selectedAccountIDs = [:]
         self.setupResults = [:]
@@ -163,6 +165,7 @@ public final class PluginStoreViewModel: ObservableObject {
         do {
             try await removePlugin(plugin)
             setupValues[plugin.id] = nil
+            accountDisplayNames = accountDisplayNames.filter { key, _ in key.hasPrefix("\(plugin.id):") == false }
             configuredAccounts[plugin.id] = nil
             selectedAccountIDs[plugin.id] = nil
             installedPermissions[plugin.id] = nil
@@ -217,11 +220,19 @@ public final class PluginStoreViewModel: ObservableObject {
         setupErrors[key] = nil
     }
 
+    public func updateAccountDisplayName(_ plugin: InstalledPlugin, value: String) {
+        let key = setupKey(for: plugin)
+        accountDisplayNames[key] = value
+        setupResults[key] = nil
+        setupErrors[key] = nil
+    }
+
     public func selectAccount(_ accountID: String, for plugin: InstalledPlugin) {
         selectedAccountIDs[plugin.id] = accountID
         let key = setupKey(pluginID: plugin.id, accountID: accountID)
         let values = (try? loadConfigurationValues(plugin, persistedAccountID(from: accountID))) ?? [:]
         setupValues[key] = defaultSetupValues(for: plugin).merging(values) { _, loaded in loaded }
+        accountDisplayNames[key] = configuredAccounts[plugin.id, default: []].first { $0.id == accountID }?.accountName ?? ""
         setupResults[key] = nil
         setupErrors[key] = nil
         runResults[key] = nil
@@ -232,6 +243,7 @@ public final class PluginStoreViewModel: ObservableObject {
         let accountID = newAccountID(for: plugin)
         selectedAccountIDs[plugin.id] = accountID
         setupValues[setupKey(pluginID: plugin.id, accountID: accountID)] = defaultSetupValues(for: plugin)
+        accountDisplayNames[setupKey(pluginID: plugin.id, accountID: accountID)] = ""
     }
 
     public func saveSetup(_ plugin: InstalledPlugin) async {
@@ -239,13 +251,14 @@ public final class PluginStoreViewModel: ObservableObject {
         let selectedAccountID = selectedAccountIDs[plugin.id]
         let key = setupKey(pluginID: plugin.id, accountID: selectedAccountID)
         let values = setupValues[key, default: defaultSetupValues(for: plugin)]
+        let accountName = accountDisplayNames[key]
         savingSetupPluginID = plugin.id
         setupResults[key] = nil
         setupErrors[key] = nil
         defer { savingSetupPluginID = nil }
 
         do {
-            setupResults[key] = try await saveConfigurationValues(plugin, persistedAccountID(from: selectedAccountID), values)
+            setupResults[key] = try await saveConfigurationValues(plugin, persistedAccountID(from: selectedAccountID), accountName, values)
             await reload()
         } catch {
             setupErrors[key] = error.localizedDescription
@@ -287,6 +300,11 @@ public final class PluginStoreViewModel: ObservableObject {
                 continue
             }
             selectedAccountIDs[plugin.id] = accounts.first?.id ?? newAccountID(for: plugin)
+            let selectedID = selectedAccountIDs[plugin.id]
+            let key = setupKey(pluginID: plugin.id, accountID: selectedID)
+            if accountDisplayNames[key] == nil {
+                accountDisplayNames[key] = accounts.first { $0.id == selectedID }?.accountName ?? ""
+            }
         }
     }
 
@@ -356,9 +374,14 @@ public final class PluginStoreViewModel: ObservableObject {
 
 public struct PluginStoreContainerView: View {
     @StateObject private var viewModel: PluginStoreViewModel
+    private let openSettings: ((InstalledPlugin) -> Void)?
 
-    public init(viewModel: @autoclosure @escaping () -> PluginStoreViewModel) {
+    public init(
+        viewModel: @autoclosure @escaping () -> PluginStoreViewModel,
+        openSettings: ((InstalledPlugin) -> Void)? = nil
+    ) {
         _viewModel = StateObject(wrappedValue: viewModel())
+        self.openSettings = openSettings
     }
 
     public var body: some View {
@@ -370,6 +393,7 @@ public struct PluginStoreContainerView: View {
             runResults: viewModel.runResults,
             runErrors: viewModel.runErrors,
             setupValues: viewModel.setupValues,
+            accountDisplayNames: viewModel.accountDisplayNames,
             configuredAccounts: viewModel.configuredAccounts,
             selectedAccountIDs: viewModel.selectedAccountIDs,
             savingSetupPluginID: viewModel.savingSetupPluginID,
@@ -385,6 +409,9 @@ public struct PluginStoreContainerView: View {
             },
             updateSetupValue: { plugin, fieldID, value in
                 viewModel.updateSetupValue(plugin, fieldID: fieldID, value: value)
+            },
+            updateAccountDisplayName: { plugin, value in
+                viewModel.updateAccountDisplayName(plugin, value: value)
             },
             selectAccount: { plugin, accountID in
                 viewModel.selectAccount(accountID, for: plugin)
@@ -424,7 +451,8 @@ public struct PluginStoreContainerView: View {
                 Task {
                     await viewModel.setTrigger(trigger, enabled: enabled, for: plugin)
                 }
-            }
+            },
+            openSettings: openSettings
         )
         .overlay(alignment: .bottom) {
             if let loadError = viewModel.loadError {
@@ -446,6 +474,104 @@ public struct PluginStoreContainerView: View {
     }
 }
 
+public struct PluginSettingsContainerView: View {
+    @StateObject private var viewModel: PluginStoreViewModel
+    private let pluginID: String
+
+    public init(
+        viewModel: @autoclosure @escaping () -> PluginStoreViewModel,
+        pluginID: String
+    ) {
+        _viewModel = StateObject(wrappedValue: viewModel())
+        self.pluginID = pluginID
+    }
+
+    public var body: some View {
+        ScrollView {
+            if let plugin = viewModel.catalog.installed.first(where: { $0.id == pluginID }) {
+                settingsPanel(for: plugin)
+                    .padding(24)
+                    .frame(maxWidth: 820, alignment: .leading)
+            } else {
+                EmptyPluginState(
+                    title: "Integration unavailable",
+                    detail: "This integration is not installed on this device."
+                )
+                .padding(24)
+                .frame(maxWidth: 820, alignment: .leading)
+            }
+        }
+        .background(Color.statusBackground)
+        .overlay(alignment: .bottom) {
+            if let loadError = viewModel.loadError {
+                Text(loadError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .padding(10)
+                    .background(.thinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .padding()
+            }
+        }
+        .task {
+            await viewModel.reload()
+        }
+        .refreshable {
+            await viewModel.reload()
+        }
+    }
+
+    @ViewBuilder
+    private func settingsPanel(for plugin: InstalledPlugin) -> some View {
+        let selectedAccountID = viewModel.selectedAccountIDs[plugin.id]
+        let key = "\(plugin.id):\(selectedAccountID ?? "__new__:")"
+        PluginSettingsPanel(
+            plugin: plugin,
+            canConfigure: viewModel.canConfigure(plugin),
+            accounts: viewModel.configuredAccounts[plugin.id, default: []],
+            selectedAccountID: selectedAccountID,
+            accountDisplayName: viewModel.accountDisplayNames[key, default: ""],
+            setupValues: viewModel.setupValues[key, default: [:]],
+            isSavingSetup: viewModel.savingSetupPluginID == plugin.id,
+            setupResult: viewModel.setupResults[key],
+            setupError: viewModel.setupErrors[key],
+            permissions: viewModel.installedPermissions[plugin.id, default: []],
+            savingPermissionID: viewModel.savingPermissionID,
+            triggers: viewModel.installedTriggers[plugin.id, default: []],
+            savingTriggerID: viewModel.savingTriggerID,
+            runtimeStatus: viewModel.runtimeStatuses[plugin.id],
+            updateSetupValue: { plugin, fieldID, value in
+                viewModel.updateSetupValue(plugin, fieldID: fieldID, value: value)
+            },
+            updateAccountDisplayName: { plugin, value in
+                viewModel.updateAccountDisplayName(plugin, value: value)
+            },
+            selectAccount: { plugin, accountID in
+                viewModel.selectAccount(accountID, for: plugin)
+            },
+            addAccount: { plugin in
+                viewModel.addAccount(for: plugin)
+            },
+            saveSetup: { plugin in
+                Task { await viewModel.saveSetup(plugin) }
+            },
+            canRun: viewModel.canRun(plugin),
+            isRunning: viewModel.runningPluginID == plugin.id,
+            runResult: viewModel.runResults[key],
+            runError: viewModel.runErrors[key],
+            run: { plugin in
+                Task { await viewModel.run(plugin) }
+            },
+            setPermissionGrant: { plugin, permission, granted in
+                Task { await viewModel.setPermission(permission, granted: granted, for: plugin) }
+            },
+            setTriggerEnabled: { plugin, trigger, enabled in
+                Task { await viewModel.setTrigger(trigger, enabled: enabled, for: plugin) }
+            }
+        )
+    }
+}
+
 public struct PluginStoreView: View {
     private let catalog: PluginStoreCatalog
     private let installingPluginID: String?
@@ -454,6 +580,7 @@ public struct PluginStoreView: View {
     private let runResults: [String: String]
     private let runErrors: [String: String]
     private let setupValues: [String: [String: String]]
+    private let accountDisplayNames: [String: String]
     private let configuredAccounts: [String: [PluginAccountConfiguration]]
     private let selectedAccountIDs: [String: String]
     private let savingSetupPluginID: String?
@@ -466,6 +593,7 @@ public struct PluginStoreView: View {
     private let runtimeStatuses: [String: PluginRuntimeStatus]
     private let canConfigure: (InstalledPlugin) -> Bool
     private let updateSetupValue: (InstalledPlugin, String, String) -> Void
+    private let updateAccountDisplayName: (InstalledPlugin, String) -> Void
     private let selectAccount: (InstalledPlugin, String) -> Void
     private let addAccount: (InstalledPlugin) -> Void
     private let saveSetup: (InstalledPlugin) -> Void
@@ -475,7 +603,9 @@ public struct PluginStoreView: View {
     private let remove: (InstalledPlugin) -> Void
     private let setPermissionGrant: (InstalledPlugin, PluginPermission, Bool) -> Void
     private let setTriggerEnabled: (InstalledPlugin, TriggerDefinition, Bool) -> Void
+    private let openSettings: ((InstalledPlugin) -> Void)?
     @State private var pluginPendingRemoval: InstalledPlugin?
+    @State private var presentedSettingsPlugin: InstalledPlugin?
 
     public init(
         catalog: PluginStoreCatalog,
@@ -485,6 +615,7 @@ public struct PluginStoreView: View {
         runResults: [String: String] = [:],
         runErrors: [String: String] = [:],
         setupValues: [String: [String: String]] = [:],
+        accountDisplayNames: [String: String] = [:],
         configuredAccounts: [String: [PluginAccountConfiguration]] = [:],
         selectedAccountIDs: [String: String] = [:],
         savingSetupPluginID: String? = nil,
@@ -497,6 +628,7 @@ public struct PluginStoreView: View {
         runtimeStatuses: [String: PluginRuntimeStatus] = [:],
         canConfigure: @escaping (InstalledPlugin) -> Bool = { _ in false },
         updateSetupValue: @escaping (InstalledPlugin, String, String) -> Void = { _, _, _ in },
+        updateAccountDisplayName: @escaping (InstalledPlugin, String) -> Void = { _, _ in },
         selectAccount: @escaping (InstalledPlugin, String) -> Void = { _, _ in },
         addAccount: @escaping (InstalledPlugin) -> Void = { _ in },
         saveSetup: @escaping (InstalledPlugin) -> Void = { _ in },
@@ -505,7 +637,8 @@ public struct PluginStoreView: View {
         install: @escaping (RegistryPluginSummary) -> Void = { _ in },
         remove: @escaping (InstalledPlugin) -> Void = { _ in },
         setPermissionGrant: @escaping (InstalledPlugin, PluginPermission, Bool) -> Void = { _, _, _ in },
-        setTriggerEnabled: @escaping (InstalledPlugin, TriggerDefinition, Bool) -> Void = { _, _, _ in }
+        setTriggerEnabled: @escaping (InstalledPlugin, TriggerDefinition, Bool) -> Void = { _, _, _ in },
+        openSettings: ((InstalledPlugin) -> Void)? = nil
     ) {
         self.catalog = catalog
         self.installingPluginID = installingPluginID
@@ -514,6 +647,7 @@ public struct PluginStoreView: View {
         self.runResults = runResults
         self.runErrors = runErrors
         self.setupValues = setupValues
+        self.accountDisplayNames = accountDisplayNames
         self.configuredAccounts = configuredAccounts
         self.selectedAccountIDs = selectedAccountIDs
         self.savingSetupPluginID = savingSetupPluginID
@@ -526,6 +660,7 @@ public struct PluginStoreView: View {
         self.runtimeStatuses = runtimeStatuses
         self.canConfigure = canConfigure
         self.updateSetupValue = updateSetupValue
+        self.updateAccountDisplayName = updateAccountDisplayName
         self.selectAccount = selectAccount
         self.addAccount = addAccount
         self.saveSetup = saveSetup
@@ -535,6 +670,7 @@ public struct PluginStoreView: View {
         self.remove = remove
         self.setPermissionGrant = setPermissionGrant
         self.setTriggerEnabled = setTriggerEnabled
+        self.openSettings = openSettings
     }
 
     public var body: some View {
@@ -543,30 +679,12 @@ public struct PluginStoreView: View {
                 PluginStoreHeader(installedCount: catalog.installed.count, availableCount: catalog.available.count)
                 InstalledPluginSection(
                     plugins: catalog.installed,
-                    runningPluginID: runningPluginID,
-                    runResults: runResults,
-                    runErrors: runErrors,
-                    setupValues: setupValues,
                     configuredAccounts: configuredAccounts,
-                    selectedAccountIDs: selectedAccountIDs,
-                    savingSetupPluginID: savingSetupPluginID,
-                    setupResults: setupResults,
-                    setupErrors: setupErrors,
-                    permissions: installedPermissions,
-                    savingPermissionID: savingPermissionID,
-                    triggers: installedTriggers,
-                    savingTriggerID: savingTriggerID,
                     runtimeStatuses: runtimeStatuses,
-                    canConfigure: canConfigure,
-                    updateSetupValue: updateSetupValue,
-                    selectAccount: selectAccount,
-                    addAccount: addAccount,
-                    saveSetup: saveSetup,
                     canRun: canRun,
                     run: run,
-                    setPermissionGrant: setPermissionGrant,
-                    setTriggerEnabled: setTriggerEnabled,
                     removingPluginID: removingPluginID,
+                    openSettings: showSettings,
                     requestRemoval: { pluginPendingRemoval = $0 }
                 )
                 AvailablePluginSection(
@@ -601,6 +719,57 @@ public struct PluginStoreView: View {
         } message: {
             Text("Status will delete this plugin's local configuration, schedules, suggested rules, permissions, and resources. Historical events and audit entries stay in place.")
         }
+        .sheet(item: $presentedSettingsPlugin) { plugin in
+            NavigationStack {
+                pluginSettingsView(for: plugin)
+                    .navigationTitle(plugin.name)
+            }
+        }
+    }
+
+    private func showSettings(_ plugin: InstalledPlugin) {
+        if let openSettings {
+            openSettings(plugin)
+        } else {
+            presentedSettingsPlugin = plugin
+        }
+    }
+
+    @ViewBuilder
+    private func pluginSettingsView(for plugin: InstalledPlugin) -> some View {
+        let selectedAccountID = selectedAccountIDs[plugin.id]
+        PluginSettingsPanel(
+            plugin: plugin,
+            canConfigure: canConfigure(plugin),
+            accounts: configuredAccounts[plugin.id, default: []],
+            selectedAccountID: selectedAccountID,
+            accountDisplayName: accountDisplayNames[setupKey(pluginID: plugin.id, accountID: selectedAccountID), default: ""],
+            setupValues: setupValues[setupKey(pluginID: plugin.id, accountID: selectedAccountID), default: [:]],
+            isSavingSetup: savingSetupPluginID == plugin.id,
+            setupResult: setupResults[setupKey(pluginID: plugin.id, accountID: selectedAccountID)],
+            setupError: setupErrors[setupKey(pluginID: plugin.id, accountID: selectedAccountID)],
+            permissions: installedPermissions[plugin.id, default: []],
+            savingPermissionID: savingPermissionID,
+            triggers: installedTriggers[plugin.id, default: []],
+            savingTriggerID: savingTriggerID,
+            runtimeStatus: runtimeStatuses[plugin.id],
+            updateSetupValue: updateSetupValue,
+            updateAccountDisplayName: updateAccountDisplayName,
+            selectAccount: selectAccount,
+            addAccount: addAccount,
+            saveSetup: saveSetup,
+            canRun: canRun(plugin),
+            isRunning: runningPluginID == plugin.id,
+            runResult: runResults[setupKey(pluginID: plugin.id, accountID: selectedAccountID)],
+            runError: runErrors[setupKey(pluginID: plugin.id, accountID: selectedAccountID)],
+            run: run,
+            setPermissionGrant: setPermissionGrant,
+            setTriggerEnabled: setTriggerEnabled
+        )
+    }
+
+    private func setupKey(pluginID: String, accountID: String?) -> String {
+        "\(pluginID):\(accountID ?? "__new__:")"
     }
 }
 
@@ -623,30 +792,12 @@ private struct PluginStoreHeader: View {
 
 private struct InstalledPluginSection: View {
     let plugins: [InstalledPlugin]
-    let runningPluginID: String?
-    let runResults: [String: String]
-    let runErrors: [String: String]
-    let setupValues: [String: [String: String]]
     let configuredAccounts: [String: [PluginAccountConfiguration]]
-    let selectedAccountIDs: [String: String]
-    let savingSetupPluginID: String?
-    let setupResults: [String: String]
-    let setupErrors: [String: String]
-    let permissions: [String: [InstalledPluginPermission]]
-    let savingPermissionID: String?
-    let triggers: [String: [TriggerDefinition]]
-    let savingTriggerID: String?
     let runtimeStatuses: [String: PluginRuntimeStatus]
-    let canConfigure: (InstalledPlugin) -> Bool
-    let updateSetupValue: (InstalledPlugin, String, String) -> Void
-    let selectAccount: (InstalledPlugin, String) -> Void
-    let addAccount: (InstalledPlugin) -> Void
-    let saveSetup: (InstalledPlugin) -> Void
     let canRun: (InstalledPlugin) -> Bool
     let run: (InstalledPlugin) -> Void
-    let setPermissionGrant: (InstalledPlugin, PluginPermission, Bool) -> Void
-    let setTriggerEnabled: (InstalledPlugin, TriggerDefinition, Bool) -> Void
     let removingPluginID: String?
+    let openSettings: (InstalledPlugin) -> Void
     let requestRemoval: (InstalledPlugin) -> Void
 
     var body: some View {
@@ -661,30 +812,12 @@ private struct InstalledPluginSection: View {
                     ForEach(plugins) { plugin in
                         InstalledPluginRow(
                             plugin: plugin,
-                            canConfigure: canConfigure(plugin),
                             accounts: configuredAccounts[plugin.id, default: []],
-                            selectedAccountID: selectedAccountIDs[plugin.id],
-                            setupValues: setupValues[setupKey(pluginID: plugin.id, accountID: selectedAccountIDs[plugin.id]), default: [:]],
-                            isSavingSetup: savingSetupPluginID == plugin.id,
-                            setupResult: setupResults[setupKey(pluginID: plugin.id, accountID: selectedAccountIDs[plugin.id])],
-                            setupError: setupErrors[setupKey(pluginID: plugin.id, accountID: selectedAccountIDs[plugin.id])],
-                            permissions: permissions[plugin.id, default: []],
-                            savingPermissionID: savingPermissionID,
-                            triggers: triggers[plugin.id, default: []],
-                            savingTriggerID: savingTriggerID,
                             runtimeStatus: runtimeStatuses[plugin.id],
-                            updateSetupValue: updateSetupValue,
-                            selectAccount: selectAccount,
-                            addAccount: addAccount,
-                            saveSetup: saveSetup,
                             canRun: canRun(plugin),
-                            isRunning: runningPluginID == plugin.id,
-                            runResult: runResults[setupKey(pluginID: plugin.id, accountID: selectedAccountIDs[plugin.id])],
-                            runError: runErrors[setupKey(pluginID: plugin.id, accountID: selectedAccountIDs[plugin.id])],
                             run: run,
-                            setPermissionGrant: setPermissionGrant,
-                            setTriggerEnabled: setTriggerEnabled,
                             isRemoving: removingPluginID == plugin.id,
+                            openSettings: openSettings,
                             requestRemoval: requestRemoval
                         )
                     }
@@ -693,9 +826,6 @@ private struct InstalledPluginSection: View {
         }
     }
 
-    private func setupKey(pluginID: String, accountID: String?) -> String {
-        "\(pluginID):\(accountID ?? "__new__:")"
-    }
 }
 
 private struct AvailablePluginSection: View {
@@ -729,9 +859,96 @@ private struct AvailablePluginSection: View {
 
 private struct InstalledPluginRow: View {
     let plugin: InstalledPlugin
+    let accounts: [PluginAccountConfiguration]
+    let runtimeStatus: PluginRuntimeStatus?
+    let canRun: Bool
+    let run: (InstalledPlugin) -> Void
+    let isRemoving: Bool
+    let openSettings: (InstalledPlugin) -> Void
+    let requestRemoval: (InstalledPlugin) -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            IntegrationIcon(provider: plugin.id, size: 32)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(plugin.name)
+                        .font(.headline)
+                    Text(plugin.installedVersion)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                }
+                Text(plugin.description)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    Text(accountSummary)
+                    if let runtimeStatus {
+                        Text(runtimeStatus.status.displayName)
+                            .foregroundStyle(runtimeStatus.status.statusColor)
+                    } else {
+                        Text("Not checked yet")
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 12)
+            VStack(alignment: .trailing, spacing: 8) {
+                PluginTrustLabel(trustLevel: plugin.trustLevel)
+                HStack(spacing: 8) {
+                    Button {
+                        openSettings(plugin)
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                    .buttonStyle(.bordered)
+                    if canRun {
+                        Button {
+                            run(plugin)
+                        } label: {
+                            Label("Run", systemImage: "play")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    Button(role: .destructive) {
+                        requestRemoval(plugin)
+                    } label: {
+                        if isRemoving {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Label("Remove", systemImage: "trash")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isRemoving)
+                }
+            }
+        }
+        .padding(14)
+        .background(Color.statusSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var accountSummary: String {
+        if accounts.isEmpty {
+            return "No accounts configured"
+        }
+        if accounts.count == 1 {
+            return accounts[0].accountName
+        }
+        return "\(accounts.count) accounts"
+    }
+}
+
+private struct PluginSettingsPanel: View {
+    let plugin: InstalledPlugin
     let canConfigure: Bool
     let accounts: [PluginAccountConfiguration]
     let selectedAccountID: String?
+    let accountDisplayName: String
     let setupValues: [String: String]
     let isSavingSetup: Bool
     let setupResult: String?
@@ -742,6 +959,7 @@ private struct InstalledPluginRow: View {
     let savingTriggerID: String?
     let runtimeStatus: PluginRuntimeStatus?
     let updateSetupValue: (InstalledPlugin, String, String) -> Void
+    let updateAccountDisplayName: (InstalledPlugin, String) -> Void
     let selectAccount: (InstalledPlugin, String) -> Void
     let addAccount: (InstalledPlugin) -> Void
     let saveSetup: (InstalledPlugin) -> Void
@@ -752,13 +970,11 @@ private struct InstalledPluginRow: View {
     let run: (InstalledPlugin) -> Void
     let setPermissionGrant: (InstalledPlugin, PluginPermission, Bool) -> Void
     let setTriggerEnabled: (InstalledPlugin, TriggerDefinition, Bool) -> Void
-    let isRemoving: Bool
-    let requestRemoval: (InstalledPlugin) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
-                PluginTrustIcon(trustLevel: plugin.trustLevel)
+                IntegrationIcon(provider: plugin.id, size: 32)
                     .padding(.top, 4)
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -771,25 +987,10 @@ private struct InstalledPluginRow: View {
                     Text(plugin.description)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text(plugin.enabled ? "Enabled" : "Disabled")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(plugin.enabled ? .green : .orange)
                 }
                 Spacer(minLength: 12)
                 VStack(alignment: .trailing, spacing: 8) {
                     PluginTrustLabel(trustLevel: plugin.trustLevel)
-                    Button(role: .destructive) {
-                        requestRemoval(plugin)
-                    } label: {
-                        if isRemoving {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Label("Remove", systemImage: "trash")
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(isRemoving || isRunning || isSavingSetup)
                     if canRun {
                         Button {
                             run(plugin)
@@ -847,6 +1048,17 @@ private struct InstalledPluginRow: View {
             }
             if canConfigure {
                 VStack(alignment: .leading, spacing: 8) {
+                    Text("Integration name")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    TextField(
+                        plugin.name,
+                        text: Binding(
+                            get: { accountDisplayName },
+                            set: { updateAccountDisplayName(plugin, $0) }
+                        )
+                    )
+                    .textFieldStyle(.roundedBorder)
                     if let setup = plugin.setup {
                         Text(setup.title)
                             .font(.caption.weight(.semibold))
@@ -1259,6 +1471,53 @@ private extension PluginPermission {
     }
 }
 
+public struct IntegrationVisual: Equatable {
+    public var systemImage: String
+    public var color: Color
+
+    public init(systemImage: String, color: Color) {
+        self.systemImage = systemImage
+        self.color = color
+    }
+
+    public static func visual(for provider: String) -> IntegrationVisual {
+        let key = provider.lowercased()
+        if key.contains("github") {
+            return IntegrationVisual(systemImage: "chevron.left.forwardslash.chevron.right", color: .primary)
+        }
+        if key.contains("appstore") {
+            return IntegrationVisual(systemImage: "app.badge", color: .blue)
+        }
+        if key.contains("website") || key.contains("uptime") {
+            return IntegrationVisual(systemImage: "globe", color: .green)
+        }
+        if key.contains("jira") || key.contains("atlassian") {
+            return IntegrationVisual(systemImage: "diamond", color: .cyan)
+        }
+        return IntegrationVisual(systemImage: "puzzlepiece.extension", color: .orange)
+    }
+}
+
+public struct IntegrationIcon: View {
+    private let visual: IntegrationVisual
+    private let size: CGFloat
+
+    public init(provider: String, size: CGFloat = 28) {
+        self.visual = IntegrationVisual.visual(for: provider)
+        self.size = size
+    }
+
+    public var body: some View {
+        Image(systemName: visual.systemImage)
+            .font(.system(size: max(12, size * 0.48), weight: .semibold))
+            .foregroundStyle(visual.color)
+            .frame(width: size, height: size)
+            .background(visual.color.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: min(8, size * 0.25)))
+            .accessibilityHidden(true)
+    }
+}
+
 private struct AvailablePluginRow: View {
     let plugin: RegistryPluginSummary
     let isInstalled: Bool
@@ -1268,7 +1527,7 @@ private struct AvailablePluginRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
-                PluginTrustIcon(trustLevel: plugin.trustLevel)
+                IntegrationIcon(provider: plugin.id, size: 32)
                     .padding(.top, 4)
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
