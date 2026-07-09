@@ -15,6 +15,7 @@ npm install
 npm ci
 npm run docs:build
 npm run plugins:build
+npm run plugins:validate-local -- plugins/examples/mock-operations
 npm run check
 npm run web:build
 npm run registry:check
@@ -33,6 +34,7 @@ npm run registry:deploy
 
 `npm run docs:build` refreshes the generated website documentation index and local docs page content from the canonical Markdown files.
 `npm run plugins:build` validates bundled plugin source, builds deterministic package artifacts, and refreshes the generated registry metadata used by the Worker.
+`npm run plugins:validate-local -- <plugin-folder>` validates a local developer plugin folder, builds the deterministic package bytes in memory, prints the package checksum, and keeps the plugin in `local-dev` trust territory without publishing it.
 `npm run check` currently validates plugin package drift, validates website docs drift, runs TypeScript checks, builds the Vue/Sass website, runs registry Worker tests, and runs a Wrangler dry-run.
 `swift test` validates the shared native package. `xcodegen generate` creates the local Xcode project from `project.yml`; the generated project is intentionally ignored.
 

@@ -1,0 +1,81 @@
+import Foundation
+import Testing
+@testable import StatusCore
+
+@Test func localPluginInstallerInstallsMockOperationsPluginAsLocalDev() throws {
+    let database = try temporaryLocalPluginDatabase()
+    let store = StatusPersistenceStore(database: database)
+    let installRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent("status-local-plugins-\(UUID().uuidString)", isDirectory: true)
+    let installer = LocalPluginInstaller(store: store, installRoot: installRoot)
+    let pluginDirectory = repositoryRoot()
+        .appendingPathComponent("plugins/examples/mock-operations", isDirectory: true)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+
+    let result = try installer.install(pluginDirectory: pluginDirectory, installedAt: now)
+
+    #expect(result.plugin.id == "com.status.example.mockops")
+    #expect(result.plugin.trustLevel == .localDev)
+    #expect(result.version.signature == nil)
+    #expect(result.version.signedBy == "local-dev")
+    #expect(result.warnings == [
+        .unsignedLocalDevPlugin(
+            pluginID: "com.status.example.mockops",
+            permissions: [.network, .backgroundRefresh, .localNotificationSuggestion, .writeActions],
+            domains: ["example.com"]
+        )
+    ])
+    #expect(try store.installedPluginDefinition(pluginID: result.plugin.id)?.actions.map(\.id) == ["mock.postWebhook"])
+    #expect(try store.installedPluginDefinition(pluginID: result.plugin.id)?.views.map(\.id) == ["overview"])
+}
+
+@Test func mockOperationsPluginFixtureMapsThroughNativeEngine() throws {
+    let pluginDirectory = repositoryRoot()
+        .appendingPathComponent("plugins/examples/mock-operations", isDirectory: true)
+    let packageData = try PluginPackageBuilder.packageData(fromDirectory: pluginDirectory)
+    let definition = try PluginPackageDefinition.decode(from: packageData)
+    let fixtureData = try Data(contentsOf: pluginDirectory.appendingPathComponent("fixtures/fetch_status.json"))
+    let payload = try JSONDecoder().decode(MappingJSONValue.self, from: fixtureData)
+
+    let output = try PluginMappingExecutor.execute(
+        definition.mappings,
+        input: PluginMappingExecutionInput(
+            pluginID: "com.status.example.mockops",
+            accountID: "acct_mock",
+            provider: "com.status.example.mockops",
+            requestID: "fetch_status",
+            payload: payload,
+            capturedAt: Date(timeIntervalSince1970: 1_783_433_520)
+        )
+    )
+
+    #expect(output.resources.map(\.resource.id) == ["acct_mock:api", "acct_mock:worker"])
+    #expect(output.resources.map(\.state["state"]) == ["degraded", "healthy"])
+    #expect(output.events.map(\.type) == [
+        "mock.service.degraded",
+        "mock.service.recovered",
+        "mock.error_rate.high"
+    ])
+    #expect(output.events.map(\.resourceID) == ["acct_mock:api", "acct_mock:worker", "acct_mock:api"])
+    #expect(output.metrics.map(\.metric.id) == [
+        "acct_mock:api:metric:error_rate_percent",
+        "acct_mock:worker:metric:error_rate_percent"
+    ])
+    #expect(output.metrics.map(\.pointValue) == [7.5, 0.2])
+}
+
+private func temporaryLocalPluginDatabase() throws -> SQLiteDatabase {
+    let path = FileManager.default.temporaryDirectory
+        .appendingPathComponent("status-\(UUID().uuidString).sqlite")
+        .path
+    let database = try SQLiteDatabase(path: path)
+    try StatusDatabaseMigrator.migrate(database)
+    return database
+}
+
+private func repositoryRoot() -> URL {
+    URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+}

@@ -207,7 +207,7 @@ Aligned with WP-8.8. When a third-party plugin arrives as a pull request, CI run
                             posted on the PR for reviewer attention
 ```
 
-A submission without fixtures for its mappings is rejected by CI. Validation never publishes anything; signing and R2 upload remain a separate maintainer-triggered release flow per `docs/19-cloudflare-platform.md`. The repository starter plugin at `plugins/examples/mock-operations` is validated by `npm run plugins:check` so third-party authors always have a current package template to copy.
+A submission without fixtures for its mappings is rejected by CI. Validation never publishes anything; signing and R2 upload remain a separate maintainer-triggered release flow per `docs/19-cloudflare-platform.md`. The repository starter plugin at `plugins/examples/mock-operations` is validated by `npm run plugins:check` and can be checked directly with `npm run plugins:validate-local -- plugins/examples/mock-operations`, so third-party authors always have a current package template to copy. Its fixtures are also exercised by native StatusCore tests to prove the package decodes and maps through the app engine.
 
 ## CI definition
 

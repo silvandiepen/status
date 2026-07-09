@@ -19,7 +19,7 @@
       "request": "fetch_status",
       "source": "$.services[*]",
       "when": {
-        "field": "state",
+        "path": "$.state",
         "operator": "changed_to",
         "value": "degraded"
       },
@@ -34,7 +34,7 @@
       "request": "fetch_status",
       "source": "$.services[*]",
       "when": {
-        "field": "state",
+        "path": "$.state",
         "operator": "changed_to",
         "value": "healthy"
       },

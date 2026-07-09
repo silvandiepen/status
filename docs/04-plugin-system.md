@@ -482,7 +482,23 @@ Developer mode should support:
 - inspect permissions;
 - export signed package later.
 
-Developer mode should show warnings for unsigned plugins.
+Developer mode should show warnings for unsigned plugins. The current core
+implementation has a `LocalPluginInstaller` that packages a local folder into
+the same deterministic ZIP format used by the registry, installs it as
+`local-dev`, records `signedBy: local-dev`, and returns an explicit unsigned
+warning with the plugin ID, permissions, and domains. Local-dev install skips
+signature verification only; manifest validation, declared-domain checks,
+OAuth deferral, write-action permission checks, setup rendering, trigger/rule
+installation, and runtime permission enforcement still apply. Developers can
+run:
+
+```sh
+npm run plugins:validate-local -- plugins/examples/mock-operations
+```
+
+to validate a folder and print the package checksum without publishing it.
+`plugins/examples/mock-operations/fixtures/` contains request fixtures used by
+the native mapping tests for mapped-output preview coverage.
 
 ## Third-party plugins
 

@@ -2,18 +2,24 @@
   "events": [
     {
       "type": "mock.service.degraded",
-      "title": "Service degraded",
-      "severity": "warning"
+      "label": "Service degraded",
+      "resourceType": "service",
+      "defaultSeverity": "warning",
+      "notificationDefault": "dashboard-only"
     },
     {
       "type": "mock.service.recovered",
-      "title": "Service recovered",
-      "severity": "ok"
+      "label": "Service recovered",
+      "resourceType": "service",
+      "defaultSeverity": "ok",
+      "notificationDefault": "digest"
     },
     {
       "type": "mock.error_rate.high",
-      "title": "Error rate high",
-      "severity": "critical"
+      "label": "Error rate high",
+      "resourceType": "service",
+      "defaultSeverity": "critical",
+      "notificationDefault": "dashboard-only"
     }
   ]
 }

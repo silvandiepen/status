@@ -12,6 +12,7 @@
     "docs:check": "node scripts/build-web-docs.mjs --check",
     "plugins:build": "node scripts/build-plugin-packages.mjs",
     "plugins:check": "node scripts/build-plugin-packages.mjs --check",
+    "plugins:validate-local": "node scripts/build-plugin-packages.mjs --local-plugin",
     "plugins:upload-r2": "node scripts/upload-plugin-artifacts-to-r2.mjs",
     "web:build": "vite build web",
     "web:preview": "vite preview --host 0.0.0.0 --outDir web/dist",

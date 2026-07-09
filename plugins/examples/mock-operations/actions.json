@@ -1,16 +1,30 @@
 {
   "actions": [
     {
-      "id": "open_dashboard",
-      "label": "Open dashboard",
-      "type": "open_url",
-      "url": "{{resource.actionUrl}}"
-    },
-    {
-      "id": "post_webhook",
+      "id": "mock.postWebhook",
       "label": "Post webhook",
-      "type": "webhook.post",
-      "requiresPermission": "write-actions"
+      "description": "Sends a reviewed status payload to a configured webhook endpoint.",
+      "requiresWritePermission": true,
+      "safety": "review-required",
+      "inputSchema": {
+        "fields": [
+          {
+            "key": "url",
+            "label": "Webhook URL",
+            "type": "template",
+            "required": true,
+            "default": "https://example.com/hooks/status"
+          },
+          {
+            "key": "summary",
+            "label": "Summary",
+            "type": "template",
+            "required": true,
+            "default": "{{event.summary}}"
+          }
+        ]
+      },
+      "request": "post_webhook"
     }
   ]
 }

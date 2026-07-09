@@ -10,6 +10,22 @@
         "Accept": "application/json"
       },
       "timeoutSeconds": 20
+    },
+    "post_webhook": {
+      "method": "POST",
+      "url": "https://example.com/hooks/status",
+      "auth": "none",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "type": "json",
+        "template": {
+          "summary": "{{summary}}",
+          "source": "status"
+        }
+      },
+      "timeoutSeconds": 20
     }
   }
 }

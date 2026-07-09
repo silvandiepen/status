@@ -2,6 +2,7 @@ node_modules/
 
 # Swift/Xcode generated state
 .build/
+.swiftpm/
 Status.xcodeproj/
 DerivedData/
 

@@ -215,7 +215,16 @@ Acceptance: sample plugin's overview/list/detail views render natively on macOS 
 
 ### WP-3.6 Developer mode and sample plugin — Plugin Agent
 
-Local plugin folder install with unsigned warnings, schema validation UI, test-request runner, mapped-output preview; a `plugins/examples/mock` sample plugin exercising every package file.
+Status: Partially implemented in core/tooling. `LocalPluginInstaller` can install
+a local folder as `local-dev` with explicit unsigned warnings, the local plugin
+validator prints package checksums without publishing, and
+`plugins/examples/mock-operations` exercises every package file plus request
+fixtures through native mapping tests.
+
+Remaining: schema validation UI, test-request runner UI, and mapped-output
+preview UI.
+
+Local plugin folder install with unsigned warnings, schema validation UI, test-request runner, mapped-output preview; a `plugins/examples/mock-operations` sample plugin exercising every package file.
 
 Depends: WP-3.1–3.5.
 Acceptance: roadmap Phase 3 acceptance criteria all pass using the sample plugin.

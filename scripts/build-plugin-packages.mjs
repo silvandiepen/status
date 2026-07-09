@@ -13,6 +13,8 @@ const packageDistRoot = path.join(root, "workers", "registry", "dist", "plugins"
 const swiftBundledPluginsRoot = path.join(root, "Sources", "StatusCore", "Resources", "BundledPlugins");
 const registryBaseURL = "https://status-registry.hakobs.com";
 const checkOnly = process.argv.includes("--check");
+const localPluginFlagIndex = process.argv.indexOf("--local-plugin");
+const localPluginPath = localPluginFlagIndex === -1 ? undefined : process.argv[localPluginFlagIndex + 1];
 const devSigningPrivateKey = createPrivateKey(`-----BEGIN PRIVATE KEY-----
 MC4CAQAwBQYDK2VwBCIEIHMXJtFn66hGp93MMMQcTOgQqxOXHNsvw0iUwxMTdhaZ
 -----END PRIVATE KEY-----`);
@@ -295,6 +297,9 @@ function validateEvents(eventsFile, sourceName) {
     if (typeof event.type !== "string" || /^[a-z0-9_]+(\.[a-z0-9_]+)+$/.test(event.type) === false) {
       fail(`${sourceName}: invalid event type ${event.type}`);
     }
+    if (typeof event.label !== "string" || event.label.trim() === "") {
+      fail(`${sourceName}: event ${event.type} needs label`);
+    }
     eventTypes.add(event.type);
   }
   return eventTypes;
@@ -398,6 +403,45 @@ function validateRulePresets(presetsFile, eventTypes, sourceName) {
     if (!Array.isArray(preset.then) || preset.then.length === 0) {
       fail(`${sourceName}: rule preset ${preset?.name ?? "(unnamed)"} must define actions`);
     }
+    for (const action of preset.then) {
+      if (!action || typeof action !== "object" || typeof action.action !== "string") {
+        fail(`${sourceName}: rule preset ${preset?.name ?? "(unnamed)"} has invalid action`);
+      }
+      if (action.parameters !== undefined) {
+        fail(`${sourceName}: rule preset ${preset?.name ?? "(unnamed)"} action parameters must be top-level fields`);
+      }
+    }
+  }
+}
+
+function validateActions(actionsFile, requestIDs, manifest, sourceName) {
+  if (!actionsFile) {
+    return;
+  }
+  if (!Array.isArray(actionsFile.actions) || actionsFile.actions.length === 0) {
+    fail(`${sourceName}: actions.json must contain actions`);
+  }
+  const actionIDs = new Set();
+  for (const action of actionsFile.actions) {
+    if (typeof action.id !== "string" || /^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)*$/.test(action.id) === false) {
+      fail(`${sourceName}: action has invalid id ${action.id}`);
+    }
+    if (actionIDs.has(action.id)) {
+      fail(`${sourceName}: duplicate action id ${action.id}`);
+    }
+    actionIDs.add(action.id);
+    if (typeof action.label !== "string" || action.label.trim() === "") {
+      fail(`${sourceName}: action ${action.id} needs label`);
+    }
+    if (typeof action.request !== "string" || action.request.trim() === "") {
+      fail(`${sourceName}: action ${action.id} needs request`);
+    }
+    if (requestIDs.has(action.request) === false) {
+      fail(`${sourceName}: action ${action.id} references missing request ${action.request}`);
+    }
+    if (action.requiresWritePermission === true && manifest.permissions.includes("write-actions") === false) {
+      fail(`${sourceName}: action ${action.id} requires write-actions permission`);
+    }
   }
 }
 
@@ -408,12 +452,14 @@ async function validatePluginPackage(pluginDirectory, manifest, sourceName) {
   const mappingsFile = await readOptionalJSON(path.join(pluginDirectory, "mappings.json"));
   const presetsFile = await readOptionalJSON(path.join(pluginDirectory, "rules.presets.json"));
   const viewsFile = await readOptionalJSON(path.join(pluginDirectory, "views.json"));
+  const actionsFile = await readOptionalJSON(path.join(pluginDirectory, "actions.json"));
 
   const requestIDs = validateRequestDefinitions(manifest, requestsFile, sourceName);
   const eventTypes = validateEvents(eventsFile, sourceName);
   validateTriggers(triggersFile, requestIDs, sourceName);
   const resourceTypes = validateMappings(mappingsFile, requestIDs, eventTypes, sourceName);
   validateViews(viewsFile, resourceTypes, sourceName);
+  validateActions(actionsFile, requestIDs, manifest, sourceName);
   validateRulePresets(presetsFile, eventTypes, sourceName);
 }
 
@@ -430,6 +476,24 @@ function jsModule(name, value) {
 }
 
 async function build() {
+  if (localPluginFlagIndex !== -1) {
+    if (!localPluginPath) {
+      fail("--local-plugin requires a plugin directory path");
+    }
+    const pluginDirectory = path.resolve(process.cwd(), localPluginPath);
+    const manifest = await readJSON(path.join(pluginDirectory, "manifest.json"));
+    validateManifest(manifest, `local/${path.basename(pluginDirectory)}`);
+    await validatePluginPackage(pluginDirectory, manifest, `local/${path.basename(pluginDirectory)}`);
+    const files = await pluginFiles(pluginDirectory);
+    const packageData = deterministicZip(files);
+    const sha256 = createHash("sha256").update(packageData).digest("hex");
+    console.log(`Validated local plugin ${manifest.id}@${manifest.version}`);
+    console.log(`Package: ${manifest.id}-${manifest.version}.statusplugin.zip`);
+    console.log(`SHA-256: ${sha256}`);
+    console.log("Trust: local-dev (unsigned; Developer Mode only)");
+    return;
+  }
+
   const pluginDirectoryNames = await directoryNames(pluginsRoot);
   const exampleDirectoryNames = await directoryNames(examplePluginsRoot);
 

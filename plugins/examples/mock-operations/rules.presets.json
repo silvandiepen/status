@@ -19,9 +19,7 @@
         },
         {
           "action": "notification.show",
-          "parameters": {
-            "title": "{{event.title}}"
-          }
+          "title": "{{event.title}}"
         }
       ]
     },
@@ -41,9 +39,7 @@
       "then": [
         {
           "action": "webhook.post",
-          "parameters": {
-            "url": "https://example.com/hooks/status"
-          }
+          "url": "https://example.com/hooks/status"
         }
       ]
     }
