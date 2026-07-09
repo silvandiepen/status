@@ -85,7 +85,7 @@ function fallbackTitle(sourcePath) {
 async function main() {
   const renderedDocuments = await Promise.all(documents.map(async (document) => {
     const markdown = await readFile(path.join(root, document.sourcePath), 'utf8');
-    const { html } = await renderMarkdown(markdown, { stripTitle: true, docPathMap });
+    const { html, toc } = await renderMarkdown(markdown, { stripTitle: true, docPathMap });
     const title = titleFromMarkdown(markdown, fallbackTitle(document.sourcePath));
 
     return {
@@ -96,6 +96,7 @@ async function main() {
       sourceUrl: `${repositoryBaseURL}/${document.sourcePath}`,
       summary: document.summary,
       html,
+      toc: toc.map(({ id, text, depth }) => ({ id, text, depth })),
     };
   }));
 
@@ -113,13 +114,14 @@ async function main() {
   };
   const contentGenerated = {
     generatedAt,
-    documents: renderedDocuments.map(({ slug, title, sourcePath, sourceUrl, summary, html }) => ({
+    documents: renderedDocuments.map(({ slug, title, sourcePath, sourceUrl, summary, html, toc }) => ({
       slug,
       title,
       sourcePath,
       sourceUrl,
       summary,
       html,
+      toc,
     })),
   };
 
