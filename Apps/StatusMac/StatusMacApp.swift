@@ -45,6 +45,12 @@ private struct MacPluginSettingsWindow: View {
             try pluginRuntimeStatuses(for: plugins)
         } loadPluginResources: { plugin in
             try LocalStatusStore.openApplicationSupportStore().resources(pluginID: plugin.id)
+        } loadRules: { plugin in
+            try LocalStatusStore.openApplicationSupportStore()
+                .rules()
+                .filter { $0.provider == plugin.id }
+        } saveRule: { rule in
+            try LocalStatusStore.openApplicationSupportStore().upsertRule(rule, updatedAt: Date())
         } installPlugin: { _ in
         } removePlugin: { _ in
         } loadPermissions: { plugin in
@@ -392,6 +398,12 @@ private struct MacRootView: View {
             try pluginRuntimeStatuses(for: plugins)
         } loadPluginResources: { plugin in
             try LocalStatusStore.openApplicationSupportStore().resources(pluginID: plugin.id)
+        } loadRules: { plugin in
+            try LocalStatusStore.openApplicationSupportStore()
+                .rules()
+                .filter { $0.provider == plugin.id }
+        } saveRule: { rule in
+            try LocalStatusStore.openApplicationSupportStore().upsertRule(rule, updatedAt: Date())
         } installPlugin: { plugin in
             guard let latestVersion = plugin.latestVersion else { return }
             let store = try LocalStatusStore.openApplicationSupportStore()
@@ -468,9 +480,14 @@ private struct MacRootView: View {
     private func makeRulesViewModel() -> RulesViewModel {
         RulesViewModel {
             try bootstrapBundledPlugins()
-            return try LocalStatusStore.openApplicationSupportStore().rules()
+            return try LocalStatusStore.openApplicationSupportStore()
+                .rules()
+                .filter { $0.scope == .crossApp }
         } saveRule: { rule in
-            try LocalStatusStore.openApplicationSupportStore().upsertRule(rule, updatedAt: Date())
+            var crossAppRule = rule
+            crossAppRule.scope = .crossApp
+            crossAppRule.accountID = nil
+            try LocalStatusStore.openApplicationSupportStore().upsertRule(crossAppRule, updatedAt: Date())
         }
     }
 

@@ -422,7 +422,7 @@ Plugin rule presets install disabled. Enabling a preset requires the user to cho
 
 Plugins can declare many event-level notification defaults. Status must expose them under the configured app's settings, not as duplicated global rule rows. App-level preferences override plugin defaults; event-level preferences override app-level preferences.
 
-The current native settings UI groups notification defaults and event overrides by configured app/account when apps exist, while keeping plugin-level defaults as the fallback for plugins that have no configured app yet. Stored automation evaluation is also account-aware: app-scoped rules only load for events from the matching configured app, and plugin-scoped rules remain available as broad defaults. The remaining UI work is the dedicated per-app rule editor and filtering the global automation screen down to cross-app rules only.
+The current native settings UI groups notification defaults, event overrides, and plugin-suggested rule presets by configured app/account when apps exist, while keeping plugin-level defaults as the fallback for plugins that have no configured app yet. Enabling a suggested rule creates an app-scoped rule copy for the selected configured app/account; the disabled plugin-scoped preset remains available as the reusable template. Stored automation evaluation is account-aware: app-scoped rules only load for events from the matching configured app, and plugin-scoped rules remain available as broad defaults. The global automation screen is reserved for explicit `cross_app` rules. The remaining UI work is a full custom per-app rule editor and a stronger permission/audit preview before enabling presets with write actions.
 
 ## Rule presets
 

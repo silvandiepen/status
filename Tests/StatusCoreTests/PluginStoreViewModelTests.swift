@@ -87,3 +87,103 @@ import StatusCore
     #expect(loadedResourcePluginIDs == [plugin.id])
     #expect(viewModel.pluginResources == [plugin.id: [resource]])
 }
+
+@MainActor
+@Test func pluginStoreViewModelLoadsSuggestedAndAppScopedRules() async throws {
+    let plugin = InstalledPlugin(
+        id: "com.status.github",
+        name: "GitHub",
+        author: "Status Foundry",
+        description: "GitHub repository checks.",
+        category: "development",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/com.status.github",
+        installedAt: Date(timeIntervalSince1970: 1_783_433_520),
+        updatedAt: Date(timeIntervalSince1970: 1_783_433_520)
+    )
+    let preset = Rule(
+        id: "rule_com_status_github_failed_workflow",
+        name: "Failed workflow",
+        enabled: false,
+        provider: plugin.id,
+        eventType: "github.workflow.failed",
+        conditions: [],
+        actions: [RuleActionDefinition(action: "notify")]
+    )
+    let appRule = Rule(
+        id: "rule_app_com_status_github_acc_work_rule_com_status_github_failed_workflow",
+        name: "Failed workflow",
+        enabled: true,
+        scope: .app,
+        accountID: "acc_work",
+        provider: plugin.id,
+        eventType: "github.workflow.failed",
+        conditions: [],
+        actions: [RuleActionDefinition(action: "notify")]
+    )
+    let viewModel = PluginStoreViewModel(
+        loadInstalled: { [plugin] },
+        loadAvailable: { [] },
+        loadRules: { _ in [preset, appRule] },
+        installPlugin: { _ in }
+    )
+
+    await viewModel.reload()
+
+    #expect(viewModel.rulePresets[plugin.id] == [preset])
+    #expect(viewModel.appRules[plugin.id] == [appRule])
+}
+
+@MainActor
+@Test func pluginStoreViewModelEnablesPresetForSelectedApp() async throws {
+    let plugin = InstalledPlugin(
+        id: "com.status.github",
+        name: "GitHub",
+        author: "Status Foundry",
+        description: "GitHub repository checks.",
+        category: "development",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/com.status.github",
+        installedAt: Date(timeIntervalSince1970: 1_783_433_520),
+        updatedAt: Date(timeIntervalSince1970: 1_783_433_520)
+    )
+    let account = PluginAccountConfiguration(
+        id: "acc_work",
+        pluginID: plugin.id,
+        accountName: "Work",
+        variables: [:]
+    )
+    let preset = Rule(
+        id: "rule_com_status_github_failed_workflow",
+        name: "Failed workflow",
+        enabled: false,
+        provider: plugin.id,
+        eventType: "github.workflow.failed",
+        conditions: [],
+        actions: [RuleActionDefinition(action: "notify")]
+    )
+    var savedRules: [Rule] = []
+    let viewModel = PluginStoreViewModel(
+        loadInstalled: { [plugin] },
+        loadAvailable: { [] },
+        loadRules: { _ in [preset] + savedRules },
+        saveRule: { rule in
+            savedRules.append(rule)
+        },
+        installPlugin: { _ in },
+        canConfigurePlugin: { _ in true },
+        loadAccounts: { _ in [account] }
+    )
+
+    await viewModel.reload()
+    await viewModel.setRulePreset(preset, enabled: true, for: plugin)
+
+    let savedRule = try #require(savedRules.first)
+    #expect(savedRule.id == "rule_app_com_status_github_acc_work_rule_com_status_github_failed_workflow")
+    #expect(savedRule.enabled == true)
+    #expect(savedRule.scope == .app)
+    #expect(savedRule.accountID == account.id)
+    #expect(savedRule.provider == plugin.id)
+}

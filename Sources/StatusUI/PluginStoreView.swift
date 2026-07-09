@@ -49,11 +49,16 @@ public final class PluginStoreViewModel: ObservableObject {
     @Published public private(set) var savingTriggerID: String?
     @Published public private(set) var runtimeStatuses: [String: PluginRuntimeStatus]
     @Published public private(set) var pluginResources: [String: [Resource]]
+    @Published public private(set) var rulePresets: [String: [Rule]]
+    @Published public private(set) var appRules: [String: [Rule]]
+    @Published public private(set) var savingRuleID: String?
 
     private let loadInstalled: () throws -> [InstalledPlugin]
     private let loadAvailable: () async throws -> [RegistryPluginSummary]
     private let loadRuntimeStatuses: ([InstalledPlugin]) throws -> [String: PluginRuntimeStatus]
     private let loadPluginResources: (InstalledPlugin) throws -> [Resource]
+    private let loadRules: (InstalledPlugin) throws -> [Rule]
+    private let saveRule: (Rule) async throws -> Void
     private let installPlugin: (RegistryPluginSummary) async throws -> Void
     private let removePlugin: (InstalledPlugin) async throws -> Void
     private let loadPermissions: (InstalledPlugin) throws -> [InstalledPluginPermission]
@@ -73,6 +78,8 @@ public final class PluginStoreViewModel: ObservableObject {
         loadAvailable: @escaping () async throws -> [RegistryPluginSummary],
         loadRuntimeStatuses: @escaping ([InstalledPlugin]) throws -> [String: PluginRuntimeStatus] = { _ in [:] },
         loadPluginResources: @escaping (InstalledPlugin) throws -> [Resource] = { _ in [] },
+        loadRules: @escaping (InstalledPlugin) throws -> [Rule] = { _ in [] },
+        saveRule: @escaping (Rule) async throws -> Void = { _ in },
         installPlugin: @escaping (RegistryPluginSummary) async throws -> Void,
         removePlugin: @escaping (InstalledPlugin) async throws -> Void = { _ in },
         loadPermissions: @escaping (InstalledPlugin) throws -> [InstalledPluginPermission] = { _ in [] },
@@ -99,10 +106,14 @@ public final class PluginStoreViewModel: ObservableObject {
         self.installedTriggers = [:]
         self.runtimeStatuses = [:]
         self.pluginResources = [:]
+        self.rulePresets = [:]
+        self.appRules = [:]
         self.loadInstalled = loadInstalled
         self.loadAvailable = loadAvailable
         self.loadRuntimeStatuses = loadRuntimeStatuses
         self.loadPluginResources = loadPluginResources
+        self.loadRules = loadRules
+        self.saveRule = saveRule
         self.installPlugin = installPlugin
         self.removePlugin = removePlugin
         self.loadPermissions = loadPermissions
@@ -128,6 +139,7 @@ public final class PluginStoreViewModel: ObservableObject {
             refreshTriggers(for: installed)
             refreshRuntimeStatuses(for: installed)
             refreshPluginResources(for: installed)
+            refreshRules(for: installed)
             loadError = nil
         } catch {
             let installed = (try? loadInstalled()) ?? []
@@ -138,6 +150,7 @@ public final class PluginStoreViewModel: ObservableObject {
             refreshTriggers(for: installed)
             refreshRuntimeStatuses(for: installed)
             refreshPluginResources(for: installed)
+            refreshRules(for: installed)
             loadError = error.localizedDescription
         }
     }
@@ -179,6 +192,8 @@ public final class PluginStoreViewModel: ObservableObject {
             installedTriggers[plugin.id] = nil
             runtimeStatuses[plugin.id] = nil
             pluginResources[plugin.id] = nil
+            rulePresets[plugin.id] = nil
+            appRules[plugin.id] = nil
             await reload()
         } catch {
             loadError = error.localizedDescription
@@ -206,6 +221,31 @@ public final class PluginStoreViewModel: ObservableObject {
         do {
             try await setTriggerEnabled(plugin, trigger, enabled)
             await reload()
+        } catch {
+            loadError = error.localizedDescription
+        }
+    }
+
+    public func setRulePreset(_ preset: Rule, enabled: Bool, for plugin: InstalledPlugin) async {
+        guard savingRuleID == nil else { return }
+        guard let account = selectedAccount(for: plugin) else {
+            loadError = "Save an app before enabling suggested rules."
+            return
+        }
+
+        let appRuleID = appScopedRuleID(pluginID: plugin.id, accountID: account.id, presetID: preset.id)
+        savingRuleID = appRuleID
+        defer { savingRuleID = nil }
+
+        do {
+            var appRule = appRules[plugin.id, default: []].first { $0.id == appRuleID } ?? preset
+            appRule.id = appRuleID
+            appRule.enabled = enabled
+            appRule.scope = .app
+            appRule.accountID = account.id
+            appRule.provider = appRule.provider ?? plugin.id
+            try await saveRule(appRule)
+            refreshRules(for: [plugin])
         } catch {
             loadError = error.localizedDescription
         }
@@ -346,6 +386,22 @@ public final class PluginStoreViewModel: ObservableObject {
         })
     }
 
+    private func refreshRules(for plugins: [InstalledPlugin]) {
+        var refreshedPresets = rulePresets
+        var refreshedAppRules = appRules
+        for plugin in plugins {
+            let rules = (try? loadRules(plugin)) ?? []
+            refreshedPresets[plugin.id] = rules
+                .filter { $0.provider == plugin.id && $0.scope == .plugin && $0.accountID == nil }
+                .sorted { lhs, rhs in lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending }
+            refreshedAppRules[plugin.id] = rules
+                .filter { $0.provider == plugin.id && $0.scope == .app }
+                .sorted { lhs, rhs in lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending }
+        }
+        rulePresets = refreshedPresets
+        appRules = refreshedAppRules
+    }
+
     private func defaultSetupValues(for plugin: InstalledPlugin) -> [String: String] {
         Dictionary(uniqueKeysWithValues: plugin.configurationFields.map { field in
             (field.id, field.defaultValue ?? "")
@@ -354,6 +410,17 @@ public final class PluginStoreViewModel: ObservableObject {
 
     private func permissionChangeID(plugin: InstalledPlugin, permission: PluginPermission) -> String {
         "\(plugin.id):\(permission.rawValue)"
+    }
+
+    private func appScopedRuleID(pluginID: String, accountID: String, presetID: String) -> String {
+        let rawID = "rule_app_\(pluginID)_\(accountID)_\(presetID)"
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "_"))
+        return rawID
+            .lowercased()
+            .map { character in
+                String(character).rangeOfCharacter(from: allowed) == nil ? "_" : String(character)
+            }
+            .joined()
     }
 
     private func selectedAccount(for plugin: InstalledPlugin) -> PluginAccountConfiguration? {
@@ -431,6 +498,9 @@ public struct PluginStoreContainerView: View {
             savingTriggerID: viewModel.savingTriggerID,
             runtimeStatuses: viewModel.runtimeStatuses,
             pluginResources: viewModel.pluginResources,
+            rulePresets: viewModel.rulePresets,
+            appRules: viewModel.appRules,
+            savingRuleID: viewModel.savingRuleID,
             canConfigure: { plugin in
                 viewModel.canConfigure(plugin)
             },
@@ -477,6 +547,11 @@ public struct PluginStoreContainerView: View {
             setTriggerEnabled: { plugin, trigger, enabled in
                 Task {
                     await viewModel.setTrigger(trigger, enabled: enabled, for: plugin)
+                }
+            },
+            setRulePresetEnabled: { plugin, preset, enabled in
+                Task {
+                    await viewModel.setRulePreset(preset, enabled: enabled, for: plugin)
                 }
             },
             openSettings: openSettings,
@@ -629,6 +704,9 @@ public struct PluginSettingsContainerView: View {
             savingTriggerID: viewModel.savingTriggerID,
             runtimeStatus: viewModel.runtimeStatuses[plugin.id],
             resources: viewModel.pluginResources[plugin.id, default: []],
+            rulePresets: viewModel.rulePresets[plugin.id, default: []],
+            appRules: viewModel.appRules[plugin.id, default: []],
+            savingRuleID: viewModel.savingRuleID,
             updateSetupValue: { plugin, fieldID, value in
                 viewModel.updateSetupValue(plugin, fieldID: fieldID, value: value)
             },
@@ -660,6 +738,9 @@ public struct PluginSettingsContainerView: View {
             },
             setTriggerEnabled: { plugin, trigger, enabled in
                 Task { await viewModel.setTrigger(trigger, enabled: enabled, for: plugin) }
+            },
+            setRulePresetEnabled: { plugin, preset, enabled in
+                Task { await viewModel.setRulePreset(preset, enabled: enabled, for: plugin) }
             }
         )
     }
@@ -768,6 +849,9 @@ public struct PluginStoreView: View {
     private let savingTriggerID: String?
     private let runtimeStatuses: [String: PluginRuntimeStatus]
     private let pluginResources: [String: [Resource]]
+    private let rulePresets: [String: [Rule]]
+    private let appRules: [String: [Rule]]
+    private let savingRuleID: String?
     private let canConfigure: (InstalledPlugin) -> Bool
     private let updateSetupValue: (InstalledPlugin, String, String) -> Void
     private let updateAccountDisplayName: (InstalledPlugin, String) -> Void
@@ -780,6 +864,7 @@ public struct PluginStoreView: View {
     private let remove: (InstalledPlugin) -> Void
     private let setPermissionGrant: (InstalledPlugin, PluginPermission, Bool) -> Void
     private let setTriggerEnabled: (InstalledPlugin, TriggerDefinition, Bool) -> Void
+    private let setRulePresetEnabled: (InstalledPlugin, Rule, Bool) -> Void
     private let openSettings: ((InstalledPlugin) -> Void)?
     private let isInstallingLocalPlugin: Bool
     private let localPluginInstallResult: String?
@@ -812,6 +897,9 @@ public struct PluginStoreView: View {
         savingTriggerID: String? = nil,
         runtimeStatuses: [String: PluginRuntimeStatus] = [:],
         pluginResources: [String: [Resource]] = [:],
+        rulePresets: [String: [Rule]] = [:],
+        appRules: [String: [Rule]] = [:],
+        savingRuleID: String? = nil,
         canConfigure: @escaping (InstalledPlugin) -> Bool = { _ in false },
         updateSetupValue: @escaping (InstalledPlugin, String, String) -> Void = { _, _, _ in },
         updateAccountDisplayName: @escaping (InstalledPlugin, String) -> Void = { _, _ in },
@@ -824,6 +912,7 @@ public struct PluginStoreView: View {
         remove: @escaping (InstalledPlugin) -> Void = { _ in },
         setPermissionGrant: @escaping (InstalledPlugin, PluginPermission, Bool) -> Void = { _, _, _ in },
         setTriggerEnabled: @escaping (InstalledPlugin, TriggerDefinition, Bool) -> Void = { _, _, _ in },
+        setRulePresetEnabled: @escaping (InstalledPlugin, Rule, Bool) -> Void = { _, _, _ in },
         openSettings: ((InstalledPlugin) -> Void)? = nil,
         isInstallingLocalPlugin: Bool = false,
         localPluginInstallResult: String? = nil,
@@ -853,6 +942,9 @@ public struct PluginStoreView: View {
         self.savingTriggerID = savingTriggerID
         self.runtimeStatuses = runtimeStatuses
         self.pluginResources = pluginResources
+        self.rulePresets = rulePresets
+        self.appRules = appRules
+        self.savingRuleID = savingRuleID
         self.canConfigure = canConfigure
         self.updateSetupValue = updateSetupValue
         self.updateAccountDisplayName = updateAccountDisplayName
@@ -865,6 +957,7 @@ public struct PluginStoreView: View {
         self.remove = remove
         self.setPermissionGrant = setPermissionGrant
         self.setTriggerEnabled = setTriggerEnabled
+        self.setRulePresetEnabled = setRulePresetEnabled
         self.openSettings = openSettings
         self.isInstallingLocalPlugin = isInstallingLocalPlugin
         self.localPluginInstallResult = localPluginInstallResult
@@ -964,6 +1057,9 @@ public struct PluginStoreView: View {
             savingTriggerID: savingTriggerID,
             runtimeStatus: runtimeStatuses[plugin.id],
             resources: pluginResources[plugin.id, default: []],
+            rulePresets: rulePresets[plugin.id, default: []],
+            appRules: appRules[plugin.id, default: []],
+            savingRuleID: savingRuleID,
             updateSetupValue: updateSetupValue,
             updateAccountDisplayName: updateAccountDisplayName,
             selectAccount: selectAccount,
@@ -981,7 +1077,8 @@ public struct PluginStoreView: View {
                 { plugin in preview(plugin, selectedAccountID) }
             },
             setPermissionGrant: setPermissionGrant,
-            setTriggerEnabled: setTriggerEnabled
+            setTriggerEnabled: setTriggerEnabled,
+            setRulePresetEnabled: setRulePresetEnabled
         )
     }
 
@@ -1209,6 +1306,9 @@ private struct PluginSettingsPanel: View {
     let savingTriggerID: String?
     let runtimeStatus: PluginRuntimeStatus?
     let resources: [Resource]
+    let rulePresets: [Rule]
+    let appRules: [Rule]
+    let savingRuleID: String?
     let updateSetupValue: (InstalledPlugin, String, String) -> Void
     let updateAccountDisplayName: (InstalledPlugin, String) -> Void
     let selectAccount: (InstalledPlugin, String) -> Void
@@ -1225,6 +1325,7 @@ private struct PluginSettingsPanel: View {
     let previewFixture: ((InstalledPlugin) -> Void)?
     let setPermissionGrant: (InstalledPlugin, PluginPermission, Bool) -> Void
     let setTriggerEnabled: (InstalledPlugin, TriggerDefinition, Bool) -> Void
+    let setRulePresetEnabled: (InstalledPlugin, Rule, Bool) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1346,6 +1447,16 @@ private struct PluginSettingsPanel: View {
                         select: { selectAccount(plugin, $0) },
                         addAccount: { addAccount(plugin) }
                     )
+                    AppRulePresetsPanel(
+                        plugin: plugin,
+                        selectedAccountID: selectedPersistedAccountID,
+                        presets: rulePresets,
+                        appRules: appRules,
+                        savingRuleID: savingRuleID,
+                        setEnabled: { preset, enabled in
+                            setRulePresetEnabled(plugin, preset, enabled)
+                        }
+                    )
                     VStack(spacing: 10) {
                         ForEach(setupFields, id: \.id) { field in
                             PluginSetupFieldRow(
@@ -1420,6 +1531,110 @@ private struct PluginSettingsPanel: View {
 
     private func permissionChangeID(_ permission: InstalledPluginPermission) -> String {
         "\(plugin.id):\(permission.permission.rawValue)"
+    }
+
+    private var selectedPersistedAccountID: String? {
+        guard let selectedAccountID, selectedAccountID.hasPrefix("__new__:") == false else {
+            return nil
+        }
+        return selectedAccountID
+    }
+}
+
+private struct AppRulePresetsPanel: View {
+    let plugin: InstalledPlugin
+    let selectedAccountID: String?
+    let presets: [Rule]
+    let appRules: [Rule]
+    let savingRuleID: String?
+    let setEnabled: (Rule, Bool) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Suggested rules")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            if presets.isEmpty {
+                Text("This plugin does not ship suggested rules yet.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(presets) { preset in
+                        AppRulePresetToggle(
+                            preset: preset,
+                            appRule: appRule(for: preset),
+                            expectedRuleID: selectedAccountID.map {
+                                appScopedRuleID(accountID: $0, presetID: preset.id)
+                            },
+                            selectedAccountID: selectedAccountID,
+                            savingRuleID: savingRuleID,
+                            update: { enabled in
+                                setEnabled(preset, enabled)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private func appRule(for preset: Rule) -> Rule? {
+        guard let selectedAccountID else { return nil }
+        return appRules.first { rule in
+            rule.accountID == selectedAccountID && rule.id == appScopedRuleID(accountID: selectedAccountID, presetID: preset.id)
+        }
+    }
+
+    private func appScopedRuleID(accountID: String, presetID: String) -> String {
+        let rawID = "rule_app_\(plugin.id)_\(accountID)_\(presetID)"
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "_"))
+        return rawID
+            .lowercased()
+            .map { character in
+                String(character).rangeOfCharacter(from: allowed) == nil ? "_" : String(character)
+            }
+            .joined()
+    }
+}
+
+private struct AppRulePresetToggle: View {
+    let preset: Rule
+    let appRule: Rule?
+    let expectedRuleID: String?
+    let selectedAccountID: String?
+    let savingRuleID: String?
+    let update: (Bool) -> Void
+
+    var body: some View {
+        Toggle(
+            isOn: Binding(
+                get: { appRule?.enabled == true },
+                set: { update($0) }
+            )
+        ) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(preset.name)
+                    .font(.caption)
+                Text(detail)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if selectedAccountID == nil {
+                    Text("Save an app before enabling this rule.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .disabled(selectedAccountID == nil || savingRuleID == expectedRuleID)
+    }
+
+    private var detail: String {
+        let conditionCount = preset.conditions.count
+        let actionCount = preset.actions.count
+        return "\(preset.eventType) · \(conditionCount) condition\(conditionCount == 1 ? "" : "s") · \(actionCount) action\(actionCount == 1 ? "" : "s")"
     }
 }
 

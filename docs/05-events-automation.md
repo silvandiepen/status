@@ -419,6 +419,8 @@ Examples:
 
 Presets should be optional and explain permissions.
 
+Native app settings show presets under the configured app that uses the plugin. Enabling a preset creates an app-scoped rule for that configured app/account, leaving the plugin-scoped preset disabled as the template. The global automation surface is reserved for explicit cross-app rules.
+
 ## Dry run
 
 The rules engine should later support dry run:
