@@ -32,6 +32,13 @@
           "published": true
         },
         {
+          "id": "com.status.googleplay",
+          "name": "Google Play",
+          "summary": "Track Google Play reviews and low-rating app feedback.",
+          "websitePath": "/plugins/com.status.googleplay/",
+          "published": true
+        },
+        {
           "id": "com.status.jira",
           "name": "Jira",
           "summary": "Track Jira project issues and create follow-up issues from Status automations.",
@@ -50,6 +57,13 @@
           "name": "Website Uptime",
           "summary": "Track website health and response status.",
           "websitePath": "/plugins/com.status.website/",
+          "published": true
+        },
+        {
+          "id": "com.status.youtube",
+          "name": "YouTube",
+          "summary": "Track YouTube channel status, latest uploads, and creator metrics.",
+          "websitePath": "/plugins/com.status.youtube/",
           "published": true
         }
       ]

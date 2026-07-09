@@ -108,6 +108,44 @@
       "published": true
     },
     {
+      "id": "com.status.googleplay",
+      "name": "Google Play",
+      "summary": "Track Google Play reviews and low-rating app feedback.",
+      "description": "Read-only Google Play Console status for Android app reviews, ratings, and release-facing signals.",
+      "category": "developer",
+      "author": {
+        "name": "Status Foundry",
+        "publisherId": "status-foundry",
+        "websitePath": "/publishers/status-foundry/",
+        "externalUrl": "https://github.com/statusfoundry",
+        "repositoryUrl": "https://github.com/statusfoundry/status",
+        "publisherSummary": "Official Status integrations and reference plugin packages."
+      },
+      "version": "0.1.0",
+      "trustLevel": "official",
+      "permissions": [
+        "network",
+        "keychain",
+        "oauth",
+        "background-refresh"
+      ],
+      "domains": [
+        "accounts.google.com",
+        "oauth2.googleapis.com",
+        "androidpublisher.googleapis.com"
+      ],
+      "platforms": [
+        "macOS",
+        "iOS"
+      ],
+      "sourcePath": "plugins/bundled/googleplay/README.md",
+      "sourceUrl": "https://github.com/statusfoundry/status/blob/main/plugins/bundled/googleplay/README.md",
+      "websitePath": "/plugins/com.status.googleplay/",
+      "readmeTitle": "Google Play Plugin",
+      "readmeHtml": "<p>The Google Play plugin is an official Status plugin for Android apps published through Google Play Console.</p>\n<p>It is read-only in Status v1. It does not reply to reviews, edit store listings, submit releases, change tracks, or modify billing state.</p>\n<h2 id=\"what-it-shows\" class=\"nizel-docs-heading\">What It Shows</h2>\n<ul>\n<li>recent Google Play reviews for a configured package name;</li>\n<li>review star ratings and reviewer language;</li>\n<li>app version and Android version fields when Google returns them;</li>\n<li>low-rating review events that can be routed to notifications or the Status inbox.</li>\n</ul>\n<h2 id=\"authentication\" class=\"nizel-docs-heading\">Authentication</h2>\n<p>This plugin uses Google OAuth 2 with PKCE. Status opens the Google authorization page, receives the <code class=\"nizel-code\">status://oauth/googleplay</code> callback, stores the token set in Keychain, and injects request authorization headers at runtime.</p>\n<p>The OAuth account must have access to the target app in Google Play Console.</p>\n<h2 id=\"setup\" class=\"nizel-docs-heading\">Setup</h2>\n<ol>\n<li>Install the Google Play plugin.</li>\n<li>Grant Network, Keychain, OAuth, and Background Refresh permissions.</li>\n<li>Connect a Google account through OAuth.</li>\n<li>Enter the Android package name, for example <code class=\"nizel-code\">com.example.app</code>.</li>\n<li>Save the app.</li>\n<li>Run a manual refresh or let the scheduled review check run.</li>\n</ol>\n<h2 id=\"boundaries\" class=\"nizel-docs-heading\">Boundaries</h2>\n<p>Status is not a replacement for Google Play Console. This plugin surfaces operational signals that are useful in a personal status dashboard and links back to the source system for deeper work.</p>\n<p>Official Status plugins should:</p>\n<ul>\n<li>use declarative requests and mappings only;</li>\n<li>keep write actions out of v1 unless the action is explicit, reversible, and audited;</li>\n<li>store tokens only through Status Keychain references;</li>\n<li>emit normalized resources, events, and metrics;</li>\n<li>document setup requirements and source-system permissions.</li>\n</ul>",
+      "published": true
+    },
+    {
       "id": "com.status.jira",
       "name": "Jira",
       "summary": "Track Jira project issues and create follow-up issues from Status automations.",
@@ -209,6 +247,44 @@
       "websitePath": "/plugins/com.status.website/",
       "readmeTitle": "Website Uptime",
       "readmeHtml": "<p>Declarative uptime checks for sites and endpoints the user chooses to track.</p>\n<h2 id=\"why-install-this-plugin\" class=\"nizel-docs-heading\">Why install this plugin</h2>\n<p>Install Website Uptime when you want simple, local-first availability monitoring for hosts you care about — status pages, APIs, marketing sites, or internal endpoints — without standing up a separate uptime SaaS. Status emits clear down/recovered events and can notify you immediately when a site stops responding.</p>\n<h2 id=\"what-you-configure\" class=\"nizel-docs-heading\">What you configure</h2>\n<p>Create one configured app per host:</p>\n<ul>\n<li><strong>Host</strong> — hostname only, without <code class=\"nizel-code\">https://</code> or a path (for example <code class=\"nizel-code\">status-registry.hakobs.com</code>)</li>\n</ul>\n<p>No third-party API token is required. Checks run from your Mac or iOS device through declared HTTPS requests.</p>\n<h2 id=\"what-it-exposes\" class=\"nizel-docs-heading\">What it exposes</h2>\n<h3 id=\"resources\">Resources</h3>\n<ul>\n<li><strong>website</strong> — the tracked host and its latest health check result</li>\n</ul>\n<h3 id=\"events\">Events</h3>\n<table><thead><tr><th>Event</th><th>Meaning</th><th>Default notification</th></tr></thead><tbody><tr><td><code class=\"nizel-code\">website.down</code></td><td>The tracked site did not return a healthy response</td><td>Immediate</td></tr><tr><td><code class=\"nizel-code\">website.recovered</code></td><td>The tracked site returned to a healthy response</td><td>Digest</td></tr></tbody></table>\n<p>Down events can open a downtime incident closed by recovery events.</p>\n<h3 id=\"views\">Views</h3>\n<ul>\n<li><strong>Websites</strong> — list of tracked hosts with latest status fields</li>\n<li><strong>Website detail</strong> — latest check result and response context</li>\n</ul>\n<h3 id=\"checks\">Checks</h3>\n<ul>\n<li><strong>Check website uptime</strong> — cron schedule every 5 minutes</li>\n<li><strong>Refresh website status</strong> — manual check on demand</li>\n</ul>\n<h2 id=\"suggested-automations\" class=\"nizel-docs-heading\">Suggested automations</h2>\n<p>Suggested rules ship disabled. Enable presets if you want downtime routed to inbox or immediate notifications.</p>\n<h2 id=\"actions\" class=\"nizel-docs-heading\">Actions</h2>\n<p>Read-only in v1. The plugin checks endpoints; it does not modify DNS, hosting, or site content.</p>\n<h2 id=\"permissions-and-domains\" class=\"nizel-docs-heading\">Permissions and domains</h2>\n<ul>\n<li><code class=\"nizel-code\">network</code> — perform HTTPS health checks</li>\n<li><code class=\"nizel-code\">background-refresh</code> — run scheduled uptime polling</li>\n<li><code class=\"nizel-code\">user-configured-domains</code> — check hosts you enter during setup (no fixed provider domain list)</li>\n</ul>\n<h2 id=\"what-it-does-not-do\" class=\"nizel-docs-heading\">What it does not do</h2>\n<ul>\n<li>Does not replace full synthetic monitoring with multi-region probes</li>\n<li>Does not edit hosting, DNS, or TLS configuration</li>\n<li>Does not run from Status cloud infrastructure in v1 (checks originate on your device)</li>\n</ul>\n<h2 id=\"setup\" class=\"nizel-docs-heading\">Setup</h2>\n<ol>\n<li>Install <strong>Website Uptime</strong> from the Status plugin store.</li>\n<li>Create a configured app and enter the host to monitor.</li>\n<li>Grant network and background refresh permissions.</li>\n<li>Run <strong>Refresh website status</strong>, then enable <strong>Check website uptime</strong> for scheduled polling.</li>\n</ol>",
+      "published": true
+    },
+    {
+      "id": "com.status.youtube",
+      "name": "YouTube",
+      "summary": "Track YouTube channel status, latest uploads, and creator metrics.",
+      "description": "Read-only YouTube channel status for creator accounts, latest uploads, subscriber counts, and channel-level signals.",
+      "category": "content",
+      "author": {
+        "name": "Status Foundry",
+        "publisherId": "status-foundry",
+        "websitePath": "/publishers/status-foundry/",
+        "externalUrl": "https://github.com/statusfoundry",
+        "repositoryUrl": "https://github.com/statusfoundry/status",
+        "publisherSummary": "Official Status integrations and reference plugin packages."
+      },
+      "version": "0.1.0",
+      "trustLevel": "official",
+      "permissions": [
+        "network",
+        "keychain",
+        "oauth",
+        "background-refresh"
+      ],
+      "domains": [
+        "accounts.google.com",
+        "oauth2.googleapis.com",
+        "www.googleapis.com"
+      ],
+      "platforms": [
+        "macOS",
+        "iOS"
+      ],
+      "sourcePath": "plugins/bundled/youtube/README.md",
+      "sourceUrl": "https://github.com/statusfoundry/status/blob/main/plugins/bundled/youtube/README.md",
+      "websitePath": "/plugins/com.status.youtube/",
+      "readmeTitle": "YouTube",
+      "readmeHtml": "<h2 id=\"why-install-this-plugin\" class=\"nizel-docs-heading\">Why install this plugin</h2>\n<p>Install YouTube when you want Status to keep a calm, read-only view of creator account health across your channels. It is designed for quick operational awareness: latest uploads, basic channel statistics, visibility state, and direct links back to YouTube Studio.</p>\n<p>Status does not replace YouTube Studio. The plugin only normalizes the small set of signals that help you notice what changed and where to act next.</p>\n<h2 id=\"what-status-shows\" class=\"nizel-docs-heading\">What Status shows</h2>\n<ul>\n<li>Connected channels and their current public/private visibility state.</li>\n<li>Subscriber, view, and video counts reported by the YouTube Data API.</li>\n<li>Recently published uploads for the connected Google account.</li>\n<li>Links back to YouTube Studio and the public video page.</li>\n<li>Dashboard and inbox signals when a channel is not public.</li>\n</ul>\n<h2 id=\"authentication\" class=\"nizel-docs-heading\">Authentication</h2>\n<p>This plugin uses Google OAuth 2 with PKCE. Status opens the provider authorization page, receives the <code class=\"nizel-code\">status://oauth/youtube</code> callback, stores the token set in Keychain, and injects request authorization headers at runtime.</p>\n<p>Required scope:</p>\n<pre class=\"shiki\" tabindex=\"0\"><code><span class=\"line\"><span>https://www.googleapis.com/auth/youtube.readonly</span></span>\n<span class=\"line\"><span></span></span></code></pre>\n<h2 id=\"setup\" class=\"nizel-docs-heading\">Setup</h2>\n<ol>\n<li>Install <strong>YouTube</strong> from the Status plugin catalog.</li>\n<li>Grant Network, Keychain, OAuth, and Background Refresh permissions.</li>\n<li>Open app settings and choose <strong>Connect YouTube</strong>.</li>\n<li>Sign in with the Google account that can view the channel.</li>\n<li>Save the app with a clear name, for example <code class=\"nizel-code\">Hakobs YouTube</code>.</li>\n</ol>\n<h2 id=\"boundaries\" class=\"nizel-docs-heading\">Boundaries</h2>\n<p>Read-only in v1. The plugin does not upload videos, edit metadata, delete comments, change visibility, manage monetization, or send messages.</p>",
       "published": true
     }
   ]

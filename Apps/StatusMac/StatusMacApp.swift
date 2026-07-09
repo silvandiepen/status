@@ -334,7 +334,7 @@ private struct MacRootView: View {
                         Label("Alerts", systemImage: "bell")
                     }
                     NavigationLink(value: MacSection.integrations) {
-                        Label("Apps", systemImage: "puzzlepiece.extension")
+                        Label("Plugins", systemImage: "puzzlepiece.extension")
                     }
                     NavigationLink(value: MacSection.rules) {
                         Label("Cross-App", systemImage: "slider.horizontal.3")
@@ -386,7 +386,7 @@ private struct MacRootView: View {
                         }
                     )
                 }
-                    .navigationTitle("Apps")
+                    .navigationTitle("Plugins")
             case .app(let pluginID, let accountID):
                 detailWithIntegrationTabs {
                     MacPluginAppDetail(

@@ -350,7 +350,7 @@ Sidebar
 ```txt
 Overview tab
 Alerts tab
-Integrations tab
+Plugins tab
 Settings tab
 ```
 

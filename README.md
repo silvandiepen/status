@@ -62,7 +62,7 @@ Detailed docs:
 - [Architecture](docs/03-architecture.md)
 - [Plugin system](docs/04-plugin-system.md)
 - [Events and automation](docs/05-events-automation.md)
-- [Integrations](docs/06-integrations.md)
+- [Official plugins and app ideas](docs/06-integrations.md)
 - [Security and privacy](docs/07-security-privacy.md)
 - [Agents](docs/08-agents.md)
 - [Monetization](docs/09-monetization.md)

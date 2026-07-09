@@ -25,9 +25,11 @@ Optional Relay
 ## High-level system
 
 ```txt
-Plugin Store
+Plugin Catalog
     ↓
 Installed Plugins
+    ↓
+Configured Apps
     ↓
 Trigger Registry
     ↓
@@ -196,10 +198,10 @@ Secrets are never stored in the database. Store only references to Keychain entr
 Current implementation status:
 
 - macOS and iOS open the local SQLite database from Application Support at launch.
-- `StatusCore` ships generated resources for the official bundled plugins. `BundledPluginInstaller` verifies those packages with the same hash/signature metadata used by the registry and installs them into Application Support on first local database bootstrap, so a fresh app can show and configure official integrations before the Cloudflare registry is reachable without reinstalling plugins the user later removes.
-- The dashboard renders persisted status items, events, metrics, accounts, installed-plugin setup states, and audit entries through `StatusPersistenceStore.dashboardSnapshot`. Installed plugins without configured accounts appear as setup-needed integrations instead of leaving a fresh app visually empty after bundled plugin bootstrap.
-- Shared SwiftUI now includes focused operational surfaces for alerts, disabled/enabled rules, audit entries, and local runtime settings. The Alerts surface lets users resolve, snooze, dismiss, and open linked source items for active StatusItems. macOS exposes Overview, Alerts, Integrations, Rules, Audit Log, and Settings in the sidebar; iOS exposes Overview, Alerts, Integrations, Rules, Audit, and Settings as companion tabs.
-- The app shells can run installed declarative plugin requests through `PluginRuntimeService`: load the installed package, check required permission grants, enqueue a configured manual job from the plugin trigger, execute the queued request/mapping pipeline with per-request timeouts, persist resources/events/status items, evaluate inserted events against stored rules, dispatch allowed runtime action effects, and write job/action audit entries. The shared Integrations surface can inspect and toggle installed plugin permission grants and trigger schedules, and can remove installed plugins, deleting active setup, permissions, schedules, suggested rules, accounts, and resources while retaining historical events and audit records.
+- `StatusCore` ships generated resources for the official bundled plugins. `BundledPluginInstaller` verifies those packages with the same hash/signature metadata used by the registry and installs them into Application Support on first local database bootstrap, so a fresh app can show and configure official plugins before the Cloudflare registry is reachable without reinstalling plugins the user later removes.
+- The dashboard renders persisted status items, events, metrics, configured apps/accounts, installed-plugin setup states, and audit entries through `StatusPersistenceStore.dashboardSnapshot`. Installed plugins without configured apps appear as setup-needed plugin entries instead of leaving a fresh app visually empty after bundled plugin bootstrap.
+- Shared SwiftUI now includes focused operational surfaces for alerts, disabled/enabled rules, audit entries, plugin catalog, app setup, app detail, and local runtime settings. The Alerts surface lets users resolve, snooze, dismiss, and open linked source items for active StatusItems. macOS exposes Overview, Alerts, Plugins, Cross-App Rules, Audit Log, and Settings in the sidebar; iOS exposes Overview, Alerts, Plugins, Cross-App Rules, Audit, and Settings as companion tabs.
+- The app shells can run installed declarative plugin requests through `PluginRuntimeService`: load the installed package, check required permission grants, enqueue a configured manual job from the plugin trigger, execute the queued request/mapping pipeline with per-request timeouts, persist resources/events/status items, evaluate inserted events against stored rules, dispatch allowed runtime action effects, and write job/action audit entries. The shared Plugins catalog can inspect and toggle installed plugin permission grants and trigger schedules, and can remove installed plugins, deleting active setup, permissions, schedules, suggested rules, configured apps/accounts, and resources while retaining historical events and audit records.
 - macOS and iOS pass platform action effect dispatchers into the shared core runtime. The core decides which actions are allowed and records the audit trail; the shells deliver local notifications, open URLs, and post granted webhook action effects with platform APIs.
 - macOS and iOS also run a lightweight app-alive scheduler loop. The loop asks `PluginRuntimeService` to enqueue and run due configured cron triggers from the local database, so background refresh uses the same persisted job and automation pipeline as manual refresh. Failed cron jobs update trigger backoff metadata, and successful cron jobs reset it.
 - The shared Rules view now reloads persisted rules and lets the user enable or disable suggested rules with native toggles. Rule defaults still come from plugin packages and install disabled.

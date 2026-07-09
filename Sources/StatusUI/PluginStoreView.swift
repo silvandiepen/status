@@ -1785,7 +1785,7 @@ private struct PluginStoreHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text("Apps")
+                Text("Plugins")
                     .font(.system(size: 42, weight: .semibold, design: .default))
                 Spacer(minLength: 12)
                 if let installLocalPlugin {
@@ -1803,7 +1803,7 @@ private struct PluginStoreHeader: View {
                     .disabled(isInstallingLocalPlugin)
                 }
             }
-            Text("\(installedCount) configured, \(availableCount) plugins available from the Status registry.")
+            Text("\(installedCount) installed, \(availableCount) available from the Status registry. Create one or more apps from each plugin.")
                 .font(.title3)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1938,7 +1938,7 @@ private struct InstalledPluginRow: View {
                     Button {
                         openSettings(plugin)
                     } label: {
-                        Label("Settings", systemImage: "gearshape")
+                        Label("Set Up Apps", systemImage: "gearshape")
                     }
                     .buttonStyle(.bordered)
                     if canRun {

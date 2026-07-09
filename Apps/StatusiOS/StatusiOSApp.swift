@@ -66,10 +66,10 @@ private struct IOSRootView: View {
 
             NavigationStack {
                 PluginStoreContainerView(viewModel: makePluginStoreViewModel(platform: .iOS))
-                    .navigationTitle("Apps")
+                    .navigationTitle("Plugins")
             }
             .tabItem {
-                Label("Apps", systemImage: "puzzlepiece.extension")
+                Label("Plugins", systemImage: "puzzlepiece.extension")
             }
 
             NavigationStack {

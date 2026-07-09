@@ -248,6 +248,15 @@ Acceptance: roadmap Phase 3 acceptance criteria all pass using the sample plugin
 
 ### WP-3.7 Plugin/App terminology migration — Product Agent + Design Agent
 
+Status: Implemented for the current native shell and docs contract. The
+product/spec language defines **Plugins** as bundled/local/registry packages
+and **Apps** as configured user instances created from a plugin. The native
+dashboard, sidebar, collapsed macOS app strip, and detail pages show configured
+apps/accounts. The native **Plugins** tab is the plugin catalog; app setup and
+settings open separately, with macOS using a dedicated app settings window.
+Swift persistence still uses `accounts` for configured apps in v1 to avoid an
+unnecessary schema migration.
+
 Update user-facing app language without renaming persistence tables yet: Plugins are available packages; Apps are configured user instances created from plugins. Rename navigation, empty states, settings titles, install/setup copy, and documentation. Keep Swift model/database names stable unless a separate schema migration is explicitly planned.
 
 Depends: WP-3.1–3.5.
