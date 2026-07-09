@@ -389,13 +389,19 @@ public final class PluginStoreViewModel: ObservableObject {
 public struct PluginStoreContainerView: View {
     @StateObject private var viewModel: PluginStoreViewModel
     private let openSettings: ((InstalledPlugin) -> Void)?
+    private let installLocalPlugin: (() async throws -> String)?
+    @State private var isInstallingLocalPlugin = false
+    @State private var localPluginInstallResult: String?
+    @State private var localPluginInstallError: String?
 
     public init(
         viewModel: @autoclosure @escaping () -> PluginStoreViewModel,
-        openSettings: ((InstalledPlugin) -> Void)? = nil
+        openSettings: ((InstalledPlugin) -> Void)? = nil,
+        installLocalPlugin: (() async throws -> String)? = nil
     ) {
         _viewModel = StateObject(wrappedValue: viewModel())
         self.openSettings = openSettings
+        self.installLocalPlugin = installLocalPlugin
     }
 
     public var body: some View {
@@ -467,7 +473,11 @@ public struct PluginStoreContainerView: View {
                     await viewModel.setTrigger(trigger, enabled: enabled, for: plugin)
                 }
             },
-            openSettings: openSettings
+            openSettings: openSettings,
+            isInstallingLocalPlugin: isInstallingLocalPlugin,
+            localPluginInstallResult: localPluginInstallResult,
+            localPluginInstallError: localPluginInstallError,
+            installLocalPlugin: localPluginInstallAction
         )
         .overlay(alignment: .bottom) {
             if let loadError = viewModel.loadError {
@@ -486,6 +496,32 @@ public struct PluginStoreContainerView: View {
         .refreshable {
             await viewModel.reload()
         }
+    }
+
+    private func runLocalPluginInstall() {
+        guard isInstallingLocalPlugin == false, let installLocalPlugin else {
+            return
+        }
+        isInstallingLocalPlugin = true
+        localPluginInstallResult = nil
+        localPluginInstallError = nil
+
+        Task { @MainActor in
+            defer { isInstallingLocalPlugin = false }
+            do {
+                localPluginInstallResult = try await installLocalPlugin()
+                await viewModel.reload()
+            } catch {
+                localPluginInstallError = error.localizedDescription
+            }
+        }
+    }
+
+    private var localPluginInstallAction: (() -> Void)? {
+        guard installLocalPlugin != nil else {
+            return nil
+        }
+        return { runLocalPluginInstall() }
     }
 }
 
@@ -621,6 +657,10 @@ public struct PluginStoreView: View {
     private let setPermissionGrant: (InstalledPlugin, PluginPermission, Bool) -> Void
     private let setTriggerEnabled: (InstalledPlugin, TriggerDefinition, Bool) -> Void
     private let openSettings: ((InstalledPlugin) -> Void)?
+    private let isInstallingLocalPlugin: Bool
+    private let localPluginInstallResult: String?
+    private let localPluginInstallError: String?
+    private let installLocalPlugin: (() -> Void)?
     @State private var pluginPendingRemoval: InstalledPlugin?
     @State private var presentedSettingsPlugin: InstalledPlugin?
 
@@ -656,7 +696,11 @@ public struct PluginStoreView: View {
         remove: @escaping (InstalledPlugin) -> Void = { _ in },
         setPermissionGrant: @escaping (InstalledPlugin, PluginPermission, Bool) -> Void = { _, _, _ in },
         setTriggerEnabled: @escaping (InstalledPlugin, TriggerDefinition, Bool) -> Void = { _, _, _ in },
-        openSettings: ((InstalledPlugin) -> Void)? = nil
+        openSettings: ((InstalledPlugin) -> Void)? = nil,
+        isInstallingLocalPlugin: Bool = false,
+        localPluginInstallResult: String? = nil,
+        localPluginInstallError: String? = nil,
+        installLocalPlugin: (() -> Void)? = nil
     ) {
         self.catalog = catalog
         self.installingPluginID = installingPluginID
@@ -690,12 +734,23 @@ public struct PluginStoreView: View {
         self.setPermissionGrant = setPermissionGrant
         self.setTriggerEnabled = setTriggerEnabled
         self.openSettings = openSettings
+        self.isInstallingLocalPlugin = isInstallingLocalPlugin
+        self.localPluginInstallResult = localPluginInstallResult
+        self.localPluginInstallError = localPluginInstallError
+        self.installLocalPlugin = installLocalPlugin
     }
 
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                PluginStoreHeader(installedCount: catalog.installed.count, availableCount: catalog.available.count)
+                PluginStoreHeader(
+                    installedCount: catalog.installed.count,
+                    availableCount: catalog.available.count,
+                    isInstallingLocalPlugin: isInstallingLocalPlugin,
+                    localPluginInstallResult: localPluginInstallResult,
+                    localPluginInstallError: localPluginInstallError,
+                    installLocalPlugin: installLocalPlugin
+                )
                 InstalledPluginSection(
                     plugins: catalog.installed,
                     configuredAccounts: configuredAccounts,
@@ -796,15 +851,48 @@ public struct PluginStoreView: View {
 private struct PluginStoreHeader: View {
     let installedCount: Int
     let availableCount: Int
+    let isInstallingLocalPlugin: Bool
+    let localPluginInstallResult: String?
+    let localPluginInstallError: String?
+    let installLocalPlugin: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Integrations")
-                .font(.system(size: 42, weight: .semibold, design: .default))
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text("Integrations")
+                    .font(.system(size: 42, weight: .semibold, design: .default))
+                Spacer(minLength: 12)
+                if let installLocalPlugin {
+                    Button {
+                        installLocalPlugin()
+                    } label: {
+                        if isInstallingLocalPlugin {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Label("Install Local", systemImage: "folder.badge.plus")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isInstallingLocalPlugin)
+                }
+            }
             Text("\(installedCount) installed, \(availableCount) available from the Status registry.")
                 .font(.title3)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            if let localPluginInstallResult {
+                Text(localPluginInstallResult)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let localPluginInstallError {
+                Text(localPluginInstallError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

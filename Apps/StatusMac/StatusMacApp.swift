@@ -241,6 +241,9 @@ private struct MacRootView: View {
                         viewModel: makePluginStoreViewModel(platform: .macOS),
                         openSettings: { plugin in
                             openWindow(id: "integration-settings", value: plugin.id)
+                        },
+                        installLocalPlugin: {
+                            try await installLocalPluginFolder()
                         }
                     )
                 }
@@ -555,6 +558,32 @@ private struct MacRootView: View {
             )
         )
         return "\(result.mappingOutput.resources.count) resource stored, \(result.mappingOutput.events.count) events processed."
+    }
+
+    @MainActor
+    private func installLocalPluginFolder() async throws -> String {
+        let panel = NSOpenPanel()
+        panel.title = "Install Local Status Plugin"
+        panel.message = "Choose a plugin folder containing manifest.json."
+        panel.prompt = "Install"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+
+        guard panel.runModal() == .OK, let pluginDirectory = panel.url else {
+            return "Local plugin install cancelled."
+        }
+
+        let store = try LocalStatusStore.openApplicationSupportStore()
+        let installer = LocalPluginInstaller(store: store, installRoot: try pluginInstallRoot())
+        let result = try installer.install(pluginDirectory: pluginDirectory)
+        loadSidebarPlugins()
+        return localPluginInstallMessage(from: result)
+    }
+
+    private func localPluginInstallMessage(from result: LocalPluginInstallResult) -> String {
+        let warningSummary = result.warnings.isEmpty ? "" : " Unsigned local-dev plugin; review permissions before enabling automation."
+        return "Installed \(result.plugin.name) \(result.version.version).\(warningSummary)"
     }
 
     private func runConfiguredPluginCheck(pluginID: String, accountID: String, accountName: String) async throws -> String {

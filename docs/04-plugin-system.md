@@ -490,11 +490,13 @@ Developer mode should show warnings for unsigned plugins. The current core
 implementation has a `LocalPluginInstaller` that packages a local folder into
 the same deterministic ZIP format used by the registry, installs it as
 `local-dev`, records `signedBy: local-dev`, and returns an explicit unsigned
-warning with the plugin ID, permissions, and domains. Local-dev install skips
-signature verification only; manifest validation, declared-domain checks,
-OAuth deferral, write-action permission checks, setup rendering, trigger/rule
-installation, and runtime permission enforcement still apply. Developers can
-run:
+warning with the plugin ID, permissions, and domains. The macOS integrations
+catalog exposes this path as an **Install Local** developer-mode action that
+opens a folder picker and refreshes installed integrations after success.
+Local-dev install skips signature verification only; manifest validation,
+declared-domain checks, OAuth deferral, write-action permission checks, setup
+rendering, trigger/rule installation, and runtime permission enforcement still
+apply. Developers can run:
 
 ```sh
 npm run plugins:validate-local -- plugins/examples/mock-operations
