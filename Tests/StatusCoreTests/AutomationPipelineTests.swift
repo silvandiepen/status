@@ -383,6 +383,7 @@ private func installActionPlugin(
     actions: [PackagedPluginAction] = [],
     requests: PackagedPluginRequests = PackagedPluginRequests()
 ) throws {
+    let hasRequests = requests.requests.isEmpty == false
     let manifest = PluginManifest(
         id: provider,
         name: provider,
@@ -392,7 +393,7 @@ private func installActionPlugin(
         description: "Automation fixture.",
         minCoreVersion: "0.1.0",
         platforms: [.macOS, .iOS],
-        permissions: [.writeActions],
+        permissions: hasRequests ? [.network, .userConfiguredDomains, .writeActions] : [.writeActions],
         domains: []
     )
     try store.installPlugin(

@@ -69,7 +69,7 @@ public enum PluginSetupConfiguration {
             case .privateKeyJWT:
                 throw PluginSetupConfigurationError.secretFieldRequiresCredentialStore(auth.type.rawValue)
             case .oauth2:
-                throw PluginSetupConfigurationError.secretFieldRequiresCredentialStore("OAuth2")
+                credentialRef = try storeOAuthTokenSet(from: values, plugin: plugin, credentialStore: credentialStore)
             }
         }
 
@@ -104,6 +104,59 @@ public enum PluginSetupConfiguration {
                 accountName: displayName,
                 variables: normalized,
                 authType: authType,
+                credentialRef: credentialRef
+            ),
+            now: now
+        )
+        return "Saved \(displayName)."
+    }
+
+    public static func saveOAuthTokenSet(
+        _ tokenSet: PluginOAuthTokenSet,
+        setupValues values: [String: String],
+        for plugin: InstalledPlugin,
+        service: PluginRuntimeService,
+        credentialStore: CredentialStore,
+        accountID: String? = nil,
+        displayNameOverride: String? = nil,
+        now: Date = Date()
+    ) throws -> String {
+        guard plugin.auth?.type == .oauth2 else {
+            throw PluginSetupConfigurationError.setupUnavailable(plugin.id)
+        }
+        let data = try JSONEncoder().encode(tokenSet)
+        let credentialRef = try credentialStore.store(data, label: "\(plugin.name) OAuth tokens")
+        var normalized: [String: String] = [:]
+        for field in plugin.setup?.fields ?? [] {
+            let rawValue = values[field.id, default: field.defaultValue ?? ""]
+            let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if field.required && trimmed.isEmpty {
+                throw PluginSetupConfigurationError.missingRequiredField(field.label)
+            }
+            guard field.type.isPlainConfigurationField else {
+                if trimmed.isEmpty == false {
+                    throw PluginSetupConfigurationError.secretFieldRequiresCredentialStore(field.label)
+                }
+                continue
+            }
+            normalized[field.id] = try normalize(trimmed, field: field)
+        }
+        if let accountID,
+           let existing = try service.store.accountConfiguration(accountID: accountID) {
+            for (key, value) in existing.variables where key.hasPrefix("_status.") {
+                normalized[key] = value
+            }
+        }
+        let displayName = displayNameOverride?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .nonEmpty ?? displayName(for: plugin, values: normalized)
+        try service.saveAccountConfiguration(
+            PluginAccountConfiguration(
+                id: accountID ?? self.accountID(pluginID: plugin.id, displayName: displayName),
+                pluginID: plugin.id,
+                accountName: displayName,
+                variables: normalized,
+                authType: AuthKind.oauth2.rawValue,
                 credentialRef: credentialRef
             ),
             now: now
@@ -222,6 +275,38 @@ public enum PluginSetupConfiguration {
         }
         let data = try JSONEncoder().encode(PluginAuthCredentialBundle(fields: credentialFields))
         return try credentialStore.store(data, label: "\(plugin.name) credentials")
+    }
+
+    private static func storeOAuthTokenSet(
+        from values: [String: String],
+        plugin: InstalledPlugin,
+        credentialStore: CredentialStore?
+    ) throws -> String? {
+        let accessToken = values["accessToken", default: ""].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard accessToken.isEmpty == false else {
+            return nil
+        }
+        guard let credentialStore else {
+            throw PluginSetupConfigurationError.secretFieldRequiresCredentialStore("OAuth2")
+        }
+        let expiresAt: Date?
+        if let expiresAtValue = values["expiresAt"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+           expiresAtValue.isEmpty == false {
+            expiresAt = ISO8601DateFormatter().date(from: expiresAtValue)
+        } else if let expiresInValue = values["expiresIn"].flatMap(TimeInterval.init) {
+            expiresAt = Date().addingTimeInterval(expiresInValue)
+        } else {
+            expiresAt = nil
+        }
+        let tokenSet = PluginOAuthTokenSet(
+            accessToken: accessToken,
+            refreshToken: values["refreshToken"]?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty,
+            tokenType: values["tokenType"]?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty ?? "Bearer",
+            scope: values["scope"]?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty,
+            expiresAt: expiresAt
+        )
+        let data = try JSONEncoder().encode(tokenSet)
+        return try credentialStore.store(data, label: "\(plugin.name) OAuth tokens")
     }
 }
 

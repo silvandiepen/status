@@ -66,11 +66,12 @@ none
 api-key
 bearer-token
 basic-auth
+oauth2
 jwt-api-key
 private-key-jwt
 ```
 
-`oauth2` is present in the schema enum so the format is stable, but it is deferred pending the OAuth decision in `docs/07-security-privacy.md` (WP-0.5). The loader should reject `oauth2` plugins until that decision lands.
+`oauth2` plugins must also declare `provider`, public `applicationId`, and an `oauth2` block with `authorizationUrl`, `tokenUrl`, `redirectUri`, and optional `scopes`. The manifest must request both `oauth` and `keychain`. Status owns the native authorization-code + PKCE flow, token storage, refresh, and request header injection.
 
 `api-key` auth may declare `placement` to tell the request engine which header receives the secret:
 
@@ -87,3 +88,4 @@ JSON Schema validates each file in isolation. The loader must additionally verif
 - every event type in mappings and presets is declared in `events.json`;
 - every `resourceType` (events, views) matches a resource mapping type;
 - actions with `requiresWritePermission: true` have `write-actions` in the manifest permissions.
+- OAuth plugins have `oauth` and `keychain` manifest permissions plus provider/client metadata in `auth.json`.

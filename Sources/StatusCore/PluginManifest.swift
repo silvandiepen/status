@@ -29,7 +29,11 @@ public enum PluginValidationError: Error, Equatable, LocalizedError, Sendable {
     case domainContainsWildcard(String)
     case undeclaredRequestDomain(String)
     case writeActionWithoutPermission(String)
-    case unsupportedOAuthInV1
+    case oauthWithoutPermission(String)
+    case oauthWithoutKeychain(String)
+    case oauthMissingProvider(String)
+    case oauthMissingApplicationID(String)
+    case oauthMissingConfiguration(String)
     case invalidAccentColor(String)
 
     public var errorDescription: String? {
@@ -54,8 +58,16 @@ public enum PluginValidationError: Error, Equatable, LocalizedError, Sendable {
             "Plugin request uses undeclared domain: \(domain)"
         case .writeActionWithoutPermission(let action):
             "Plugin action requires write-actions permission: \(action)"
-        case .unsupportedOAuthInV1:
-            "OAuth2 is defined in schema but deferred past v1."
+        case .oauthWithoutPermission(let pluginID):
+            "OAuth plugin requires the oauth permission: \(pluginID)"
+        case .oauthWithoutKeychain(let pluginID):
+            "OAuth plugin requires the keychain permission: \(pluginID)"
+        case .oauthMissingProvider(let pluginID):
+            "OAuth plugin must declare an auth provider: \(pluginID)"
+        case .oauthMissingApplicationID(let pluginID):
+            "OAuth plugin must declare a public applicationId/client ID: \(pluginID)"
+        case .oauthMissingConfiguration(let pluginID):
+            "OAuth plugin must declare authorization and token endpoints: \(pluginID)"
         case .invalidAccentColor(let value):
             "Plugin accentColor must be a #RRGGBB hex color: \(value)"
         }
@@ -170,17 +182,20 @@ public struct PluginActionDeclaration: Equatable, Sendable {
 public struct PluginValidationInput: Equatable, Sendable {
     public var manifest: PluginManifest
     public var authKinds: [AuthKind]
+    public var authDefinitions: [PackagedPluginAuth]
     public var requests: [PluginRequestDefinition]
     public var actions: [PluginActionDeclaration]
 
     public init(
         manifest: PluginManifest,
         authKinds: [AuthKind] = [],
+        authDefinitions: [PackagedPluginAuth] = [],
         requests: [PluginRequestDefinition] = [],
         actions: [PluginActionDeclaration] = []
     ) {
         self.manifest = manifest
         self.authKinds = authKinds
+        self.authDefinitions = authDefinitions
         self.requests = requests
         self.actions = actions
     }
@@ -226,8 +241,25 @@ public enum PluginManifestValidator {
             }
         }
 
-        if input.authKinds.contains(.oauth2) {
-            throw PluginValidationError.unsupportedOAuthInV1
+        let authDefinitions = input.authDefinitions.isEmpty
+            ? input.authKinds.map { PackagedPluginAuth(type: $0) }
+            : input.authDefinitions
+        for auth in authDefinitions where auth.type == .oauth2 {
+            guard manifest.permissions.contains(.oauth) else {
+                throw PluginValidationError.oauthWithoutPermission(manifest.id)
+            }
+            guard manifest.permissions.contains(.keychain) else {
+                throw PluginValidationError.oauthWithoutKeychain(manifest.id)
+            }
+            guard auth.provider?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+                throw PluginValidationError.oauthMissingProvider(manifest.id)
+            }
+            guard auth.applicationId?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+                throw PluginValidationError.oauthMissingApplicationID(manifest.id)
+            }
+            guard auth.oauth2 != nil else {
+                throw PluginValidationError.oauthMissingConfiguration(manifest.id)
+            }
         }
 
         let hasWritePermission = manifest.permissions.contains(.writeActions)

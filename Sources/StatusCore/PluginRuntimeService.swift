@@ -28,6 +28,12 @@ public struct PluginRuntimeRequest: Equatable, Sendable {
     }
 }
 
+private extension String {
+    var nonEmpty: String? {
+        isEmpty ? nil : self
+    }
+}
+
 public enum PluginRuntimeServiceError: Error, Equatable, LocalizedError, Sendable {
     case pluginNotInstalled(String)
     case packageUnavailable(String)
@@ -238,7 +244,7 @@ public final class PluginRuntimeService: ProviderActionExecutor, @unchecked Send
                 accountID: configuration.id,
                 accountName: configuration.accountName,
                 variables: configuration.variables,
-                headers: try resolvedHeaders(base: headers, pluginID: job.pluginID, configuration: configuration, now: now),
+                headers: try await resolvedHeaders(base: headers, pluginID: job.pluginID, configuration: configuration, now: now),
                 now: now
             ),
             jobID: job.id,
@@ -265,7 +271,7 @@ public final class PluginRuntimeService: ProviderActionExecutor, @unchecked Send
                 accountID: configuration.id,
                 accountName: configuration.accountName,
                 variables: configuration.variables,
-                headers: try resolvedHeaders(base: headers, pluginID: pluginID, configuration: configuration, now: now),
+                headers: try await resolvedHeaders(base: headers, pluginID: pluginID, configuration: configuration, now: now),
                 now: now
             )
         )
@@ -472,7 +478,7 @@ public final class PluginRuntimeService: ProviderActionExecutor, @unchecked Send
         try requireGrantedPermissionIfDeclared(pluginID: target.plugin.id, manifest: target.manifest, permission: .writeActions)
         try requireGrantedPermissionIfDeclared(pluginID: target.plugin.id, manifest: target.manifest, permission: .network)
         let account = try providerActionAccount(for: action, pluginID: target.plugin.id)
-        let headers = try resolvedHeaders(
+        let headers = try await resolvedHeaders(
             base: [:],
             pluginID: target.plugin.id,
             configuration: account,
@@ -650,7 +656,7 @@ public final class PluginRuntimeService: ProviderActionExecutor, @unchecked Send
         pluginID: String,
         configuration: PluginAccountConfiguration,
         now: Date
-    ) throws -> [String: String] {
+    ) async throws -> [String: String] {
         var resolved = headers
         guard let credentialRef = configuration.credentialRef else {
             return resolved
@@ -697,6 +703,22 @@ public final class PluginRuntimeService: ProviderActionExecutor, @unchecked Send
             let credentials = try JSONDecoder().decode(PluginAuthCredentialBundle.self, from: data)
             let token = try PluginJWTSigner.appStoreConnectToken(credentials: credentials, now: now)
             resolved["Authorization"] = "Bearer \(token)"
+        case AuthKind.oauth2.rawValue:
+            guard resolved["Authorization"] == nil else {
+                return resolved
+            }
+            var tokenSet = try JSONDecoder().decode(PluginOAuthTokenSet.self, from: data)
+            if tokenSet.needsRefresh(at: now) {
+                tokenSet = try await refreshOAuthTokenSet(
+                    tokenSet,
+                    pluginID: pluginID,
+                    configuration: configuration,
+                    now: now
+                )
+            }
+            if let authorization = tokenSet.authorizationHeader {
+                resolved["Authorization"] = authorization
+            }
         case AuthKind.apiKey.rawValue:
             let credentials = try JSONDecoder().decode(PluginAuthCredentialBundle.self, from: data)
             guard let apiKey = credentialValue(["apiKey", "api_key", "key", "token", "secret"], in: credentials) else {
@@ -711,6 +733,80 @@ public final class PluginRuntimeService: ProviderActionExecutor, @unchecked Send
             break
         }
         return resolved
+    }
+
+    private func refreshOAuthTokenSet(
+        _ tokenSet: PluginOAuthTokenSet,
+        pluginID: String,
+        configuration: PluginAccountConfiguration,
+        now: Date
+    ) async throws -> PluginOAuthTokenSet {
+        guard let refreshToken = tokenSet.refreshToken?.trimmingCharacters(in: .whitespacesAndNewlines),
+              refreshToken.isEmpty == false else {
+            throw PluginOAuthError.missingRefreshToken(pluginID)
+        }
+        guard let auth = try store.installedPlugin(id: pluginID)?.auth,
+              auth.type == .oauth2,
+              let oauth = auth.oauth2 else {
+            throw PluginOAuthError.missingOAuthConfiguration(pluginID)
+        }
+        guard let clientID = auth.applicationId?.trimmingCharacters(in: .whitespacesAndNewlines),
+              clientID.isEmpty == false else {
+            throw PluginOAuthError.missingApplicationID(pluginID)
+        }
+        let body = formURLEncoded([
+            "grant_type": "refresh_token",
+            "refresh_token": refreshToken,
+            "client_id": clientID
+        ])
+        let response = try await transport.response(
+            for: PluginHTTPRequest(
+                method: "POST",
+                url: oauth.tokenURL,
+                headers: ["Content-Type": "application/x-www-form-urlencoded"],
+                body: Data(body.utf8),
+                timeoutSeconds: 30
+            )
+        )
+        guard (200..<300).contains(response.statusCode) else {
+            throw PluginOAuthError.tokenRefreshFailed(statusCode: response.statusCode)
+        }
+        let tokenResponse = try JSONDecoder().decode(PluginOAuthTokenResponse.self, from: response.data)
+        guard let accessToken = tokenResponse.accessToken?.trimmingCharacters(in: .whitespacesAndNewlines),
+              accessToken.isEmpty == false else {
+            throw PluginOAuthError.invalidTokenResponse
+        }
+        let refreshed = PluginOAuthTokenSet(
+            accessToken: accessToken,
+            refreshToken: tokenResponse.refreshToken?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty ?? refreshToken,
+            tokenType: tokenResponse.tokenType?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty ?? tokenSet.tokenType,
+            scope: tokenResponse.scope?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty ?? tokenSet.scope,
+            expiresAt: tokenResponse.expiresIn.map { now.addingTimeInterval($0) } ?? tokenSet.expiresAt
+        )
+        if let credentialStore,
+           let oldReference = configuration.credentialRef {
+            let newReference = try credentialStore.store(try JSONEncoder().encode(refreshed), label: "\(pluginID) OAuth tokens")
+            var updated = configuration
+            updated.credentialRef = newReference
+            try saveAccountConfiguration(updated, now: now)
+            try? credentialStore.delete(reference: oldReference)
+        }
+        return refreshed
+    }
+
+    private func formURLEncoded(_ fields: [String: String]) -> String {
+        fields
+            .sorted { $0.key < $1.key }
+            .map { key, value in
+                "\(urlFormEncode(key))=\(urlFormEncode(value))"
+            }
+            .joined(separator: "&")
+    }
+
+    private func urlFormEncode(_ value: String) -> String {
+        var allowed = CharacterSet.urlQueryAllowed
+        allowed.remove(charactersIn: "+&=")
+        return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
     }
 
     private func apiKeyHeaderName(pluginID: String) throws -> String {

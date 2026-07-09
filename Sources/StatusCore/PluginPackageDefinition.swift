@@ -248,21 +248,82 @@ public struct PackagedPluginAuth: Codable, Equatable, Sendable {
     public var type: AuthKind
     public var provider: String?
     public var applicationId: String?
+    public var oauth2: PackagedPluginOAuth2?
     public var fields: [PackagedPluginSetupField]
     public var placement: PackagedPluginAuthPlacement?
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case provider
+        case applicationId
+        case oauth2
+        case fields
+        case placement
+    }
 
     public init(
         type: AuthKind,
         provider: String? = nil,
         applicationId: String? = nil,
+        oauth2: PackagedPluginOAuth2? = nil,
         fields: [PackagedPluginSetupField] = [],
         placement: PackagedPluginAuthPlacement? = nil
     ) {
         self.type = type
         self.provider = provider
         self.applicationId = applicationId
+        self.oauth2 = oauth2
         self.fields = fields
         self.placement = placement
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        type = try container.decode(AuthKind.self, forKey: .type)
+        provider = try container.decodeIfPresent(String.self, forKey: .provider)
+        applicationId = try container.decodeIfPresent(String.self, forKey: .applicationId)
+        oauth2 = try container.decodeIfPresent(PackagedPluginOAuth2.self, forKey: .oauth2)
+        fields = try container.decodeIfPresent([PackagedPluginSetupField].self, forKey: .fields) ?? []
+        placement = try container.decodeIfPresent(PackagedPluginAuthPlacement.self, forKey: .placement)
+    }
+}
+
+public struct PackagedPluginOAuth2: Codable, Equatable, Sendable {
+    public var authorizationURL: URL
+    public var tokenURL: URL
+    public var redirectURI: String
+    public var scopes: [String]
+    public var additionalAuthorizationParameters: [String: String]
+
+    enum CodingKeys: String, CodingKey {
+        case authorizationURL = "authorizationUrl"
+        case tokenURL = "tokenUrl"
+        case redirectURI = "redirectUri"
+        case scopes
+        case additionalAuthorizationParameters
+    }
+
+    public init(
+        authorizationURL: URL,
+        tokenURL: URL,
+        redirectURI: String,
+        scopes: [String] = [],
+        additionalAuthorizationParameters: [String: String] = [:]
+    ) {
+        self.authorizationURL = authorizationURL
+        self.tokenURL = tokenURL
+        self.redirectURI = redirectURI
+        self.scopes = scopes
+        self.additionalAuthorizationParameters = additionalAuthorizationParameters
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        authorizationURL = try container.decode(URL.self, forKey: .authorizationURL)
+        tokenURL = try container.decode(URL.self, forKey: .tokenURL)
+        redirectURI = try container.decode(String.self, forKey: .redirectURI)
+        scopes = try container.decodeIfPresent([String].self, forKey: .scopes) ?? []
+        additionalAuthorizationParameters = try container.decodeIfPresent([String: String].self, forKey: .additionalAuthorizationParameters) ?? [:]
     }
 }
 

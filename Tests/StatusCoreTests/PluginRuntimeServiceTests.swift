@@ -1612,6 +1612,152 @@ import Testing
     #expect(try store.job(id: job.id)?.status == .success)
 }
 
+@Test func pluginRuntimeServiceInjectsOAuthTokenForConfiguredAccount() async throws {
+    let database = try temporaryRuntimeDatabase()
+    let store = StatusPersistenceStore(database: database)
+    let credentials = InMemoryCredentialStore()
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let packageURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("status-runtime-\(UUID().uuidString).statusplugin.zip")
+    let packageData = runtimeStoredZip(files: oauthRuntimePackageFiles())
+    try packageData.write(to: packageURL)
+    let manifest = oauthRuntimeManifest()
+    let definition = try PluginPackageDefinition.decode(from: packageData)
+    try store.installPlugin(
+        PluginInstallRecord(
+            manifest: manifest,
+            trustLevel: .official,
+            installPath: packageURL.deletingLastPathComponent().path,
+            packagePath: packageURL.path,
+            verification: PluginPackageVerificationResult(
+                pluginID: manifest.id,
+                version: manifest.version,
+                sha256: PluginPackageVerifier.sha256Hex(packageData),
+                signedBy: "status-foundry-dev"
+            ),
+            signature: "dev-signature",
+            packageDefinition: definition,
+            installedAt: now
+        )
+    )
+    try grantRuntimePermissions(manifest.permissions, pluginID: manifest.id, store: store, at: now)
+    try store.upsertTrigger(
+        TriggerDefinition(
+            id: "trg_com_status_oauth_github_refresh",
+            pluginID: manifest.id,
+            kind: .manual,
+            label: "Refresh GitHub",
+            requestID: "list_workflow_runs"
+        ),
+        updatedAt: now
+    )
+    let installed = try #require(try store.installedPlugin(id: manifest.id))
+    let setupService = PluginRuntimeService(store: store, credentialStore: nil)
+    _ = try PluginSetupConfiguration.saveOAuthTokenSet(
+        PluginOAuthTokenSet(
+            accessToken: "oauth_access",
+            refreshToken: "oauth_refresh",
+            expiresAt: now.addingTimeInterval(3_600)
+        ),
+        setupValues: ["owner": "statusfoundry", "repo": "status"],
+        for: installed,
+        service: setupService,
+        credentialStore: credentials,
+        now: now
+    )
+    let url = try #require(URL(string: "https://api.github.com/repos/statusfoundry/status/actions/runs"))
+    let service = PluginRuntimeService(
+        store: store,
+        transport: RuntimeHeaderCheckingTransport(
+            response: PluginHTTPResponse(data: Data("{}".utf8), statusCode: 200, url: url),
+            expectedAuthorization: "Bearer oauth_access"
+        ),
+        credentialStore: credentials
+    )
+    let configuration = try #require(store.accountConfigurations(pluginID: manifest.id).first)
+
+    let job = try service.enqueueManualConfiguredPluginRun(pluginID: manifest.id, accountID: configuration.id, now: now)
+    _ = try await service.runQueuedPluginJob(jobID: job.id, now: now)
+
+    #expect(try store.job(id: job.id)?.status == .success)
+}
+
+@Test func pluginRuntimeServiceRefreshesExpiredOAuthTokenBeforeRequest() async throws {
+    let database = try temporaryRuntimeDatabase()
+    let store = StatusPersistenceStore(database: database)
+    let credentials = InMemoryCredentialStore()
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let packageURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("status-runtime-\(UUID().uuidString).statusplugin.zip")
+    let packageData = runtimeStoredZip(files: oauthRuntimePackageFiles())
+    try packageData.write(to: packageURL)
+    let manifest = oauthRuntimeManifest()
+    let definition = try PluginPackageDefinition.decode(from: packageData)
+    try store.installPlugin(
+        PluginInstallRecord(
+            manifest: manifest,
+            trustLevel: .official,
+            installPath: packageURL.deletingLastPathComponent().path,
+            packagePath: packageURL.path,
+            verification: PluginPackageVerificationResult(
+                pluginID: manifest.id,
+                version: manifest.version,
+                sha256: PluginPackageVerifier.sha256Hex(packageData),
+                signedBy: "status-foundry-dev"
+            ),
+            signature: "dev-signature",
+            packageDefinition: definition,
+            installedAt: now
+        )
+    )
+    try grantRuntimePermissions(manifest.permissions, pluginID: manifest.id, store: store, at: now)
+    try store.upsertTrigger(
+        TriggerDefinition(
+            id: "trg_com_status_oauth_github_refresh",
+            pluginID: manifest.id,
+            kind: .manual,
+            label: "Refresh GitHub",
+            requestID: "list_workflow_runs"
+        ),
+        updatedAt: now
+    )
+    let installed = try #require(try store.installedPlugin(id: manifest.id))
+    let setupService = PluginRuntimeService(store: store, credentialStore: nil)
+    _ = try PluginSetupConfiguration.saveOAuthTokenSet(
+        PluginOAuthTokenSet(
+            accessToken: "expired_access",
+            refreshToken: "old_refresh",
+            expiresAt: now.addingTimeInterval(-60)
+        ),
+        setupValues: ["owner": "statusfoundry", "repo": "status"],
+        for: installed,
+        service: setupService,
+        credentialStore: credentials,
+        now: now
+    )
+    let apiURL = try #require(URL(string: "https://api.github.com/repos/statusfoundry/status/actions/runs"))
+    let tokenURL = try #require(URL(string: "https://github.com/login/oauth/access_token"))
+    let service = PluginRuntimeService(
+        store: store,
+        transport: RuntimeOAuthRefreshTransport(apiURL: apiURL, tokenURL: tokenURL),
+        credentialStore: credentials
+    )
+    let configuration = try #require(store.accountConfigurations(pluginID: manifest.id).first)
+
+    let job = try service.enqueueManualConfiguredPluginRun(pluginID: manifest.id, accountID: configuration.id, now: now)
+    _ = try await service.runQueuedPluginJob(jobID: job.id, now: now)
+
+    let storedConfiguration = try store.accountConfiguration(accountID: configuration.id)
+    let updated = try #require(storedConfiguration)
+    let updatedReference = try #require(updated.credentialRef)
+    let tokenData = try #require(try credentials.read(reference: updatedReference))
+    let tokenSet = try JSONDecoder().decode(PluginOAuthTokenSet.self, from: tokenData)
+    #expect(try store.job(id: job.id)?.status == .success)
+    #expect(tokenSet.accessToken == "fresh_access")
+    #expect(tokenSet.refreshToken == "new_refresh")
+    #expect(tokenSet.expiresAt == now.addingTimeInterval(3_600))
+}
+
 @Test func pluginRuntimeServiceInjectsBasicAuthForConfiguredAccount() async throws {
     let database = try temporaryRuntimeDatabase()
     let store = StatusPersistenceStore(database: database)
@@ -1979,6 +2125,96 @@ private struct RuntimeActionRequestCheckingTransport: PluginRequestHTTPTransport
         #expect(fields["description"] as? String == "CI failed on main.")
         return response
     }
+}
+
+private struct RuntimeOAuthRefreshTransport: PluginRequestHTTPTransport {
+    var apiURL: URL
+    var tokenURL: URL
+
+    func response(for request: PluginHTTPRequest) async throws -> PluginHTTPResponse {
+        if request.url == tokenURL {
+            #expect(request.method == "POST")
+            #expect(request.headers["Content-Type"] == "application/x-www-form-urlencoded")
+            let body = try #require(request.body.flatMap { String(data: $0, encoding: .utf8) })
+            #expect(body.contains("client_id=status-foundry.github"))
+            #expect(body.contains("grant_type=refresh_token"))
+            #expect(body.contains("refresh_token=old_refresh"))
+            return PluginHTTPResponse(
+                data: Data("""
+                {
+                  "access_token": "fresh_access",
+                  "refresh_token": "new_refresh",
+                  "token_type": "Bearer",
+                  "expires_in": 3600,
+                  "scope": "repo"
+                }
+                """.utf8),
+                statusCode: 200,
+                url: tokenURL
+            )
+        }
+        #expect(request.url == apiURL)
+        #expect(request.headers["Authorization"] == "Bearer fresh_access")
+        return PluginHTTPResponse(data: Data("{}".utf8), statusCode: 200, url: apiURL)
+    }
+}
+
+private func oauthRuntimeManifest() -> PluginManifest {
+    PluginManifest(
+        id: "com.status.oauthgithub",
+        name: "OAuth GitHub",
+        version: "0.1.0",
+        author: PluginAuthor(name: "Status Foundry", publisherId: "status-foundry"),
+        category: "developer",
+        description: "OAuth-backed GitHub checks.",
+        minCoreVersion: "0.1.0",
+        platforms: [.macOS, .iOS],
+        permissions: [.network, .keychain, .oauth, .backgroundRefresh],
+        domains: ["api.github.com", "github.com"]
+    )
+}
+
+private func oauthRuntimePackageFiles() -> [(String, Data)] {
+    [
+        ("auth.json", Data("""
+        {
+          "type": "oauth2",
+          "provider": "github",
+          "applicationId": "status-foundry.github",
+          "oauth2": {
+            "authorizationUrl": "https://github.com/login/oauth/authorize",
+            "tokenUrl": "https://github.com/login/oauth/access_token",
+            "redirectUri": "status://oauth/github",
+            "scopes": ["repo"]
+          }
+        }
+        """.utf8)),
+        ("setup.schema.json", Data("""
+        {
+          "fields": [
+            { "key": "owner", "label": "Owner", "type": "text", "required": true },
+            { "key": "repo", "label": "Repository", "type": "text", "required": true }
+          ]
+        }
+        """.utf8)),
+        ("requests.json", Data("""
+        {
+          "requests": {
+            "list_workflow_runs": {
+              "method": "GET",
+              "url": "https://api.github.com/repos/{{owner}}/{{repo}}/actions/runs",
+              "auth": "default"
+            }
+          }
+        }
+        """.utf8)),
+        ("mappings.json", Data("""
+        {
+          "resources": [],
+          "events": []
+        }
+        """.utf8))
+    ]
 }
 
 private func temporaryRuntimeDatabase() throws -> SQLiteDatabase {

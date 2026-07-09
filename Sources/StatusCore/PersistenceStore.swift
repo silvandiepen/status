@@ -1166,7 +1166,26 @@ public final class StatusPersistenceStore {
     }
 
     public func installPlugin(_ record: PluginInstallRecord) throws {
-        try PluginManifestValidator.validate(PluginValidationInput(manifest: record.manifest))
+        try PluginManifestValidator.validate(
+            PluginValidationInput(
+                manifest: record.manifest,
+                authKinds: record.packageDefinition.auth.map { [$0.type] } ?? [],
+                authDefinitions: record.packageDefinition.auth.map { [$0] } ?? [],
+                requests: record.packageDefinition.requests.requests.compactMap { id, request in
+                    guard let url = URL(string: request.url), url.host?.contains("{") == false else {
+                        return nil
+                    }
+                    return PluginRequestDefinition(id: id, method: request.method, url: url)
+                },
+                actions: record.packageDefinition.actions.map { action in
+                    PluginActionDeclaration(
+                        type: action.id,
+                        label: action.label,
+                        requiresWritePermission: action.requiresWritePermission
+                    )
+                }
+            )
+        )
         guard record.verification.pluginID == record.manifest.id else {
             throw PluginInstallationError.verificationPluginMismatch(
                 expected: record.manifest.id,

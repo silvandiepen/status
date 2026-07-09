@@ -58,6 +58,7 @@ public final class LocalPluginInstaller {
             PluginValidationInput(
                 manifest: manifest,
                 authKinds: packageDefinition.auth.map { [$0.type] } ?? [],
+                authDefinitions: packageDefinition.auth.map { [$0] } ?? [],
                 requests: try validationRequests(from: packageDefinition.requests),
                 actions: packageDefinition.actions.map { action in
                     PluginActionDeclaration(

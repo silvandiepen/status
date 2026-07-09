@@ -252,15 +252,16 @@ none
 api-key
 bearer-token
 basic-auth
+oauth2
 jwt-api-key
 private-key-jwt
 ```
 
-`oauth2` is defined in the plugin schema but deferred past MVP. The app should reject registry plugins that declare `oauth2` until the OAuth design below is written.
+`oauth2` is available for plugins that declare the `oauth` and `keychain` permissions and provide provider/client metadata. OAuth support is native and app-owned: plugins declare endpoints and scopes, while Status generates PKCE authorization requests, stores token sets in Keychain by reference, refreshes expired tokens through the declared token endpoint, and injects bearer headers at request time.
 
 All auth types share the same model: the plugin declares the fields, the app renders the setup form natively, secrets go to Keychain, and the request engine injects credentials at request time. Plugins never read secrets directly.
 
-Current implementation status: bearer-token, api-key header, basic-auth, and JWT API-key auth are implemented for installed declarative plugins. The native setup form masks secret input, `PluginSetupConfiguration` writes bearer token bytes or credential bundles to `CredentialStore`, SQLite stores only the `credential_ref`, and `PluginRuntimeService` resolves that reference into the appropriate request header at request time. Basic auth supports the Jira-style email/API-token credential bundle. JWT signing currently covers the App Store Connect ES256 API-key flow. OAuth is still package-decodable/design-approved but not yet injected by the runtime.
+Current implementation status: bearer-token, api-key header, basic-auth, JWT API-key, and OAuth token injection/refresh are implemented for installed declarative plugins. The native setup form masks secret input, `PluginSetupConfiguration` writes bearer token bytes, credential bundles, or OAuth token sets to `CredentialStore`, SQLite stores only the `credential_ref`, and `PluginRuntimeService` resolves that reference into the appropriate request header at request time. Basic auth supports the Jira-style email/API-token credential bundle. JWT signing currently covers the App Store Connect ES256 API-key flow. OAuth authorization UI/callback handling is exposed through core PKCE request/token storage primitives and still needs platform shell UI before official OAuth-only plugins ship.
 
 ### MVP auth paths per integration
 
@@ -282,19 +283,15 @@ Jira               → basic-auth (Atlassian account email + API token)
 
 Later phases, for reference: Cloudflare uses an API token (bearer), Stripe uses a restricted API key. Neither needs OAuth.
 
-### OAuth deferral
-
-OAuth2 is deferred past MVP. A declarative plugin package cannot ship an OAuth client secret, and none of the MVP integrations need OAuth. Deferring removes an entire class of secret-distribution and redirect-handling work from v1.
-
-Consequence: the YouTube plugin (and any other Google integration) depends on OAuth and moves after the OAuth decision. It leaves the Phase 6–7 window and is scheduled only once the design below is settled.
-
-A future OAuth design must answer, before any OAuth plugin ships:
+### OAuth design
 
 - Client ID ownership: does Status register one client per provider and embed it in the app, or does the user supply their own client? Embedded client IDs are public by nature on native apps; the design must not rely on a confidential client secret.
 - PKCE: native flows must use authorization code + PKCE (S256), no implicit flow.
 - Redirect URI scheme: a custom URL scheme or universal link owned by the app, registered with each provider, and how the app validates state on callback.
 - Refresh responsibility: the core request engine owns token refresh, transparently, per account. Plugins never see refresh tokens.
 - Keychain storage: access token, refresh token, expiry, and scopes stored per account in Keychain, same rules as all other secrets.
+
+Implementation boundary: core now supports OAuth package metadata, PKCE authorization URL creation, Keychain-backed token-set storage, expired-token refresh, and request header injection. Platform shells still need the browser session and redirect callback UI before the app should list OAuth as the preferred setup path for an official plugin. Until then, GitHub/GitLab/Jira keep their PAT/API-token setup paths.
 
 ### Token refresh and failure behavior
 

@@ -120,12 +120,12 @@ none
 api-key
 bearer-token
 basic-auth
-oauth2   ← defined but deferred past MVP — see docs/07-security-privacy.md
+oauth2
 jwt-api-key
 private-key-jwt
 ```
 
-`oauth2` stays in the schema but no v1 plugin may use it until the native OAuth client, PKCE redirect handling, token refresh, and provider ownership rules are fully implemented. When OAuth is available for a plugin, the plugin declares the OAuth setup shape and Status owns the native authorization flow, token storage, refresh behavior, and audit output. The auth decision and MVP auth paths live in `docs/07-security-privacy.md`.
+OAuth plugins declare public provider metadata only: `provider`, `applicationId`, and an `oauth2` block with `authorizationUrl`, `tokenUrl`, `redirectUri`, optional `scopes`, and optional extra authorization parameters. The manifest must request `oauth` and `keychain`. Status owns the native authorization-code + PKCE flow, token storage, refresh behavior, request header injection, and audit output. Plugins never receive access tokens or refresh tokens directly.
 
 The plugin defines the auth shape. The app renders the setup form and stores secrets in Keychain.
 

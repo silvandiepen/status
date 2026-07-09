@@ -6,9 +6,20 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["type"],
+  "allOf": [
+    {
+      "if": {
+        "properties": { "type": { "const": "oauth2" } },
+        "required": ["type"]
+      },
+      "then": {
+        "required": ["provider", "applicationId", "oauth2"]
+      }
+    }
+  ],
   "properties": {
     "type": {
-      "description": "Auth mechanism. `oauth2` is accepted by this schema but deferred for v1 pending the auth decision in docs/07-security-privacy.md.",
+      "description": "Auth mechanism. `oauth2` uses an app-owned native authorization-code + PKCE flow; plugins declare public provider metadata only.",
       "enum": ["none", "api-key", "bearer-token", "basic-auth", "oauth2", "jwt-api-key", "private-key-jwt"]
     },
     "fields": {
@@ -31,9 +42,49 @@
       "description": "Public provider application identifier bundled with the plugin. For OAuth plugins this is the client ID registered with the provider. Secrets never belong in the plugin package.",
       "minLength": 1,
       "maxLength": 200
+    },
+    "oauth2": {
+      "$ref": "#/$defs/oauth2",
+      "description": "OAuth provider endpoints and scopes for native authorization-code + PKCE. Required when type is oauth2."
     }
   },
   "$defs": {
+    "oauth2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authorizationUrl", "tokenUrl", "redirectUri"],
+      "properties": {
+        "authorizationUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "tokenUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "redirectUri": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": []
+        },
+        "additionalAuthorizationParameters": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {}
+        }
+      }
+    },
     "placement": {
       "type": "object",
       "additionalProperties": false,

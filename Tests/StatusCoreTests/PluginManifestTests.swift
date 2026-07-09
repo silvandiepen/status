@@ -72,12 +72,30 @@ import Testing
     }
 }
 
-@Test func oauthIsRejectedForV1Plugins() {
+@Test func oauthRequiresExplicitPermissionAndConfiguration() throws {
     let manifest = appStoreConnectManifest()
 
-    #expect(throws: PluginValidationError.unsupportedOAuthInV1) {
+    #expect(throws: PluginValidationError.oauthWithoutPermission(manifest.id)) {
         try PluginManifestValidator.validate(PluginValidationInput(manifest: manifest, authKinds: [.oauth2]))
     }
+
+    var oauthManifest = manifest
+    oauthManifest.permissions.append(.oauth)
+    let auth = PackagedPluginAuth(
+        type: .oauth2,
+        provider: "github",
+        applicationId: "status-foundry.github",
+        oauth2: PackagedPluginOAuth2(
+            authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
+            tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
+            redirectURI: "status://oauth/github",
+            scopes: ["repo"]
+        )
+    )
+
+    try PluginManifestValidator.validate(
+        PluginValidationInput(manifest: oauthManifest, authDefinitions: [auth])
+    )
 }
 
 @Test func accentColorMustBeHexColor() {
