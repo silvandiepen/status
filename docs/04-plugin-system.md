@@ -493,6 +493,10 @@ the same deterministic ZIP format used by the registry, installs it as
 warning with the plugin ID, permissions, and domains. The macOS integrations
 catalog exposes this path as an **Install Local** developer-mode action that
 opens a folder picker and refreshes installed integrations after success.
+Integration settings also expose a **Preview Fixture** developer action on
+macOS: the user chooses a JSON fixture payload, Status runs the installed
+plugin's mappings against it, and the app shows mapped resource/event/metric
+counts without committing any output to SQLite.
 Local-dev install skips signature verification only; manifest validation,
 declared-domain checks, OAuth deferral, write-action permission checks, setup
 rendering, trigger/rule installation, and runtime permission enforcement still

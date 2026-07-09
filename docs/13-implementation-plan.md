@@ -223,12 +223,13 @@ Acceptance: sample plugin's overview/list/detail views render natively on macOS 
 Status: Partially implemented in core/tooling/UI. `LocalPluginInstaller` can install
 a local folder as `local-dev` with explicit unsigned warnings, the macOS
 integrations catalog exposes an **Install Local** developer-mode folder picker,
-the local plugin validator prints package checksums without publishing, and
+the macOS integration settings surface exposes a non-persisting **Preview
+Fixture** JSON mapping preview, the local plugin validator prints package
+checksums without publishing, and
 `plugins/examples/mock-operations` exercises every package file plus request
 fixtures through native mapping tests.
 
-Remaining: schema validation detail UI, test-request runner UI, and
-mapped-output preview UI.
+Remaining: schema validation detail UI and live test-request runner UI.
 
 Local plugin folder install with unsigned warnings, schema validation UI, test-request runner, mapped-output preview; a `plugins/examples/mock-operations` sample plugin exercising every package file.
 

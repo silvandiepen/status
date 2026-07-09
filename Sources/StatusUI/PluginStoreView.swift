@@ -390,18 +390,24 @@ public struct PluginStoreContainerView: View {
     @StateObject private var viewModel: PluginStoreViewModel
     private let openSettings: ((InstalledPlugin) -> Void)?
     private let installLocalPlugin: (() async throws -> String)?
+    private let previewPluginFixture: ((InstalledPlugin, String?) async throws -> String)?
     @State private var isInstallingLocalPlugin = false
     @State private var localPluginInstallResult: String?
     @State private var localPluginInstallError: String?
+    @State private var previewingPluginID: String?
+    @State private var previewResults: [String: String] = [:]
+    @State private var previewErrors: [String: String] = [:]
 
     public init(
         viewModel: @autoclosure @escaping () -> PluginStoreViewModel,
         openSettings: ((InstalledPlugin) -> Void)? = nil,
-        installLocalPlugin: (() async throws -> String)? = nil
+        installLocalPlugin: (() async throws -> String)? = nil,
+        previewPluginFixture: ((InstalledPlugin, String?) async throws -> String)? = nil
     ) {
         _viewModel = StateObject(wrappedValue: viewModel())
         self.openSettings = openSettings
         self.installLocalPlugin = installLocalPlugin
+        self.previewPluginFixture = previewPluginFixture
     }
 
     public var body: some View {
@@ -477,7 +483,11 @@ public struct PluginStoreContainerView: View {
             isInstallingLocalPlugin: isInstallingLocalPlugin,
             localPluginInstallResult: localPluginInstallResult,
             localPluginInstallError: localPluginInstallError,
-            installLocalPlugin: localPluginInstallAction
+            installLocalPlugin: localPluginInstallAction,
+            previewingPluginID: previewingPluginID,
+            previewResults: previewResults,
+            previewErrors: previewErrors,
+            previewPluginFixture: pluginFixturePreviewAction
         )
         .overlay(alignment: .bottom) {
             if let loadError = viewModel.loadError {
@@ -522,6 +532,33 @@ public struct PluginStoreContainerView: View {
             return nil
         }
         return { runLocalPluginInstall() }
+    }
+
+    private func runPluginFixturePreview(_ plugin: InstalledPlugin, _ accountID: String?) {
+        guard previewingPluginID == nil, let previewPluginFixture else {
+            return
+        }
+        previewingPluginID = plugin.id
+        previewResults[plugin.id] = nil
+        previewErrors[plugin.id] = nil
+
+        Task { @MainActor in
+            defer { previewingPluginID = nil }
+            do {
+                previewResults[plugin.id] = try await previewPluginFixture(plugin, accountID)
+            } catch {
+                previewErrors[plugin.id] = error.localizedDescription
+            }
+        }
+    }
+
+    private var pluginFixturePreviewAction: ((InstalledPlugin, String?) -> Void)? {
+        guard previewPluginFixture != nil else {
+            return nil
+        }
+        return { plugin, accountID in
+            runPluginFixturePreview(plugin, accountID)
+        }
     }
 }
 
@@ -614,6 +651,10 @@ public struct PluginSettingsContainerView: View {
             run: { plugin in
                 Task { await viewModel.run(plugin) }
             },
+            isPreviewing: false,
+            previewResult: nil,
+            previewError: nil,
+            previewFixture: nil,
             setPermissionGrant: { plugin, permission, granted in
                 Task { await viewModel.setPermission(permission, granted: granted, for: plugin) }
             },
@@ -661,6 +702,10 @@ public struct PluginStoreView: View {
     private let localPluginInstallResult: String?
     private let localPluginInstallError: String?
     private let installLocalPlugin: (() -> Void)?
+    private let previewingPluginID: String?
+    private let previewResults: [String: String]
+    private let previewErrors: [String: String]
+    private let previewPluginFixture: ((InstalledPlugin, String?) -> Void)?
     @State private var pluginPendingRemoval: InstalledPlugin?
     @State private var presentedSettingsPlugin: InstalledPlugin?
 
@@ -700,7 +745,11 @@ public struct PluginStoreView: View {
         isInstallingLocalPlugin: Bool = false,
         localPluginInstallResult: String? = nil,
         localPluginInstallError: String? = nil,
-        installLocalPlugin: (() -> Void)? = nil
+        installLocalPlugin: (() -> Void)? = nil,
+        previewingPluginID: String? = nil,
+        previewResults: [String: String] = [:],
+        previewErrors: [String: String] = [:],
+        previewPluginFixture: ((InstalledPlugin, String?) -> Void)? = nil
     ) {
         self.catalog = catalog
         self.installingPluginID = installingPluginID
@@ -738,6 +787,10 @@ public struct PluginStoreView: View {
         self.localPluginInstallResult = localPluginInstallResult
         self.localPluginInstallError = localPluginInstallError
         self.installLocalPlugin = installLocalPlugin
+        self.previewingPluginID = previewingPluginID
+        self.previewResults = previewResults
+        self.previewErrors = previewErrors
+        self.previewPluginFixture = previewPluginFixture
     }
 
     public var body: some View {
@@ -838,6 +891,12 @@ public struct PluginStoreView: View {
             runResult: runResults[setupKey(pluginID: plugin.id, accountID: selectedAccountID)],
             runError: runErrors[setupKey(pluginID: plugin.id, accountID: selectedAccountID)],
             run: run,
+            isPreviewing: previewingPluginID == plugin.id,
+            previewResult: previewResults[plugin.id],
+            previewError: previewErrors[plugin.id],
+            previewFixture: previewPluginFixture.map { preview in
+                { plugin in preview(plugin, selectedAccountID) }
+            },
             setPermissionGrant: setPermissionGrant,
             setTriggerEnabled: setTriggerEnabled
         )
@@ -1077,6 +1136,10 @@ private struct PluginSettingsPanel: View {
     let runResult: String?
     let runError: String?
     let run: (InstalledPlugin) -> Void
+    let isPreviewing: Bool
+    let previewResult: String?
+    let previewError: String?
+    let previewFixture: ((InstalledPlugin) -> Void)?
     let setPermissionGrant: (InstalledPlugin, PluginPermission, Bool) -> Void
     let setTriggerEnabled: (InstalledPlugin, TriggerDefinition, Bool) -> Void
 
@@ -1113,6 +1176,20 @@ private struct PluginSettingsPanel: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .disabled(isRunning)
+                    }
+                    if let previewFixture {
+                        Button {
+                            previewFixture(plugin)
+                        } label: {
+                            if isPreviewing {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Label("Preview Fixture", systemImage: "doc.text.magnifyingglass")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(isPreviewing)
                     }
                 }
             }
@@ -1229,6 +1306,16 @@ private struct PluginSettingsPanel: View {
             }
             if let runError {
                 Text(runError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+            if let previewResult {
+                Text(previewResult)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let previewError {
+                Text(previewError)
                     .font(.caption)
                     .foregroundStyle(.red)
             }

@@ -64,6 +64,36 @@ import Testing
     #expect(output.metrics.map(\.pointValue) == [7.5, 0.2])
 }
 
+@Test func pluginDeveloperPreviewMapsFixtureWithoutPersistingOutput() throws {
+    let database = try temporaryLocalPluginDatabase()
+    let store = StatusPersistenceStore(database: database)
+    let installRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent("status-local-preview-\(UUID().uuidString)", isDirectory: true)
+    let installer = LocalPluginInstaller(store: store, installRoot: installRoot)
+    let pluginDirectory = repositoryRoot()
+        .appendingPathComponent("plugins/examples/mock-operations", isDirectory: true)
+    _ = try installer.install(pluginDirectory: pluginDirectory, installedAt: Date(timeIntervalSince1970: 1_783_433_520))
+    let fixtureData = try Data(contentsOf: pluginDirectory.appendingPathComponent("fixtures/fetch_status.json"))
+
+    let result = try PluginDeveloperPreviewer(store: store).previewFixture(
+        pluginID: "com.status.example.mockops",
+        requestID: "fetch_status",
+        fixtureData: fixtureData,
+        capturedAt: Date(timeIntervalSince1970: 1_783_433_520)
+    )
+
+    #expect(result.summary == "2 resources, 3 events, 2 metrics")
+    #expect(result.resources.map(\.resource.id) == ["preview_com_status_example_mockops:api", "preview_com_status_example_mockops:worker"])
+    #expect(result.events.map(\.type) == [
+        "mock.service.degraded",
+        "mock.service.recovered",
+        "mock.error_rate.high"
+    ])
+    #expect(try store.resources(pluginID: "com.status.example.mockops").isEmpty)
+    #expect(try store.recentEvents(limit: 10).isEmpty)
+    #expect(try store.metrics().isEmpty)
+}
+
 private func temporaryLocalPluginDatabase() throws -> SQLiteDatabase {
     let path = FileManager.default.temporaryDirectory
         .appendingPathComponent("status-\(UUID().uuidString).sqlite")

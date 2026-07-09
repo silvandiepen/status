@@ -2,6 +2,7 @@ import AppKit
 import StatusCore
 import StatusUI
 import SwiftUI
+import UniformTypeIdentifiers
 @preconcurrency import UserNotifications
 
 @main
@@ -244,6 +245,9 @@ private struct MacRootView: View {
                         },
                         installLocalPlugin: {
                             try await installLocalPluginFolder()
+                        },
+                        previewPluginFixture: { plugin, accountID in
+                            try await previewPluginFixture(plugin: plugin, accountID: accountID)
                         }
                     )
                 }
@@ -584,6 +588,32 @@ private struct MacRootView: View {
     private func localPluginInstallMessage(from result: LocalPluginInstallResult) -> String {
         let warningSummary = result.warnings.isEmpty ? "" : " Unsigned local-dev plugin; review permissions before enabling automation."
         return "Installed \(result.plugin.name) \(result.version.version).\(warningSummary)"
+    }
+
+    @MainActor
+    private func previewPluginFixture(plugin: InstalledPlugin, accountID: String?) async throws -> String {
+        let panel = NSOpenPanel()
+        panel.title = "Preview Plugin Fixture"
+        panel.message = "Choose a JSON fixture payload to map without saving output."
+        panel.prompt = "Preview"
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.json]
+
+        guard panel.runModal() == .OK, let fixtureURL = panel.url else {
+            return "Fixture preview cancelled."
+        }
+
+        let fixtureData = try Data(contentsOf: fixtureURL)
+        let store = try LocalStatusStore.openApplicationSupportStore()
+        let result = try PluginDeveloperPreviewer(store: store).previewFixture(
+            pluginID: plugin.id,
+            accountID: accountID,
+            fixtureData: fixtureData
+        )
+        let warningSummary = result.warnings.isEmpty ? "" : " \(result.warnings.count) warning\(result.warnings.count == 1 ? "" : "s")."
+        return "Previewed \(plugin.name) \(result.requestID): \(result.summary).\(warningSummary)"
     }
 
     private func runConfiguredPluginCheck(pluginID: String, accountID: String, accountName: String) async throws -> String {
