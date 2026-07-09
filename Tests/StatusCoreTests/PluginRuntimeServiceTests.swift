@@ -1121,6 +1121,45 @@ import Testing
     #expect(try credentials.read(reference: credentialRef) == Data("github_pat_example".utf8))
 }
 
+@Test func oauthSetupValidatesRequiredFieldsBeforeStoringCredential() throws {
+    let database = try temporaryRuntimeDatabase()
+    let store = StatusPersistenceStore(database: database)
+    let service = PluginRuntimeService(store: store, credentialStore: nil)
+    let credentials = RecordingCredentialStore()
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let plugin = InstalledPlugin(
+        id: "com.status.oauthgithub",
+        name: "OAuth GitHub",
+        author: "Status Foundry",
+        description: "OAuth-backed repository checks.",
+        category: "developer",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/plugin",
+        auth: PackagedPluginAuth(type: .oauth2),
+        setup: PackagedPluginSetup(
+            title: "Repository",
+            fields: [
+                PackagedPluginSetupField(id: "owner", label: "Owner", type: .text, required: true)
+            ]
+        ),
+        installedAt: now,
+        updatedAt: now
+    )
+
+    #expect(throws: PluginSetupConfigurationError.missingRequiredField("Owner")) {
+        try PluginSetupConfiguration.saveOAuthTokenSet(
+            PluginOAuthTokenSet(accessToken: "oauth_access", refreshToken: "oauth_refresh"),
+            setupValues: [:],
+            for: plugin,
+            service: service,
+            credentialStore: credentials,
+            now: now
+        )
+    }
+    #expect(credentials.storedReferences.isEmpty)
+}
+
 @Test func genericPluginSetupUpdatesSpecificConfiguredAccount() throws {
     let database = try temporaryRuntimeDatabase()
     try insertRuntimePluginFixture(database, pluginID: "com.status.github")
@@ -2503,6 +2542,33 @@ private func insertRuntimePluginFixture(_ database: SQLiteDatabase, pluginID: St
 private func grantRuntimePermissions(_ permissions: [PluginPermission], pluginID: String, store: StatusPersistenceStore, at date: Date) throws {
     for permission in permissions {
         try store.setPluginPermission(pluginID: pluginID, permission: permission, granted: true, grantedAt: date)
+    }
+}
+
+private final class RecordingCredentialStore: CredentialStore, @unchecked Sendable {
+    private(set) var storedReferences: [String] = []
+    private var storage: [String: Data] = [:]
+    private let lock = NSLock()
+
+    func store(_ data: Data, label: String) throws -> String {
+        let reference = try CredentialReference.make()
+        lock.lock()
+        storedReferences.append(reference)
+        storage[reference] = data
+        lock.unlock()
+        return reference
+    }
+
+    func read(reference: String) throws -> Data? {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage[reference]
+    }
+
+    func delete(reference: String) throws {
+        lock.lock()
+        storage[reference] = nil
+        lock.unlock()
     }
 }
 

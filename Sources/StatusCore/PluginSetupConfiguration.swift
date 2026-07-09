@@ -53,7 +53,12 @@ public enum PluginSetupConfiguration {
         guard plugin.setup != nil || plugin.auth != nil else {
             throw PluginSetupConfigurationError.setupUnavailable(plugin.id)
         }
-        var normalized: [String: String] = [:]
+        let normalized = try normalizedSetupValues(
+            values,
+            for: plugin,
+            service: service,
+            accountID: accountID
+        )
         var credentialRef: String?
         var authType = "none"
 
@@ -70,27 +75,6 @@ public enum PluginSetupConfiguration {
                 throw PluginSetupConfigurationError.secretFieldRequiresCredentialStore(auth.type.rawValue)
             case .oauth2:
                 credentialRef = try storeOAuthTokenSet(from: values, plugin: plugin, credentialStore: credentialStore)
-            }
-        }
-
-        for field in plugin.setup?.fields ?? [] {
-            let rawValue = values[field.id, default: field.defaultValue ?? ""]
-            let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            if field.required && trimmed.isEmpty {
-                throw PluginSetupConfigurationError.missingRequiredField(field.label)
-            }
-            guard field.type.isPlainConfigurationField else {
-                if trimmed.isEmpty == false {
-                    throw PluginSetupConfigurationError.secretFieldRequiresCredentialStore(field.label)
-                }
-                continue
-            }
-            normalized[field.id] = try normalize(trimmed, field: field)
-        }
-        if let accountID,
-           let existing = try service.store.accountConfiguration(accountID: accountID) {
-            for (key, value) in existing.variables where key.hasPrefix("_status.") {
-                normalized[key] = value
             }
         }
 
@@ -124,29 +108,14 @@ public enum PluginSetupConfiguration {
         guard plugin.auth?.type == .oauth2 else {
             throw PluginSetupConfigurationError.setupUnavailable(plugin.id)
         }
+        let normalized = try normalizedSetupValues(
+            values,
+            for: plugin,
+            service: service,
+            accountID: accountID
+        )
         let data = try JSONEncoder().encode(tokenSet)
         let credentialRef = try credentialStore.store(data, label: "\(plugin.name) OAuth tokens")
-        var normalized: [String: String] = [:]
-        for field in plugin.setup?.fields ?? [] {
-            let rawValue = values[field.id, default: field.defaultValue ?? ""]
-            let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            if field.required && trimmed.isEmpty {
-                throw PluginSetupConfigurationError.missingRequiredField(field.label)
-            }
-            guard field.type.isPlainConfigurationField else {
-                if trimmed.isEmpty == false {
-                    throw PluginSetupConfigurationError.secretFieldRequiresCredentialStore(field.label)
-                }
-                continue
-            }
-            normalized[field.id] = try normalize(trimmed, field: field)
-        }
-        if let accountID,
-           let existing = try service.store.accountConfiguration(accountID: accountID) {
-            for (key, value) in existing.variables where key.hasPrefix("_status.") {
-                normalized[key] = value
-            }
-        }
         let displayName = displayNameOverride?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .nonEmpty ?? displayName(for: plugin, values: normalized)
@@ -185,6 +154,36 @@ public enum PluginSetupConfiguration {
             .replacingOccurrences(of: #"[^a-z0-9]+"#, with: "_", options: .regularExpression)
             .trimmingCharacters(in: CharacterSet(charactersIn: "_"))
         return "acct_\(sanitized)"
+    }
+
+    private static func normalizedSetupValues(
+        _ values: [String: String],
+        for plugin: InstalledPlugin,
+        service: PluginRuntimeService,
+        accountID: String?
+    ) throws -> [String: String] {
+        var normalized: [String: String] = [:]
+        for field in plugin.setup?.fields ?? [] {
+            let rawValue = values[field.id, default: field.defaultValue ?? ""]
+            let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if field.required && trimmed.isEmpty {
+                throw PluginSetupConfigurationError.missingRequiredField(field.label)
+            }
+            guard field.type.isPlainConfigurationField else {
+                if trimmed.isEmpty == false {
+                    throw PluginSetupConfigurationError.secretFieldRequiresCredentialStore(field.label)
+                }
+                continue
+            }
+            normalized[field.id] = try normalize(trimmed, field: field)
+        }
+        if let accountID,
+           let existing = try service.store.accountConfiguration(accountID: accountID) {
+            for (key, value) in existing.variables where key.hasPrefix("_status.") {
+                normalized[key] = value
+            }
+        }
+        return normalized
     }
 
     private static func normalize(_ value: String, field: PackagedPluginSetupField) throws -> String {
