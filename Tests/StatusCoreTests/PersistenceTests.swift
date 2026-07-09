@@ -658,7 +658,7 @@ import Testing
         id: "com.status.github",
         name: "GitHub",
         version: "0.1.0",
-        author: "Status Foundry",
+        author: PluginAuthor(name: "Status Foundry", publisherId: "status-foundry"),
         category: "developer",
         description: "Read-only GitHub status events.",
         minCoreVersion: "0.1.0",
@@ -761,6 +761,82 @@ import Testing
     #expect(snapshot.auditEntries == [audit])
 }
 
+@Test func dashboardSnapshotShowsConfiguredAppTileFields() throws {
+    let database = try temporaryDatabase()
+    try StatusDatabaseMigrator.migrate(database)
+    let store = StatusPersistenceStore(database: database)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+
+    let manifest = PluginManifest(
+        id: "com.status.github",
+        name: "GitHub",
+        version: "0.1.0",
+        author: PluginAuthor(name: "Status Foundry", publisherId: "status-foundry"),
+        category: "developer",
+        description: "Read-only GitHub status events.",
+        minCoreVersion: "0.1.0",
+        platforms: [.macOS, .iOS],
+        permissions: [.network],
+        domains: ["api.github.com"]
+    )
+    try store.installPlugin(
+        PluginInstallRecord(
+            manifest: manifest,
+            trustLevel: .official,
+            installPath: "/Application Support/Status/Plugins/com.status.github",
+            verification: PluginPackageVerificationResult(
+                pluginID: manifest.id,
+                version: manifest.version,
+                sha256: "abc123",
+                signedBy: "status-foundry-dev"
+            ),
+            signature: "dev-signature",
+            installedAt: now
+        )
+    )
+    try store.upsertAccountConfiguration(
+        PluginAccountConfiguration(
+            id: "acc_work",
+            pluginID: "com.status.github",
+            accountName: "Work GitHub",
+            variables: [PluginSetupConfiguration.dashboardTileFieldsKey: "openIssues,lastCommit"],
+            authType: "api-key",
+            credentialRef: "kc_github"
+        ),
+        updatedAt: now
+    )
+    try store.upsertResource(
+        Resource(
+            id: "res_repo",
+            accountID: "acc_work",
+            pluginID: "com.status.github",
+            type: "repository",
+            name: "status",
+            fields: ["openIssues": "3", "lastCommit": "Fix dashboard tiles"]
+        ),
+        externalID: "status",
+        fields: ["openIssues": "3", "lastCommit": "Fix dashboard tiles"],
+        seenAt: now
+    )
+
+    let snapshot = try store.dashboardSnapshot(now: now)
+
+    #expect(snapshot.integrations == [
+        IntegrationSummary(
+            id: "acc_work",
+            name: "Work GitHub",
+            provider: "com.status.github",
+            state: "Connected",
+            severity: .ok,
+            lastSyncDescription: "Never synced",
+            tileItems: [
+                DashboardTileItem(id: "openIssues", label: "Open Issues", value: "3"),
+                DashboardTileItem(id: "lastCommit", label: "Last Commit", value: "Fix dashboard tiles")
+            ]
+        )
+    ])
+}
+
 @Test func pluginInstallRecordPersistsPluginVersionAndPermissionDefaults() throws {
     let database = try temporaryDatabase()
     try StatusDatabaseMigrator.migrate(database)
@@ -770,7 +846,7 @@ import Testing
         id: "com.status.github",
         name: "GitHub",
         version: "0.1.0",
-        author: "Status Foundry",
+        author: PluginAuthor(name: "Status Foundry", publisherId: "status-foundry"),
         category: "developer",
         description: "Read-only GitHub status events.",
         minCoreVersion: "0.1.0",
@@ -801,7 +877,7 @@ import Testing
         try store.installedPlugin(id: manifest.id) == InstalledPlugin(
             id: manifest.id,
             name: manifest.name,
-            author: manifest.author,
+            author: manifest.author.name,
             description: manifest.description,
             category: manifest.category,
             trustLevel: .official,
@@ -837,7 +913,7 @@ import Testing
         id: "com.status.github",
         name: "GitHub",
         version: "0.1.0",
-        author: "Status Foundry",
+        author: PluginAuthor(name: "Status Foundry", publisherId: "status-foundry"),
         category: "developer",
         description: "Read-only GitHub status events.",
         minCoreVersion: "0.1.0",
@@ -891,7 +967,7 @@ import Testing
         id: "com.status.github",
         name: "GitHub",
         version: "0.1.0",
-        author: "Status Foundry",
+        author: PluginAuthor(name: "Status Foundry", publisherId: "status-foundry"),
         category: "developer",
         description: "Read-only GitHub status events.",
         minCoreVersion: "0.1.0",
@@ -944,7 +1020,7 @@ import Testing
         id: "com.status.github",
         name: "GitHub",
         version: "0.1.0",
-        author: "Status Foundry",
+        author: PluginAuthor(name: "Status Foundry", publisherId: "status-foundry"),
         category: "developer",
         description: "Read-only GitHub status events.",
         minCoreVersion: "0.1.0",
@@ -1057,7 +1133,7 @@ import Testing
         id: "com.status.github",
         name: "GitHub",
         version: "0.1.0",
-        author: "Status Foundry",
+        author: PluginAuthor(name: "Status Foundry", publisherId: "status-foundry"),
         category: "developer",
         description: "Read-only GitHub status events.",
         minCoreVersion: "0.1.0",

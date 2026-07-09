@@ -1,9 +1,11 @@
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadPublishers, resolveAuthor } from './lib/publishers.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outputPath = path.join(root, 'web', 'src', 'generated', 'plugins.json');
+const publishersOutputPath = path.join(root, 'web', 'src', 'generated', 'publishers.json');
 const registryPath = path.join(root, 'web', 'src', 'generated', 'registry.json');
 const checkOnly = process.argv.includes('--check');
 const repositoryBaseURL = 'https://github.com/statusfoundry/status/blob/main';
@@ -20,7 +22,7 @@ async function directoryNames(directoryPath) {
     .sort();
 }
 
-async function loadPluginDoc(pluginDirectory, { requireReadme }) {
+async function loadPluginDoc(pluginDirectory, publishers, { requireReadme }) {
   const readmePath = path.join(pluginDirectory, 'README.md');
   const manifestPath = path.join(pluginDirectory, 'manifest.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
@@ -56,7 +58,7 @@ async function loadPluginDoc(pluginDirectory, { requireReadme }) {
     summary,
     description: manifest.description,
     category: manifest.category,
-    author: manifest.author,
+    author: resolveAuthor(manifest.author, publishers),
     version: manifest.version,
     trustLevel,
     permissions: manifest.permissions,
@@ -70,19 +72,41 @@ async function loadPluginDoc(pluginDirectory, { requireReadme }) {
   };
 }
 
+function buildPublisherPages(publishers, plugins) {
+  return publishers.map((publisher) => ({
+    id: publisher.id,
+    name: publisher.name,
+    summary: publisher.summary,
+    description: publisher.description,
+    websiteUrl: publisher.websiteUrl,
+    repositoryUrl: publisher.repositoryUrl,
+    websitePath: `/publishers/${publisher.id}/`,
+    plugins: plugins
+      .filter((plugin) => plugin.author.publisherId === publisher.id)
+      .map((plugin) => ({
+        id: plugin.id,
+        name: plugin.name,
+        summary: plugin.summary,
+        websitePath: plugin.websitePath,
+        published: plugin.published,
+      })),
+  }));
+}
+
 async function main() {
+  const publishers = await loadPublishers(root);
   const bundledRoot = path.join(root, 'plugins', 'bundled');
   const examplesRoot = path.join(root, 'plugins', 'examples');
 
   const bundledPlugins = await Promise.all(
     (await directoryNames(bundledRoot)).map((name) =>
-      loadPluginDoc(path.join(bundledRoot, name), { requireReadme: true }),
+      loadPluginDoc(path.join(bundledRoot, name), publishers, { requireReadme: true }),
     ),
   );
 
   const examplePlugins = await Promise.all(
     (await directoryNames(examplesRoot)).map((name) =>
-      loadPluginDoc(path.join(examplesRoot, name), { requireReadme: true }),
+      loadPluginDoc(path.join(examplesRoot, name), publishers, { requireReadme: true }),
     ),
   );
 
@@ -108,16 +132,30 @@ async function main() {
     plugins,
   };
 
-  const output = `${JSON.stringify(generated, null, 2)}\n`;
+  const publisherPages = {
+    generatedAt: '2026-07-09T00:00:00Z',
+    publishers: buildPublisherPages(publishers, plugins),
+  };
+
+  const pluginsOutput = `${JSON.stringify(generated, null, 2)}\n`;
+  const publishersOutput = `${JSON.stringify(publisherPages, null, 2)}\n`;
 
   if (checkOnly) {
-    const current = await readFile(outputPath, 'utf8');
-    if (current !== output) {
+    const [currentPlugins, currentPublishers] = await Promise.all([
+      readFile(outputPath, 'utf8'),
+      readFile(publishersOutputPath, 'utf8'),
+    ]);
+    if (currentPlugins !== pluginsOutput) {
       throw new Error('web/src/generated/plugins.json is out of date. Run npm run plugins:docs:build.');
     }
+    if (currentPublishers !== publishersOutput) {
+      throw new Error('web/src/generated/publishers.json is out of date. Run npm run plugins:docs:build.');
+    }
   } else {
-    await writeFile(outputPath, output);
+    await writeFile(outputPath, pluginsOutput);
+    await writeFile(publishersOutputPath, publishersOutput);
     console.log(`Wrote ${plugins.length} plugin documentation page(s) to web/src/generated/plugins.json.`);
+    console.log(`Wrote ${publisherPages.publishers.length} publisher page(s) to web/src/generated/publishers.json.`);
   }
 }
 

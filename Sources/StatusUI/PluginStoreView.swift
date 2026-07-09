@@ -52,6 +52,8 @@ public final class PluginStoreViewModel: ObservableObject {
     @Published public private(set) var rulePresets: [String: [Rule]]
     @Published public private(set) var appRules: [String: [Rule]]
     @Published public private(set) var savingRuleID: String?
+    @Published public private(set) var dashboardTileFields: [String: [String]]
+    @Published public private(set) var savingDashboardTileFieldKey: String?
 
     private let loadInstalled: () throws -> [InstalledPlugin]
     private let loadAvailable: () async throws -> [RegistryPluginSummary]
@@ -59,6 +61,8 @@ public final class PluginStoreViewModel: ObservableObject {
     private let loadPluginResources: (InstalledPlugin) throws -> [Resource]
     private let loadRules: (InstalledPlugin) throws -> [Rule]
     private let saveRule: (Rule) async throws -> Void
+    private let loadDashboardTileFields: (InstalledPlugin, String) throws -> [String]
+    private let saveDashboardTileFields: (InstalledPlugin, String, [String]) async throws -> Void
     private let installPlugin: (RegistryPluginSummary) async throws -> Void
     private let removePlugin: (InstalledPlugin) async throws -> Void
     private let loadPermissions: (InstalledPlugin) throws -> [InstalledPluginPermission]
@@ -80,6 +84,8 @@ public final class PluginStoreViewModel: ObservableObject {
         loadPluginResources: @escaping (InstalledPlugin) throws -> [Resource] = { _ in [] },
         loadRules: @escaping (InstalledPlugin) throws -> [Rule] = { _ in [] },
         saveRule: @escaping (Rule) async throws -> Void = { _ in },
+        loadDashboardTileFields: @escaping (InstalledPlugin, String) throws -> [String] = { _, _ in [] },
+        saveDashboardTileFields: @escaping (InstalledPlugin, String, [String]) async throws -> Void = { _, _, _ in },
         installPlugin: @escaping (RegistryPluginSummary) async throws -> Void,
         removePlugin: @escaping (InstalledPlugin) async throws -> Void = { _ in },
         loadPermissions: @escaping (InstalledPlugin) throws -> [InstalledPluginPermission] = { _ in [] },
@@ -108,12 +114,15 @@ public final class PluginStoreViewModel: ObservableObject {
         self.pluginResources = [:]
         self.rulePresets = [:]
         self.appRules = [:]
+        self.dashboardTileFields = [:]
         self.loadInstalled = loadInstalled
         self.loadAvailable = loadAvailable
         self.loadRuntimeStatuses = loadRuntimeStatuses
         self.loadPluginResources = loadPluginResources
         self.loadRules = loadRules
         self.saveRule = saveRule
+        self.loadDashboardTileFields = loadDashboardTileFields
+        self.saveDashboardTileFields = saveDashboardTileFields
         self.installPlugin = installPlugin
         self.removePlugin = removePlugin
         self.loadPermissions = loadPermissions
@@ -140,6 +149,7 @@ public final class PluginStoreViewModel: ObservableObject {
             refreshRuntimeStatuses(for: installed)
             refreshPluginResources(for: installed)
             refreshRules(for: installed)
+            refreshDashboardTileFields(for: installed)
             loadError = nil
         } catch {
             let installed = (try? loadInstalled()) ?? []
@@ -151,6 +161,7 @@ public final class PluginStoreViewModel: ObservableObject {
             refreshRuntimeStatuses(for: installed)
             refreshPluginResources(for: installed)
             refreshRules(for: installed)
+            refreshDashboardTileFields(for: installed)
             loadError = error.localizedDescription
         }
     }
@@ -194,6 +205,7 @@ public final class PluginStoreViewModel: ObservableObject {
             pluginResources[plugin.id] = nil
             rulePresets[plugin.id] = nil
             appRules[plugin.id] = nil
+            dashboardTileFields = dashboardTileFields.filter { key, _ in key.hasPrefix("\(plugin.id):") == false }
             await reload()
         } catch {
             loadError = error.localizedDescription
@@ -246,6 +258,32 @@ public final class PluginStoreViewModel: ObservableObject {
             appRule.provider = appRule.provider ?? plugin.id
             try await saveRule(appRule)
             refreshRules(for: [plugin])
+        } catch {
+            loadError = error.localizedDescription
+        }
+    }
+
+    public func setDashboardTileField(_ field: String, enabled: Bool, for plugin: InstalledPlugin) async {
+        guard let account = selectedAccount(for: plugin) else {
+            loadError = "Save an app before changing dashboard tile fields."
+            return
+        }
+        let key = setupKey(pluginID: plugin.id, accountID: account.id)
+        savingDashboardTileFieldKey = "\(key):\(field)"
+        defer { savingDashboardTileFieldKey = nil }
+
+        do {
+            var fields = dashboardTileFields[key, default: []]
+            if enabled {
+                if fields.contains(field) == false {
+                    fields.append(field)
+                }
+            } else {
+                fields.removeAll { $0 == field }
+            }
+            fields = Array(fields.prefix(4))
+            try await saveDashboardTileFields(plugin, account.id, fields)
+            dashboardTileFields[key] = fields
         } catch {
             loadError = error.localizedDescription
         }
@@ -402,6 +440,17 @@ public final class PluginStoreViewModel: ObservableObject {
         appRules = refreshedAppRules
     }
 
+    private func refreshDashboardTileFields(for plugins: [InstalledPlugin]) {
+        var refreshedFields = dashboardTileFields
+        for plugin in plugins {
+            for account in configuredAccounts[plugin.id, default: []] {
+                let key = setupKey(pluginID: plugin.id, accountID: account.id)
+                refreshedFields[key] = (try? loadDashboardTileFields(plugin, account.id)) ?? []
+            }
+        }
+        dashboardTileFields = refreshedFields
+    }
+
     private func defaultSetupValues(for plugin: InstalledPlugin) -> [String: String] {
         Dictionary(uniqueKeysWithValues: plugin.configurationFields.map { field in
             (field.id, field.defaultValue ?? "")
@@ -501,6 +550,8 @@ public struct PluginStoreContainerView: View {
             rulePresets: viewModel.rulePresets,
             appRules: viewModel.appRules,
             savingRuleID: viewModel.savingRuleID,
+            dashboardTileFields: viewModel.dashboardTileFields,
+            savingDashboardTileFieldKey: viewModel.savingDashboardTileFieldKey,
             canConfigure: { plugin in
                 viewModel.canConfigure(plugin)
             },
@@ -552,6 +603,11 @@ public struct PluginStoreContainerView: View {
             setRulePresetEnabled: { plugin, preset, enabled in
                 Task {
                     await viewModel.setRulePreset(preset, enabled: enabled, for: plugin)
+                }
+            },
+            setDashboardTileField: { plugin, field, enabled in
+                Task {
+                    await viewModel.setDashboardTileField(field, enabled: enabled, for: plugin)
                 }
             },
             openSettings: openSettings,
@@ -707,6 +763,8 @@ public struct PluginSettingsContainerView: View {
             rulePresets: viewModel.rulePresets[plugin.id, default: []],
             appRules: viewModel.appRules[plugin.id, default: []],
             savingRuleID: viewModel.savingRuleID,
+            selectedDashboardTileFields: viewModel.dashboardTileFields[key, default: []],
+            savingDashboardTileFieldKey: viewModel.savingDashboardTileFieldKey,
             updateSetupValue: { plugin, fieldID, value in
                 viewModel.updateSetupValue(plugin, fieldID: fieldID, value: value)
             },
@@ -741,6 +799,9 @@ public struct PluginSettingsContainerView: View {
             },
             setRulePresetEnabled: { plugin, preset, enabled in
                 Task { await viewModel.setRulePreset(preset, enabled: enabled, for: plugin) }
+            },
+            setDashboardTileField: { plugin, field, enabled in
+                Task { await viewModel.setDashboardTileField(field, enabled: enabled, for: plugin) }
             }
         )
     }
@@ -852,6 +913,8 @@ public struct PluginStoreView: View {
     private let rulePresets: [String: [Rule]]
     private let appRules: [String: [Rule]]
     private let savingRuleID: String?
+    private let dashboardTileFields: [String: [String]]
+    private let savingDashboardTileFieldKey: String?
     private let canConfigure: (InstalledPlugin) -> Bool
     private let updateSetupValue: (InstalledPlugin, String, String) -> Void
     private let updateAccountDisplayName: (InstalledPlugin, String) -> Void
@@ -865,6 +928,7 @@ public struct PluginStoreView: View {
     private let setPermissionGrant: (InstalledPlugin, PluginPermission, Bool) -> Void
     private let setTriggerEnabled: (InstalledPlugin, TriggerDefinition, Bool) -> Void
     private let setRulePresetEnabled: (InstalledPlugin, Rule, Bool) -> Void
+    private let setDashboardTileField: (InstalledPlugin, String, Bool) -> Void
     private let openSettings: ((InstalledPlugin) -> Void)?
     private let isInstallingLocalPlugin: Bool
     private let localPluginInstallResult: String?
@@ -900,6 +964,8 @@ public struct PluginStoreView: View {
         rulePresets: [String: [Rule]] = [:],
         appRules: [String: [Rule]] = [:],
         savingRuleID: String? = nil,
+        dashboardTileFields: [String: [String]] = [:],
+        savingDashboardTileFieldKey: String? = nil,
         canConfigure: @escaping (InstalledPlugin) -> Bool = { _ in false },
         updateSetupValue: @escaping (InstalledPlugin, String, String) -> Void = { _, _, _ in },
         updateAccountDisplayName: @escaping (InstalledPlugin, String) -> Void = { _, _ in },
@@ -913,6 +979,7 @@ public struct PluginStoreView: View {
         setPermissionGrant: @escaping (InstalledPlugin, PluginPermission, Bool) -> Void = { _, _, _ in },
         setTriggerEnabled: @escaping (InstalledPlugin, TriggerDefinition, Bool) -> Void = { _, _, _ in },
         setRulePresetEnabled: @escaping (InstalledPlugin, Rule, Bool) -> Void = { _, _, _ in },
+        setDashboardTileField: @escaping (InstalledPlugin, String, Bool) -> Void = { _, _, _ in },
         openSettings: ((InstalledPlugin) -> Void)? = nil,
         isInstallingLocalPlugin: Bool = false,
         localPluginInstallResult: String? = nil,
@@ -945,6 +1012,8 @@ public struct PluginStoreView: View {
         self.rulePresets = rulePresets
         self.appRules = appRules
         self.savingRuleID = savingRuleID
+        self.dashboardTileFields = dashboardTileFields
+        self.savingDashboardTileFieldKey = savingDashboardTileFieldKey
         self.canConfigure = canConfigure
         self.updateSetupValue = updateSetupValue
         self.updateAccountDisplayName = updateAccountDisplayName
@@ -958,6 +1027,7 @@ public struct PluginStoreView: View {
         self.setPermissionGrant = setPermissionGrant
         self.setTriggerEnabled = setTriggerEnabled
         self.setRulePresetEnabled = setRulePresetEnabled
+        self.setDashboardTileField = setDashboardTileField
         self.openSettings = openSettings
         self.isInstallingLocalPlugin = isInstallingLocalPlugin
         self.localPluginInstallResult = localPluginInstallResult
@@ -1060,6 +1130,8 @@ public struct PluginStoreView: View {
             rulePresets: rulePresets[plugin.id, default: []],
             appRules: appRules[plugin.id, default: []],
             savingRuleID: savingRuleID,
+            selectedDashboardTileFields: dashboardTileFields[setupKey(pluginID: plugin.id, accountID: selectedAccountID), default: []],
+            savingDashboardTileFieldKey: savingDashboardTileFieldKey,
             updateSetupValue: updateSetupValue,
             updateAccountDisplayName: updateAccountDisplayName,
             selectAccount: selectAccount,
@@ -1078,7 +1150,8 @@ public struct PluginStoreView: View {
             },
             setPermissionGrant: setPermissionGrant,
             setTriggerEnabled: setTriggerEnabled,
-            setRulePresetEnabled: setRulePresetEnabled
+            setRulePresetEnabled: setRulePresetEnabled,
+            setDashboardTileField: setDashboardTileField
         )
     }
 
@@ -1229,6 +1302,9 @@ private struct InstalledPluginRow: View {
                 Text(plugin.description)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                Text("By \(plugin.author)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 HStack(spacing: 8) {
                     Text(accountSummary)
                     if let runtimeStatus {
@@ -1309,6 +1385,8 @@ private struct PluginSettingsPanel: View {
     let rulePresets: [Rule]
     let appRules: [Rule]
     let savingRuleID: String?
+    let selectedDashboardTileFields: [String]
+    let savingDashboardTileFieldKey: String?
     let updateSetupValue: (InstalledPlugin, String, String) -> Void
     let updateAccountDisplayName: (InstalledPlugin, String) -> Void
     let selectAccount: (InstalledPlugin, String) -> Void
@@ -1326,6 +1404,7 @@ private struct PluginSettingsPanel: View {
     let setPermissionGrant: (InstalledPlugin, PluginPermission, Bool) -> Void
     let setTriggerEnabled: (InstalledPlugin, TriggerDefinition, Bool) -> Void
     let setRulePresetEnabled: (InstalledPlugin, Rule, Bool) -> Void
+    let setDashboardTileField: (InstalledPlugin, String, Bool) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1447,6 +1526,16 @@ private struct PluginSettingsPanel: View {
                         select: { selectAccount(plugin, $0) },
                         addAccount: { addAccount(plugin) }
                     )
+                    DashboardTileFieldsPanel(
+                        selectedAccountID: selectedPersistedAccountID,
+                        availableFields: availableDashboardTileFields,
+                        selectedFields: selectedDashboardTileFields,
+                        savingFieldKey: savingDashboardTileFieldKey,
+                        setupKey: selectedPersistedAccountID.map { "\(plugin.id):\($0)" },
+                        setField: { field, enabled in
+                            setDashboardTileField(plugin, field, enabled)
+                        }
+                    )
                     AppRulePresetsPanel(
                         plugin: plugin,
                         selectedAccountID: selectedPersistedAccountID,
@@ -1533,11 +1622,75 @@ private struct PluginSettingsPanel: View {
         "\(plugin.id):\(permission.permission.rawValue)"
     }
 
+    private var availableDashboardTileFields: [String] {
+        let viewFields = plugin.views.flatMap(\.fields)
+        let resourceFields = resources.flatMap { Array($0.fields.keys) }
+        return Array(Set(viewFields + resourceFields)).sorted { lhs, rhs in
+            lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+        }
+    }
+
     private var selectedPersistedAccountID: String? {
         guard let selectedAccountID, selectedAccountID.hasPrefix("__new__:") == false else {
             return nil
         }
         return selectedAccountID
+    }
+}
+
+private struct DashboardTileFieldsPanel: View {
+    let selectedAccountID: String?
+    let availableFields: [String]
+    let selectedFields: [String]
+    let savingFieldKey: String?
+    let setupKey: String?
+    let setField: (String, Bool) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Dashboard tile")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            if selectedAccountID == nil {
+                Text("Save an app before choosing dashboard tile fields.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if availableFields.isEmpty {
+                Text("Run this app once to collect fields that can be shown on the tile.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(availableFields, id: \.self) { field in
+                        Toggle(
+                            isOn: Binding(
+                                get: { selectedFields.contains(field) },
+                                set: { setField(field, $0) }
+                            )
+                        ) {
+                            Text(displayLabel(for: field))
+                                .font(.caption)
+                        }
+                        .disabled(isDisabled(field))
+                    }
+                }
+            }
+        }
+    }
+
+    private func isDisabled(_ field: String) -> Bool {
+        guard let setupKey else { return true }
+        return savingFieldKey == "\(setupKey):\(field)" || (selectedFields.count >= 4 && selectedFields.contains(field) == false)
+    }
+
+    private func displayLabel(for field: String) -> String {
+        let spaced = field
+            .replacingOccurrences(of: #"([a-z0-9])([A-Z])"#, with: "$1 $2", options: .regularExpression)
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+        return spaced.prefix(1).uppercased() + String(spaced.dropFirst())
     }
 }
 
@@ -2395,6 +2548,14 @@ private struct AvailablePluginRow: View {
                     Text(plugin.summary)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+                    if let externalURL = plugin.author.externalUrl {
+                        Link("By \(plugin.author.name)", destination: externalURL)
+                            .font(.caption)
+                    } else {
+                        Text("By \(plugin.author.name)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 Spacer(minLength: 12)
                 Button {

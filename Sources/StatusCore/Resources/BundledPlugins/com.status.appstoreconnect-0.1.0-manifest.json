@@ -2,7 +2,10 @@
   "id": "com.status.appstoreconnect",
   "name": "App Store Connect",
   "version": "0.1.0",
-  "author": "Status Foundry",
+  "author": {
+    "name": "Status Foundry",
+    "publisherId": "status-foundry"
+  },
   "category": "developer",
   "description": "Read-only App Store Connect status events for apps, review state, build processing, and release readiness.",
   "icon": "sf:app.badge",

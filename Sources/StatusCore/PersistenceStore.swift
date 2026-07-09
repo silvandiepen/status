@@ -1188,7 +1188,7 @@ public final class StatusPersistenceStore {
             bindings: [
                 .text(record.manifest.id),
                 .text(record.manifest.name),
-                .text(record.manifest.author),
+                .text(record.manifest.author.name),
                 .text(record.manifest.description),
                 .text(record.manifest.category),
                 record.manifest.icon.map { .text($0) } ?? .null,
@@ -1525,7 +1525,7 @@ public final class StatusPersistenceStore {
             id: row.requiredText("plugin_id"),
             name: row.requiredText("plugin_id"),
             version: row.requiredText("version"),
-            author: "Unknown",
+            author: PluginAuthor(name: "Unknown"),
             category: "unknown",
             description: "Missing manifest",
             minCoreVersion: row.requiredText("min_core_version"),
@@ -1653,7 +1653,11 @@ public final class StatusPersistenceStore {
             provider: row.requiredText("provider"),
             state: lastError?.isEmpty == false ? "Needs attention" : status.capitalized,
             severity: severity,
-            lastSyncDescription: lastRefreshDescription(row.optionalText("last_refreshed_at"))
+            lastSyncDescription: lastRefreshDescription(row.optionalText("last_refreshed_at")),
+            tileItems: dashboardTileItems(
+                accountID: row.requiredText("id"),
+                pluginID: row.requiredText("provider")
+            )
         )
     }
 
@@ -1667,6 +1671,35 @@ public final class StatusPersistenceStore {
             severity: .notice,
             lastSyncDescription: "Never synced"
         )
+    }
+
+    private func dashboardTileItems(accountID: String, pluginID: String) throws -> [DashboardTileItem] {
+        guard let configuration = try accountConfiguration(accountID: accountID) else {
+            return []
+        }
+        let selectedFields = configuration.variables[PluginSetupConfiguration.dashboardTileFieldsKey, default: ""]
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.isEmpty == false }
+        guard selectedFields.isEmpty == false else {
+            return []
+        }
+        let resources = try resources(pluginID: pluginID, accountID: accountID, limit: 10)
+        return selectedFields.compactMap { field in
+            guard let resource = resources.first(where: { $0.fields[field]?.isEmpty == false }),
+                  let value = resource.fields[field] else {
+                return nil
+            }
+            return DashboardTileItem(id: field, label: displayLabel(for: field), value: value)
+        }
+    }
+
+    private func displayLabel(for field: String) -> String {
+        let spaced = field
+            .replacingOccurrences(of: #"([a-z0-9])([A-Z])"#, with: "$1 $2", options: .regularExpression)
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+        return spaced.prefix(1).uppercased() + String(spaced.dropFirst())
     }
 
     private func dashboardHeadline(statusItems: [StatusItem], integrations: [IntegrationSummary]) -> String {

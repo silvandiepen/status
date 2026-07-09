@@ -34,6 +34,26 @@ Copy that folder, rename it, and replace the example provider with your real HTT
 
 Every plugin must ship a `README.md` beside `manifest.json`. Use `plugins/README.template.md` as the starting point. The website publishes that README at `/plugins/{plugin-id}/` when you run `npm run plugins:docs:build`.
 
+Declare publisher metadata in `manifest.json`:
+
+```json
+"author": {
+  "name": "Status Foundry",
+  "publisherId": "status-foundry"
+}
+```
+
+Register publishers in `plugins/publishers.json`. Official plugins use **Status Foundry** and link to `/publishers/status-foundry/` on the website.
+
+When a provider needs a registered application (GitHub OAuth app, Jira app, etc.), bundle the public application ID in `auth.json`:
+
+```json
+"provider": "github",
+"applicationId": "your-public-client-id"
+```
+
+Never put client secrets in the plugin package.
+
 ### Standalone template repository
 
 Fork the minimal template without cloning the full Status monorepo:

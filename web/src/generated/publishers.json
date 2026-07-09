@@ -1,0 +1,51 @@
+{
+  "generatedAt": "2026-07-09T00:00:00Z",
+  "publishers": [
+    {
+      "id": "status-foundry",
+      "name": "Status Foundry",
+      "summary": "Official Status integrations and reference plugin packages.",
+      "description": "Status Foundry maintains the official read-only plugins bundled with Status and published through the registry after review, validation, and signing.",
+      "websiteUrl": "https://github.com/statusfoundry",
+      "repositoryUrl": "https://github.com/statusfoundry/status",
+      "websitePath": "/publishers/status-foundry/",
+      "plugins": [
+        {
+          "id": "com.status.appstoreconnect",
+          "name": "App Store Connect",
+          "summary": "Track app review, builds, and release status.",
+          "websitePath": "/plugins/com.status.appstoreconnect/",
+          "published": true
+        },
+        {
+          "id": "com.status.github",
+          "name": "GitHub",
+          "summary": "Track workflow failures, pull requests, and issue activity.",
+          "websitePath": "/plugins/com.status.github/",
+          "published": true
+        },
+        {
+          "id": "com.status.gitlab",
+          "name": "GitLab",
+          "summary": "Track GitLab pipelines, merge requests, issues, and project activity.",
+          "websitePath": "/plugins/com.status.gitlab/",
+          "published": true
+        },
+        {
+          "id": "com.status.example.mockops",
+          "name": "Mock Operations",
+          "summary": "Example declarative plugin package for operational status data.",
+          "websitePath": "/plugins/com.status.example.mockops/",
+          "published": false
+        },
+        {
+          "id": "com.status.website",
+          "name": "Website Uptime",
+          "summary": "Track website health and response status.",
+          "websitePath": "/plugins/com.status.website/",
+          "published": true
+        }
+      ]
+    }
+  ]
+}

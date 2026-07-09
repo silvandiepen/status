@@ -9,7 +9,14 @@ export const registry = {
       "category": "developer",
       "icon": "sf:app.badge",
       "accentColor": "#2F80ED",
-      "author": "Status Foundry",
+      "author": {
+        "name": "Status Foundry",
+        "publisherId": "status-foundry",
+        "websitePath": "/publishers/status-foundry/",
+        "externalUrl": "https://github.com/statusfoundry",
+        "repositoryUrl": "https://github.com/statusfoundry/status",
+        "publisherSummary": "Official Status integrations and reference plugin packages."
+      },
       "trustLevel": "official",
       "permissions": [
         "network",
@@ -30,8 +37,8 @@ export const registry = {
           ],
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.appstoreconnect/0.1.0/com.status.appstoreconnect-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.appstoreconnect/0.1.0/manifest.json",
-          "sha256": "bd33531a3265386201208a2c2765b44375d6845ce811163db31c112d2478a5ea",
-          "signature": "BunCY8njb11OWT1JUpdVUv+WzuZb+Cm3aq7/hT8yntFb1k2Hhfw50MPHEAg5IFqGF/WyNwvmiWc3omG6ydLsBg==",
+          "sha256": "948c7f8600295d8640d5a9a25b1374e86993e93dc15f3f4451ef8ad581f25648",
+          "signature": "HHyu0x1CHh1ag6h9atDAMagU+B64BUUH6jC4fTp+e3zhmvfLpf7XaDtx6HvsWPurhUqsN6j7j1m7UPshwur+Cw==",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-07T12:00:00Z"
         }
@@ -45,7 +52,14 @@ export const registry = {
       "category": "developer",
       "icon": "sf:chevron.left.forwardslash.chevron.right",
       "accentColor": "#4B5563",
-      "author": "Status Foundry",
+      "author": {
+        "name": "Status Foundry",
+        "publisherId": "status-foundry",
+        "websitePath": "/publishers/status-foundry/",
+        "externalUrl": "https://github.com/statusfoundry",
+        "repositoryUrl": "https://github.com/statusfoundry/status",
+        "publisherSummary": "Official Status integrations and reference plugin packages."
+      },
       "trustLevel": "official",
       "permissions": [
         "network",
@@ -65,8 +79,8 @@ export const registry = {
           ],
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.github/0.1.0/com.status.github-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.github/0.1.0/manifest.json",
-          "sha256": "e8985720b4553e0b61737c5e25fcdad528ff69b972d6b2151d761b8a20623dda",
-          "signature": "D0K8ItAuwSir2LwkI9SD2JSAW9039qeJkGLoJ2Bm2ltQgqN5zZupR3C3ii4EHK7NT5wIkEZCHvuxVgTKvixgBg==",
+          "sha256": "0bfa012abc21597b7921c45e19a6c41fb8dc24e66e20c063b3727e008b7b4626",
+          "signature": "9M+urHHOeufNMmFaMphOfuzr91NHo48cA+qle+BLFG69vIj/z7eteGFS6Zlg3AOCmRvlF2YDiSkbGSFnD/3PDQ==",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-07T12:00:00Z"
         }
@@ -80,7 +94,14 @@ export const registry = {
       "category": "developer",
       "icon": "sf:shippingbox",
       "accentColor": "#FC6D26",
-      "author": "Status Foundry",
+      "author": {
+        "name": "Status Foundry",
+        "publisherId": "status-foundry",
+        "websitePath": "/publishers/status-foundry/",
+        "externalUrl": "https://github.com/statusfoundry",
+        "repositoryUrl": "https://github.com/statusfoundry/status",
+        "publisherSummary": "Official Status integrations and reference plugin packages."
+      },
       "trustLevel": "official",
       "permissions": [
         "network",
@@ -100,8 +121,8 @@ export const registry = {
           ],
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.gitlab/0.1.0/com.status.gitlab-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.gitlab/0.1.0/manifest.json",
-          "sha256": "9c74fc1a81bff60aac3634bc70f4827356eb80ea65246b6c195e31a2e04cbbb7",
-          "signature": "gc0Gm7lo1XRN4c8HpqLgoMqPqxHC1dIOuHEcRU8OOqRffmXlbMIZfIkRHYYMYrTEpT55Uj+/4POBKJWiorkhBg==",
+          "sha256": "c24081c1155bd55571e557bfa5bac27ad7eac33a88a9bb901b330ac3bbd251e6",
+          "signature": "Wz38eA6zKqkH+3jekHQHjG4vOV3GcCqRcpuRBZ9JrJo3X4doJ4inPTq69bGlMJR+pGPsL8yD7RM3/NRLts6bAA==",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-09T12:00:00Z"
         }
@@ -115,7 +136,14 @@ export const registry = {
       "category": "monitoring",
       "icon": "sf:globe",
       "accentColor": "#16A34A",
-      "author": "Status Foundry",
+      "author": {
+        "name": "Status Foundry",
+        "publisherId": "status-foundry",
+        "websitePath": "/publishers/status-foundry/",
+        "externalUrl": "https://github.com/statusfoundry",
+        "repositoryUrl": "https://github.com/statusfoundry/status",
+        "publisherSummary": "Official Status integrations and reference plugin packages."
+      },
       "trustLevel": "official",
       "permissions": [
         "network",
@@ -133,8 +161,8 @@ export const registry = {
           ],
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.website/0.1.0/com.status.website-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.website/0.1.0/manifest.json",
-          "sha256": "f0ce6b3ed640f0d12eeae201f3a8ca00359e668838bf912cbc3c0f42319e114b",
-          "signature": "iww0Veyc7yiJxC+HDHAllxPflBxkuS1+FWlSZLJH4fe9kWvUHa2mWbtIcj01rfxNt/ncU5+ylaM0ylLqQcuxAw==",
+          "sha256": "ef3f9af31ad8c55abedc9a4c74785edeeb83613a8faea4eff88f72e0062a1fe2",
+          "signature": "y43B91wcVjNT71LLK5HEH+EIF1POtg06pxnkdy7nuGYYJ4p8n/o1NgFxPnfgm0xOdHwQkld8WVFXlAk3cgYNCA==",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-07T12:00:00Z"
         }

@@ -10,6 +10,7 @@ import {
   validateManifest,
   validatePluginPackage,
 } from "./lib/plugin-package-validator.mjs";
+import { loadPublishers, resolveAuthor } from "./lib/publishers.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const pluginsRoot = path.join(root, "plugins", "bundled");
@@ -65,6 +66,7 @@ async function build() {
     return;
   }
 
+  const publishers = await loadPublishers(root);
   const pluginDirectoryNames = await directoryNames(pluginsRoot);
   const exampleDirectoryNames = await directoryNames(examplePluginsRoot);
 
@@ -77,8 +79,9 @@ async function build() {
     const pluginDirectory = path.join(pluginsRoot, directoryName);
     const manifest = await readJSON(path.join(pluginDirectory, "manifest.json"));
     const metadata = await readJSON(path.join(pluginDirectory, "registry.json"));
-    validateManifest(manifest, directoryName);
+    validateManifest(manifest, directoryName, publishers);
     await validatePluginPackage(pluginDirectory, manifest, directoryName);
+    const author = resolveAuthor(manifest.author, publishers);
 
     const files = await pluginFiles(pluginDirectory);
     const packageData = deterministicZip(files);
@@ -104,7 +107,7 @@ async function build() {
       category: manifest.category,
       icon: manifest.icon,
       accentColor: manifest.accentColor,
-      author: manifest.author,
+      author,
       trustLevel: metadata.trustLevel,
       permissions: manifest.permissions,
       domains: manifest.domains,
@@ -157,7 +160,7 @@ async function build() {
   for (const directoryName of exampleDirectoryNames) {
     const pluginDirectory = path.join(examplePluginsRoot, directoryName);
     const manifest = await readJSON(path.join(pluginDirectory, "manifest.json"));
-    validateManifest(manifest, `examples/${directoryName}`);
+    validateManifest(manifest, `examples/${directoryName}`, publishers);
     await validatePluginPackage(pluginDirectory, manifest, `examples/${directoryName}`);
   }
 

@@ -62,11 +62,39 @@ public enum PluginValidationError: Error, Equatable, LocalizedError, Sendable {
     }
 }
 
+public struct PluginAuthor: Codable, Equatable, Sendable {
+    public var name: String
+    public var publisherId: String?
+    public var websitePath: String?
+    public var externalUrl: URL?
+    public var repositoryUrl: URL?
+
+    public init(
+        name: String,
+        publisherId: String? = nil,
+        websitePath: String? = nil,
+        externalUrl: URL? = nil,
+        repositoryUrl: URL? = nil
+    ) {
+        self.name = name
+        self.publisherId = publisherId
+        self.websitePath = websitePath
+        self.externalUrl = externalUrl
+        self.repositoryUrl = repositoryUrl
+    }
+}
+
+extension PluginAuthor: ExpressibleByStringLiteral {
+    public init(stringLiteral value: String) {
+        self.init(name: value)
+    }
+}
+
 public struct PluginManifest: Codable, Equatable, Sendable {
     public var id: String
     public var name: String
     public var version: String
-    public var author: String
+    public var author: PluginAuthor
     public var category: String
     public var description: String
     public var icon: String?
@@ -80,7 +108,7 @@ public struct PluginManifest: Codable, Equatable, Sendable {
         id: String,
         name: String,
         version: String,
-        author: String,
+        author: PluginAuthor,
         category: String,
         description: String,
         icon: String? = nil,
@@ -166,7 +194,7 @@ public enum PluginManifestValidator {
         try requireSemver(manifest.version)
         try requireSemver(manifest.minCoreVersion)
         try requireNonEmpty(manifest.name, field: "name")
-        try requireNonEmpty(manifest.author, field: "author")
+        try requireNonEmpty(manifest.author.name, field: "author.name")
         try requireNonEmpty(manifest.category, field: "category")
         try requireNonEmpty(manifest.description, field: "description")
 

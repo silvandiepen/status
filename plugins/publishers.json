@@ -1,0 +1,12 @@
+{
+  "publishers": [
+    {
+      "id": "status-foundry",
+      "name": "Status Foundry",
+      "summary": "Official Status integrations and reference plugin packages.",
+      "description": "Status Foundry maintains the official read-only plugins bundled with Status and published through the registry after review, validation, and signing.",
+      "websiteUrl": "https://github.com/statusfoundry",
+      "repositoryUrl": "https://github.com/statusfoundry/status"
+    }
+  ]
+}

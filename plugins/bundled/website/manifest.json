@@ -2,7 +2,10 @@
   "id": "com.status.website",
   "name": "Website Uptime",
   "version": "0.1.0",
-  "author": "Status Foundry",
+  "author": {
+    "name": "Status Foundry",
+    "publisherId": "status-foundry"
+  },
   "category": "monitoring",
   "description": "Declarative uptime checks for sites and endpoints the user chooses to track.",
   "icon": "sf:globe",

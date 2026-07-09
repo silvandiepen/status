@@ -210,7 +210,7 @@ private func githubManifest() -> PluginManifest {
         id: "com.status.github",
         name: "GitHub",
         version: "0.1.0",
-        author: "Status Foundry",
+        author: PluginAuthor(name: "Status Foundry", publisherId: "status-foundry"),
         category: "developer",
         description: "Read-only GitHub status events.",
         minCoreVersion: "0.1.0",

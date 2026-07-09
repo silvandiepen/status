@@ -2,7 +2,10 @@
   "id": "com.status.gitlab",
   "name": "GitLab",
   "version": "0.1.0",
-  "author": "Status Foundry",
+  "author": {
+    "name": "Status Foundry",
+    "publisherId": "status-foundry"
+  },
   "category": "developer",
   "description": "Read-only GitLab project events for failed pipelines, merge requests, issues, and project activity.",
   "icon": "sf:shippingbox",

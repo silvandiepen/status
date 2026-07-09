@@ -14,7 +14,7 @@ public struct RegistryPluginSummary: Codable, Equatable, Sendable, Identifiable 
     public var category: String
     public var icon: String?
     public var accentColor: String?
-    public var author: String
+    public var author: PluginAuthor
     public var trustLevel: PluginTrustLevel
     public var latestVersion: String?
     public var platforms: [PluginPlatform]
@@ -30,7 +30,7 @@ public struct RegistryPluginDetail: Codable, Equatable, Sendable, Identifiable {
     public var category: String
     public var icon: String?
     public var accentColor: String?
-    public var author: String
+    public var author: PluginAuthor
     public var trustLevel: PluginTrustLevel
     public var permissions: [PluginPermission]
     public var domains: [String]

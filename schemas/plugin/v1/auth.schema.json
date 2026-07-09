@@ -19,6 +19,18 @@
     "placement": {
       "$ref": "#/$defs/placement",
       "description": "Where the request engine injects the credential. Currently used by api-key auth."
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider slug for the upstream service (for example github, gitlab, jira). Used to match OAuth registrations and documentation.",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "examples": ["github", "gitlab", "jira", "appstoreconnect"]
+    },
+    "applicationId": {
+      "type": "string",
+      "description": "Public provider application identifier bundled with the plugin. For OAuth plugins this is the client ID registered with the provider. Secrets never belong in the plugin package.",
+      "minLength": 1,
+      "maxLength": 200
     }
   },
   "$defs": {

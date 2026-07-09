@@ -2,7 +2,10 @@
   "id": "com.status.example.mockops",
   "name": "Mock Operations",
   "version": "0.1.0",
-  "author": "Status Foundry",
+  "author": {
+    "name": "Status Foundry",
+    "publisherId": "status-foundry"
+  },
   "category": "example",
   "description": "Example declarative plugin package for operational status data.",
   "icon": "sf:wrench.and.screwdriver",

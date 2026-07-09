@@ -68,7 +68,13 @@ private let pluginListJSON = """
       "summary": "Track workflow failures.",
       "description": "Read-only GitHub events.",
       "category": "developer",
-      "author": "Status Foundry",
+      "author": {
+        "name": "Status Foundry",
+        "publisherId": "status-foundry",
+        "websitePath": "/publishers/status-foundry/",
+        "externalUrl": "https://github.com/statusfoundry",
+        "repositoryUrl": "https://github.com/statusfoundry/status"
+      },
       "trustLevel": "official",
       "latestVersion": "0.1.0",
       "platforms": ["macOS", "iOS"],
@@ -86,7 +92,13 @@ private let pluginDetailJSON = """
   "summary": "Track workflow failures.",
   "description": "Read-only GitHub events.",
   "category": "developer",
-  "author": "Status Foundry",
+  "author": {
+    "name": "Status Foundry",
+    "publisherId": "status-foundry",
+    "websitePath": "/publishers/status-foundry/",
+    "externalUrl": "https://github.com/statusfoundry",
+    "repositoryUrl": "https://github.com/statusfoundry/status"
+  },
   "trustLevel": "official",
   "permissions": ["network"],
   "domains": ["api.github.com"],

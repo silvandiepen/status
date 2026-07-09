@@ -2,6 +2,19 @@
 
 One-sentence summary of what this plugin helps you watch and why it exists in Status.
 
+Publisher metadata lives in `manifest.json`:
+
+```json
+"author": {
+  "name": "Your Publisher Name",
+  "publisherId": "your-publisher-slug"
+}
+```
+
+Register the publisher in `plugins/publishers.json` so the website can link to `/publishers/your-publisher-slug/`.
+
+Provider application IDs for OAuth belong in `auth.json` as `provider` and `applicationId` (public client IDs only).
+
 ## Why install this plugin
 
 Explain the operational problem it solves. Who should install it, and what attention signal they get that they cannot get easily from the provider dashboard alone.

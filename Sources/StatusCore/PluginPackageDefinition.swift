@@ -246,11 +246,21 @@ public enum PackagedPluginActionInputType: String, Decodable, Equatable, Sendabl
 
 public struct PackagedPluginAuth: Codable, Equatable, Sendable {
     public var type: AuthKind
+    public var provider: String?
+    public var applicationId: String?
     public var fields: [PackagedPluginSetupField]
     public var placement: PackagedPluginAuthPlacement?
 
-    public init(type: AuthKind, fields: [PackagedPluginSetupField] = [], placement: PackagedPluginAuthPlacement? = nil) {
+    public init(
+        type: AuthKind,
+        provider: String? = nil,
+        applicationId: String? = nil,
+        fields: [PackagedPluginSetupField] = [],
+        placement: PackagedPluginAuthPlacement? = nil
+    ) {
         self.type = type
+        self.provider = provider
+        self.applicationId = applicationId
         self.fields = fields
         self.placement = placement
     }

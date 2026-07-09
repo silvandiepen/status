@@ -7,7 +7,14 @@
       "summary": "Track app review, builds, and release status.",
       "description": "Read-only App Store Connect status events for apps, review state, build processing, and release readiness.",
       "category": "developer",
-      "author": "Status Foundry",
+      "author": {
+        "name": "Status Foundry",
+        "publisherId": "status-foundry",
+        "websitePath": "/publishers/status-foundry/",
+        "externalUrl": "https://github.com/statusfoundry",
+        "repositoryUrl": "https://github.com/statusfoundry/status",
+        "publisherSummary": "Official Status integrations and reference plugin packages."
+      },
       "version": "0.1.0",
       "trustLevel": "official",
       "permissions": [
@@ -36,7 +43,14 @@
       "summary": "Track workflow failures, pull requests, and issue activity.",
       "description": "Read-only GitHub repository events for workflow failures, pull requests, and issue activity.",
       "category": "developer",
-      "author": "Status Foundry",
+      "author": {
+        "name": "Status Foundry",
+        "publisherId": "status-foundry",
+        "websitePath": "/publishers/status-foundry/",
+        "externalUrl": "https://github.com/statusfoundry",
+        "repositoryUrl": "https://github.com/statusfoundry/status",
+        "publisherSummary": "Official Status integrations and reference plugin packages."
+      },
       "version": "0.1.0",
       "trustLevel": "official",
       "permissions": [
@@ -64,7 +78,14 @@
       "summary": "Track GitLab pipelines, merge requests, issues, and project activity.",
       "description": "Read-only GitLab project events for failed pipelines, merge requests, issues, and project activity.",
       "category": "developer",
-      "author": "Status Foundry",
+      "author": {
+        "name": "Status Foundry",
+        "publisherId": "status-foundry",
+        "websitePath": "/publishers/status-foundry/",
+        "externalUrl": "https://github.com/statusfoundry",
+        "repositoryUrl": "https://github.com/statusfoundry/status",
+        "publisherSummary": "Official Status integrations and reference plugin packages."
+      },
       "version": "0.1.0",
       "trustLevel": "official",
       "permissions": [
@@ -92,7 +113,14 @@
       "summary": "Example declarative plugin package for operational status data.",
       "description": "Example declarative plugin package for operational status data.",
       "category": "example",
-      "author": "Status Foundry",
+      "author": {
+        "name": "Status Foundry",
+        "publisherId": "status-foundry",
+        "websitePath": "/publishers/status-foundry/",
+        "externalUrl": "https://github.com/statusfoundry",
+        "repositoryUrl": "https://github.com/statusfoundry/status",
+        "publisherSummary": "Official Status integrations and reference plugin packages."
+      },
       "version": "0.1.0",
       "trustLevel": "local-dev",
       "permissions": [
@@ -121,7 +149,14 @@
       "summary": "Track website health and response status.",
       "description": "Declarative uptime checks for sites and endpoints the user chooses to track.",
       "category": "monitoring",
-      "author": "Status Foundry",
+      "author": {
+        "name": "Status Foundry",
+        "publisherId": "status-foundry",
+        "websitePath": "/publishers/status-foundry/",
+        "externalUrl": "https://github.com/statusfoundry",
+        "repositoryUrl": "https://github.com/statusfoundry/status",
+        "publisherSummary": "Official Status integrations and reference plugin packages."
+      },
       "version": "0.1.0",
       "trustLevel": "official",
       "permissions": [

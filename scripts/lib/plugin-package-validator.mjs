@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { loadPublishers, validateAuthor } from "./publishers.mjs";
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 const allowedPlatforms = new Set(["macOS", "iOS"]);
 const allowedPermissions = new Set([
@@ -136,12 +140,13 @@ export function fail(message) {
   throw new Error(message);
 }
 
-export function validateManifest(manifest, sourceName) {
-  for (const field of ["id", "name", "version", "author", "category", "description", "minCoreVersion"]) {
+export function validateManifest(manifest, sourceName, publishers = []) {
+  for (const field of ["id", "name", "version", "category", "description", "minCoreVersion"]) {
     if (typeof manifest[field] !== "string" || manifest[field].trim() === "") {
       fail(`${sourceName}: manifest.${field} is required`);
     }
   }
+  validateAuthor(manifest.author, publishers, sourceName);
   if (/^[a-z0-9]+(\.[a-z0-9][a-z0-9-]*)+$/.test(manifest.id) === false) {
     fail(`${sourceName}: manifest.id must be reverse-DNS style`);
   }
@@ -417,7 +422,27 @@ function validateActions(actionsFile, requestIDs, manifest, sourceName) {
   }
 }
 
+function validateAuth(authFile, sourceName) {
+  if (!authFile) {
+    return;
+  }
+  if (authFile.provider !== undefined) {
+    if (typeof authFile.provider !== "string" || /^[a-z][a-z0-9-]*$/.test(authFile.provider) === false) {
+      fail(`${sourceName}: auth.provider must be a lowercase slug`);
+    }
+  }
+  if (authFile.applicationId !== undefined) {
+    if (typeof authFile.applicationId !== "string" || authFile.applicationId.trim() === "") {
+      fail(`${sourceName}: auth.applicationId must be a non-empty string`);
+    }
+  }
+  if (authFile.type === "oauth2" && (typeof authFile.applicationId !== "string" || authFile.applicationId.trim() === "")) {
+    fail(`${sourceName}: oauth2 auth requires applicationId`);
+  }
+}
+
 export async function validatePluginPackage(pluginDirectory, manifest, sourceName) {
+  const authFile = await readOptionalJSON(path.join(pluginDirectory, "auth.json"));
   const requestsFile = await readOptionalJSON(path.join(pluginDirectory, "requests.json"));
   const triggersFile = await readOptionalJSON(path.join(pluginDirectory, "triggers.json"));
   const eventsFile = await readOptionalJSON(path.join(pluginDirectory, "events.json"));
@@ -426,6 +451,7 @@ export async function validatePluginPackage(pluginDirectory, manifest, sourceNam
   const viewsFile = await readOptionalJSON(path.join(pluginDirectory, "views.json"));
   const actionsFile = await readOptionalJSON(path.join(pluginDirectory, "actions.json"));
 
+  validateAuth(authFile, sourceName);
   const requestIDs = validateRequestDefinitions(manifest, requestsFile, sourceName);
   const eventTypes = validateEvents(eventsFile, sourceName);
   validateTriggers(triggersFile, requestIDs, sourceName);
@@ -445,8 +471,9 @@ export async function pluginFiles(pluginDirectory) {
 
 export async function validateLocalPluginDirectory(pluginDirectory, options = {}) {
   const sourceName = typeof options === "string" ? options : (options.sourceName ?? path.basename(pluginDirectory));
+  const publishers = await loadPublishers(repoRoot);
   const manifest = await readJSON(path.join(pluginDirectory, "manifest.json"));
-  validateManifest(manifest, sourceName);
+  validateManifest(manifest, sourceName, publishers);
   await validatePluginPackage(pluginDirectory, manifest, sourceName);
   const files = await pluginFiles(pluginDirectory);
   const packageData = deterministicZip(files);

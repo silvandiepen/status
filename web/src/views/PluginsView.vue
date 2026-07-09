@@ -4,13 +4,18 @@ import SiteLayout from '@/components/SiteLayout.vue'
 import pluginsData from '@/generated/plugins.json'
 import registryData from '@/generated/registry.json'
 
+const pluginDocsById = Object.fromEntries(pluginsData.plugins.map((plugin) => [plugin.id, plugin]))
+
 const bemm = useBemm('page', { return: 'string' })
 const directoryBemm = useBemm('plugins-directory', { return: 'string' })
 
 type RegistryPlugin = (typeof registryData.plugins)[number]
 type PluginDoc = (typeof pluginsData.plugins)[number]
 
-const plugins = registryData.plugins
+const plugins = registryData.plugins.map((plugin) => ({
+  ...plugin,
+  author: pluginDocsById[plugin.id]?.author ?? plugin.author,
+}))
 const templatePlugins = pluginsData.plugins.filter((plugin) => plugin.published === false)
 const registryChecks = [
   'Local hash verification',
@@ -81,6 +86,16 @@ function templateTrustLabel(plugin: PluginDoc) {
                 <div>
                   <h2>{{ plugin.name }}</h2>
                   <p>{{ plugin.summary }}</p>
+                  <p v-if="plugin.author?.name" :class="directoryBemm('author')">
+                    Author:
+                    <RouterLink
+                      v-if="plugin.author.websitePath"
+                      :to="plugin.author.websitePath"
+                    >
+                      {{ plugin.author.name }}
+                    </RouterLink>
+                    <template v-else>{{ plugin.author.name }}</template>
+                  </p>
                 </div>
                 <span :class="directoryBemm('badge')">{{ trustLabel(plugin) }}</span>
               </div>
@@ -161,6 +176,14 @@ function templateTrustLabel(plugin: PluginDoc) {
       margin: var(--space-xs) 0 0;
       color: var(--color-text-secondary);
       line-height: var(--line-height-relaxed);
+    }
+  }
+
+  &__author {
+    font-size: var(--font-size-sm);
+
+    a {
+      font-weight: var(--font-weight-semibold);
     }
   }
 

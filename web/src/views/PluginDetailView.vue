@@ -52,6 +52,13 @@ const domainList = computed(() => {
             <p :class="bemm('eyebrow')">{{ trustLabel }}</p>
             <h1 :class="bemm('title')">{{ pluginDoc.name }}</h1>
             <p :class="bemm('subtitle')">{{ pluginDoc.summary }}</p>
+            <p v-if="pluginDoc.author" :class="bemm('subtitle')">
+              Author:
+              <RouterLink v-if="pluginDoc.author.websitePath" :to="pluginDoc.author.websitePath">
+                {{ pluginDoc.author.name }}
+              </RouterLink>
+              <template v-else>{{ pluginDoc.author.name }}</template>
+            </p>
             <div :class="bemm('links')">
               <RouterLink to="/plugins/">All plugins</RouterLink>
               <a :href="pluginDoc.sourceUrl" target="_blank" rel="noopener">Open README on GitHub</a>
@@ -78,8 +85,13 @@ const domainList = computed(() => {
                     <dd>{{ release?.version ?? pluginDoc.version }}</dd>
                   </div>
                   <div>
-                    <dt>Author</dt>
-                    <dd>{{ pluginDoc.author }}</dd>
+                    <dt>Publisher</dt>
+                    <dd>
+                      <RouterLink v-if="pluginDoc.author.websitePath" :to="pluginDoc.author.websitePath">
+                        {{ pluginDoc.author.name }}
+                      </RouterLink>
+                      <template v-else>{{ pluginDoc.author.name }}</template>
+                    </dd>
                   </div>
                   <div>
                     <dt>Category</dt>

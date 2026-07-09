@@ -112,6 +112,7 @@ async function syncDirectory(source, target) {
 async function main() {
   await syncDirectory(sourcePluginDir, targetPluginDir);
   await syncDirectory(path.join(repoRoot, 'schemas/plugin/v1'), path.join(exampleRepoRoot, 'schemas/plugin/v1'));
+  await cp(path.join(repoRoot, 'plugins/publishers.json'), path.join(exampleRepoRoot, 'plugins/publishers.json'));
   await syncDirectory(
     path.join(repoRoot, 'scripts/lib'),
     path.join(exampleRepoRoot, 'scripts/lib'),

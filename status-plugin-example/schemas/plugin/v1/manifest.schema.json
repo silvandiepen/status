@@ -5,7 +5,7 @@
   "description": "Identity, compatibility, permissions, and declared domains for a Status plugin package. Emitted events are declared in events.json and actions in actions.json; the manifest does not duplicate them.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "name", "version", "description", "minCoreVersion", "platforms", "permissions"],
+  "required": ["id", "name", "version", "author", "category", "description", "minCoreVersion", "platforms", "permissions"],
   "properties": {
     "id": {
       "type": "string",
@@ -24,9 +24,28 @@
       "description": "Package version."
     },
     "author": {
-      "type": "string",
-      "description": "Author or publisher name.",
-      "minLength": 1
+      "type": "object",
+      "description": "Plugin publisher shown in the store and on the website, similar to npm package authors.",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Display name for the publisher.",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "publisherId": {
+          "type": "string",
+          "description": "Slug referencing plugins/publishers.json for website publisher pages.",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "url": {
+          "type": "string",
+          "description": "Optional publisher page path on the Status website.",
+          "minLength": 1
+        }
+      }
     },
     "category": {
       "type": "string",

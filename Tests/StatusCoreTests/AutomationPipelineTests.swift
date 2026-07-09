@@ -387,7 +387,7 @@ private func installActionPlugin(
         id: provider,
         name: provider,
         version: "0.1.0",
-        author: "Status Foundry",
+        author: PluginAuthor(name: "Status Foundry", publisherId: "status-foundry"),
         category: "automation",
         description: "Automation fixture.",
         minCoreVersion: "0.1.0",

@@ -13,6 +13,7 @@ const router = createRouter({
     { path: '/download/', component: () => import('./views/DownloadView.vue') },
     { path: '/plugins/', component: () => import('./views/PluginsView.vue') },
     { path: '/plugins/:pluginId/', component: () => import('./views/PluginDetailView.vue') },
+    { path: '/publishers/:publisherId/', component: () => import('./views/PublisherDetailView.vue') },
     { path: '/developers/', component: () => import('./views/DevelopersView.vue') },
     { path: '/docs/', component: () => import('./views/DocsView.vue') },
     { path: '/docs/:docSlug/', component: () => import('./views/DocDetailView.vue') },
