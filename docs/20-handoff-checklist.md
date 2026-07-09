@@ -115,12 +115,12 @@ If Xcode project generation is easier, use XcodeGen and document the command. If
 
 ### Auth
 
-- Treat OAuth as deferred until the auth decision doc is written.
 - Use feasible MVP auth paths:
   - App Store Connect: JWT API key.
-  - GitHub: fine-grained token or PAT for early local testing.
+  - GitHub: OAuth 2 with PKCE where available; fine-grained token or PAT remains acceptable for early local testing.
   - Jira: API token.
   - Uptime/RSS/manual: no account auth.
+- OAuth plugin packages are supported when the plugin declares `oauth`, `keychain`, provider, public application ID/client ID, authorization URL, token URL, redirect URI, and scopes.
 
 ### Validation
 
@@ -331,7 +331,7 @@ These can run in parallel with skeleton work, but plugin runtime work should not
 - [x] Update `docs/07-security-privacy.md`.
 - [x] Update `docs/04-plugin-system.md`.
 - [x] Decide OAuth status for v1.
-- [x] Reject OAuth for v1 plugin packages; revisit PKCE only when OAuth is brought back.
+- [x] Implement native OAuth 2 PKCE authorization URL, callback handling, token exchange, Keychain-backed token storage, and refresh-token request support.
 - [x] Map MVP integrations to auth paths.
 
 ### Signing
@@ -388,7 +388,7 @@ Before any code is considered done, check:
 
 Do not start these until the foundations are stable:
 
-- [ ] real OAuth integrations;
+- [ ] provider production OAuth app registration and callback verification;
 - [ ] App Store Connect live API calls;
 - [ ] GitHub write actions;
 - [ ] Jira write actions;

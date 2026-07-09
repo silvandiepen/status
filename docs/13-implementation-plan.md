@@ -228,9 +228,10 @@ Acceptance: sample plugin's overview/list/detail views render natively on macOS 
 
 ### WP-3.6 Developer mode and sample plugin — Plugin Agent
 
-Status: Partially implemented in core/tooling/UI. `LocalPluginInstaller` can install
+Status: Implemented in core/tooling/UI for the native development flow. `LocalPluginInstaller` can install
 a local folder as `local-dev` with explicit unsigned warnings, the macOS
-plugin catalog exposes an **Install Local** developer-mode folder picker,
+plugin catalog exposes an **Install Local** developer-mode folder picker
+with structured validation diagnostics for manifest/package failures,
 the macOS app settings surface exposes a non-persisting **Preview
 Fixture** JSON mapping preview, the local plugin validator prints package
 checksums without publishing, the native app settings can run a
@@ -238,7 +239,7 @@ non-persisting live request test against a saved app/account, and
 `plugins/examples/mock-operations` exercises every package file plus request
 fixtures through native mapping tests.
 
-Remaining: schema validation detail UI.
+Remaining: no WP-3.6 native developer-mode blockers are known.
 
 Local plugin folder install with unsigned warnings, schema validation UI, test-request runner, mapped-output preview; a `plugins/examples/mock-operations` sample plugin exercising every package file.
 

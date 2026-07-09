@@ -29,6 +29,30 @@ import Testing
     #expect(try store.installedPluginDefinition(pluginID: result.plugin.id)?.views.map(\.id) == ["overview"])
 }
 
+@Test func localPluginInstallerReportsValidationDiagnosticsForInvalidLocalPlugin() throws {
+    let database = try temporaryLocalPluginDatabase()
+    let store = StatusPersistenceStore(database: database)
+    let installRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent("status-local-invalid-install-\(UUID().uuidString)", isDirectory: true)
+    let pluginDirectory = try writeInvalidLocalPluginFixture()
+    let installer = LocalPluginInstaller(store: store, installRoot: installRoot)
+
+    let report = installer.validate(pluginDirectory: pluginDirectory)
+
+    #expect(report.isValid == false)
+    #expect(report.errors.map(\.file) == ["manifest.json"])
+    #expect(report.errors.map(\.message) == ["Plugins with network permission must declare domains."])
+    #expect(report.warnings.map(\.message) == [
+        "Local-dev plugins are unsigned. Review permissions and domains before enabling automation."
+    ])
+    #expect(report.formattedSummary.contains("Error in manifest.json: Plugins with network permission must declare domains."))
+    #expect(report.formattedSummary.contains("Warning in manifest.json: Local-dev plugins are unsigned."))
+
+    #expect(throws: LocalPluginInstallerError.validationFailed(report)) {
+        _ = try installer.install(pluginDirectory: pluginDirectory)
+    }
+}
+
 @Test func mockOperationsPluginFixtureMapsThroughNativeEngine() throws {
     let pluginDirectory = repositoryRoot()
         .appendingPathComponent("plugins/examples/mock-operations", isDirectory: true)
@@ -108,4 +132,41 @@ private func repositoryRoot() -> URL {
         .deletingLastPathComponent()
         .deletingLastPathComponent()
         .deletingLastPathComponent()
+}
+
+private func writeInvalidLocalPluginFixture() throws -> URL {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("status-invalid-plugin-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    try Data("""
+    {
+      "id": "com.status.invalid.local",
+      "name": "Invalid Local",
+      "version": "0.1.0",
+      "author": { "name": "Status Foundry" },
+      "category": "developer",
+      "description": "Invalid plugin fixture.",
+      "minCoreVersion": "0.1.0",
+      "platforms": ["macOS"],
+      "permissions": ["network"],
+      "domains": []
+    }
+    """.utf8).write(to: directory.appendingPathComponent("manifest.json"))
+    try Data("""
+    {
+      "requests": {
+        "check": {
+          "method": "GET",
+          "url": "https://example.com/status"
+        }
+      }
+    }
+    """.utf8).write(to: directory.appendingPathComponent("requests.json"))
+    try Data("""
+    {
+      "resources": [],
+      "events": []
+    }
+    """.utf8).write(to: directory.appendingPathComponent("mappings.json"))
+    return directory
 }
