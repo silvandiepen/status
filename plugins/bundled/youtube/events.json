@@ -1,0 +1,20 @@
+{
+  "events": [
+    {
+      "type": "youtube.video.published",
+      "label": "Video published",
+      "description": "A video appeared in the connected creator account's recent uploads.",
+      "resourceType": "video",
+      "defaultSeverity": "notice",
+      "notificationDefault": "digest"
+    },
+    {
+      "type": "youtube.channel.visibility_limited",
+      "label": "Channel visibility limited",
+      "description": "A connected YouTube channel is not currently public.",
+      "resourceType": "channel",
+      "defaultSeverity": "warning",
+      "notificationDefault": "dashboard-only"
+    }
+  ]
+}

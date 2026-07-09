@@ -1,0 +1,17 @@
+{
+  "id": "com.status.youtube",
+  "name": "YouTube",
+  "version": "0.1.0",
+  "author": {
+    "name": "Status Foundry",
+    "publisherId": "status-foundry"
+  },
+  "category": "content",
+  "description": "Read-only YouTube channel status for creator accounts, latest uploads, subscriber counts, and channel-level signals.",
+  "icon": "sf:play.rectangle",
+  "accentColor": "#FF0033",
+  "minCoreVersion": "0.1.0",
+  "platforms": ["macOS", "iOS"],
+  "permissions": ["network", "keychain", "oauth", "background-refresh"],
+  "domains": ["accounts.google.com", "oauth2.googleapis.com", "www.googleapis.com"]
+}

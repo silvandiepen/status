@@ -1,0 +1,27 @@
+{
+  "requests": {
+    "list_my_channels": {
+      "method": "GET",
+      "url": "https://www.googleapis.com/youtube/v3/channels",
+      "auth": "default",
+      "query": {
+        "part": "snippet,statistics,contentDetails,status",
+        "mine": "true"
+      },
+      "timeoutSeconds": 30
+    },
+    "list_recent_uploads": {
+      "method": "GET",
+      "url": "https://www.googleapis.com/youtube/v3/search",
+      "auth": "default",
+      "query": {
+        "part": "snippet",
+        "forMine": "true",
+        "type": "video",
+        "order": "date",
+        "maxResults": "10"
+      },
+      "timeoutSeconds": 30
+    }
+  }
+}

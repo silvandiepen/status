@@ -1,0 +1,85 @@
+{
+  "resources": [
+    {
+      "type": "channel",
+      "request": "list_my_channels",
+      "source": "$.items[*]",
+      "id": "$.id",
+      "name": "$.snippet.title",
+      "fields": {
+        "description": "$.snippet.description",
+        "country": "$.snippet.country",
+        "subscriberCount": "$.statistics.subscriberCount",
+        "viewCount": "$.statistics.viewCount",
+        "videoCount": "$.statistics.videoCount",
+        "privacyStatus": "$.status.privacyStatus",
+        "uploadPlaylist": "$.contentDetails.relatedPlaylists.uploads"
+      },
+      "actionUrl": "https://studio.youtube.com/channel/{{id}}"
+    },
+    {
+      "type": "video",
+      "request": "list_recent_uploads",
+      "source": "$.items[*]",
+      "id": "$.id.videoId",
+      "name": "$.snippet.title",
+      "fields": {
+        "channelId": "$.snippet.channelId",
+        "channelTitle": "$.snippet.channelTitle",
+        "publishedAt": "$.snippet.publishedAt",
+        "description": "$.snippet.description"
+      },
+      "actionUrl": "https://www.youtube.com/watch?v={{resource.rawId}}"
+    }
+  ],
+  "events": [
+    {
+      "type": "youtube.video.published",
+      "request": "list_recent_uploads",
+      "source": "$.items[*]",
+      "resourceId": "$.id.videoId",
+      "title": "YouTube video published",
+      "summary": "{{snippet.title}} was published on {{snippet.channelTitle}}.",
+      "severity": "notice",
+      "actionUrl": "https://www.youtube.com/watch?v={{id.videoId}}",
+      "timestamp": "$.snippet.publishedAt"
+    },
+    {
+      "type": "youtube.channel.visibility_limited",
+      "request": "list_my_channels",
+      "source": "$.items[*]",
+      "when": "$.status.privacyStatus != 'public'",
+      "resourceId": "$.id",
+      "title": "YouTube channel visibility changed",
+      "summary": "{{snippet.title}} is currently {{status.privacyStatus}}.",
+      "severity": "warning",
+      "actionUrl": "https://studio.youtube.com/channel/{{id}}"
+    }
+  ],
+  "metrics": [
+    {
+      "request": "list_my_channels",
+      "source": "$.items[*]",
+      "name": "subscriber_count",
+      "resourceId": "$.id",
+      "value": "$.statistics.subscriberCount",
+      "unit": "subscribers"
+    },
+    {
+      "request": "list_my_channels",
+      "source": "$.items[*]",
+      "name": "view_count",
+      "resourceId": "$.id",
+      "value": "$.statistics.viewCount",
+      "unit": "views"
+    },
+    {
+      "request": "list_my_channels",
+      "source": "$.items[*]",
+      "name": "video_count",
+      "resourceId": "$.id",
+      "value": "$.statistics.videoCount",
+      "unit": "videos"
+    }
+  ]
+}

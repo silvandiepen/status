@@ -1,0 +1,17 @@
+{
+  "triggers": [
+    {
+      "id": "poll_channels",
+      "type": "cron",
+      "label": "Check YouTube channels",
+      "defaultSchedule": "*/30 * * * *",
+      "request": "list_my_channels"
+    },
+    {
+      "id": "refresh_recent_uploads",
+      "type": "manual",
+      "label": "Refresh recent uploads",
+      "request": "list_recent_uploads"
+    }
+  ]
+}

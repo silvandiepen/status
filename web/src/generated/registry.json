@@ -209,6 +209,51 @@
           "releasedAt": "2026-07-07T12:00:00Z"
         }
       ]
+    },
+    {
+      "id": "com.status.youtube",
+      "name": "YouTube",
+      "summary": "Track YouTube channel status, latest uploads, and creator metrics.",
+      "description": "Read-only YouTube channel status for creator accounts, latest uploads, subscriber counts, and channel-level signals.",
+      "category": "content",
+      "icon": "sf:play.rectangle",
+      "accentColor": "#FF0033",
+      "author": {
+        "name": "Status Foundry",
+        "publisherId": "status-foundry",
+        "websitePath": "/publishers/status-foundry/",
+        "externalUrl": "https://github.com/statusfoundry",
+        "repositoryUrl": "https://github.com/statusfoundry/status",
+        "publisherSummary": "Official Status integrations and reference plugin packages."
+      },
+      "trustLevel": "official",
+      "permissions": [
+        "network",
+        "keychain",
+        "oauth",
+        "background-refresh"
+      ],
+      "domains": [
+        "accounts.google.com",
+        "oauth2.googleapis.com",
+        "www.googleapis.com"
+      ],
+      "versions": [
+        {
+          "version": "0.1.0",
+          "minCoreVersion": "0.1.0",
+          "platforms": [
+            "macOS",
+            "iOS"
+          ],
+          "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.youtube/0.1.0/com.status.youtube-0.1.0.statusplugin.zip",
+          "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.youtube/0.1.0/manifest.json",
+          "sha256": "c214ae6939e2851c1142a2a38710a280067a6a1465cb11b11b4e1b0df1c28219",
+          "signature": "gqnfrLrONQ71YP28PqHgVOLCvbpY1v9PGwCHYMJWGEvVLjr66lUT6TOrJaR/J6hxWyX1yG85i2HkVVTfEU1ZAg==",
+          "signedBy": "status-foundry-dev",
+          "releasedAt": "2026-07-09T12:00:00Z"
+        }
+      ]
     }
   ]
 }

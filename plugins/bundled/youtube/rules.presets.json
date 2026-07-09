@@ -1,0 +1,24 @@
+{
+  "presets": [
+    {
+      "name": "Add visibility issues to inbox",
+      "description": "Adds channel visibility warnings to the Status inbox.",
+      "when": {
+        "eventType": "youtube.channel.visibility_limited",
+        "provider": "com.status.youtube"
+      },
+      "if": [
+        {
+          "field": "severity",
+          "operator": "matches_severity",
+          "value": "warning"
+        }
+      ],
+      "then": [
+        {
+          "action": "status.inbox.add"
+        }
+      ]
+    }
+  ]
+}

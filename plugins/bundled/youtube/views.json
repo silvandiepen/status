@@ -1,0 +1,25 @@
+{
+  "views": [
+    {
+      "id": "channels",
+      "type": "resource_list",
+      "title": "Channels",
+      "resourceType": "channel",
+      "fields": ["subscriberCount", "viewCount", "videoCount", "privacyStatus"]
+    },
+    {
+      "id": "recent-uploads",
+      "type": "resource_list",
+      "title": "Recent Uploads",
+      "resourceType": "video",
+      "fields": ["channelTitle", "publishedAt"]
+    },
+    {
+      "id": "channel-metrics",
+      "type": "metric_grid",
+      "title": "Channel Metrics",
+      "resourceType": "channel",
+      "fields": ["subscriberCount", "viewCount", "videoCount"]
+    }
+  ]
+}
