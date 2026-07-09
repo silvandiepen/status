@@ -104,6 +104,7 @@ public final class PluginStoreViewModel: ObservableObject {
     private let deleteConfiguration: (InstalledPlugin, PluginAccountConfiguration) async throws -> String
     private let completeOAuthConnection: (InstalledPlugin, String?, String?, [String: String], PluginOAuthAuthorizationRequest, URL) async throws -> String
     private let testPluginRequest: (InstalledPlugin, PluginAccountConfiguration, String) async throws -> String
+    private let previewProviderActionRequest: (ActionRuntimeProviderAction) async throws -> String
     private var oauthConnectionRequests: [String: PluginOAuthAuthorizationRequest]
 
     public init(
@@ -136,7 +137,8 @@ public final class PluginStoreViewModel: ObservableObject {
         completeOAuthConnection: @escaping (InstalledPlugin, String?, String?, [String: String], PluginOAuthAuthorizationRequest, URL) async throws -> String = { _, _, _, _, _, _ in
             "OAuth callback received."
         },
-        testPluginRequest: @escaping (InstalledPlugin, PluginAccountConfiguration, String) async throws -> String = { _, _, _ in "" }
+        testPluginRequest: @escaping (InstalledPlugin, PluginAccountConfiguration, String) async throws -> String = { _, _, _ in "" },
+        previewProviderActionRequest: @escaping (ActionRuntimeProviderAction) async throws -> String = { _ in "" }
     ) {
         self.catalog = initialCatalog
         self.runResults = [:]
@@ -188,6 +190,7 @@ public final class PluginStoreViewModel: ObservableObject {
         self.deleteConfiguration = deleteConfiguration
         self.completeOAuthConnection = completeOAuthConnection
         self.testPluginRequest = testPluginRequest
+        self.previewProviderActionRequest = previewProviderActionRequest
     }
 
     public func reload() async {
@@ -412,6 +415,51 @@ public final class PluginStoreViewModel: ObservableObject {
         } catch {
             loadError = error.localizedDescription
         }
+    }
+
+    public func previewProviderActionRequests(
+        for plugin: InstalledPlugin,
+        eventType: String,
+        actions: [RuleActionDefinition]
+    ) async throws -> String {
+        guard let account = selectedAccount(for: plugin) else {
+            throw PluginRulePreviewError.accountRequired
+        }
+        let trimmedEventType = eventType.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedEventType.isEmpty == false else {
+            throw PluginRulePreviewError.eventTypeRequired
+        }
+        let previewableActions = actions.filter { action in
+            actionSafetyLevel(for: action, plugin: plugin) == .reviewRequired &&
+                declaredAction(action.action, for: plugin) != nil
+        }
+        guard previewableActions.isEmpty == false else {
+            throw PluginRulePreviewError.noProviderActions
+        }
+        let event = Event(
+            id: "evt_preview_\(plugin.id.replacingOccurrences(of: ".", with: "_"))",
+            provider: plugin.id,
+            type: trimmedEventType,
+            resourceID: "preview_resource",
+            resourceName: "Preview resource",
+            severity: .warning,
+            title: "Preview event",
+            summary: "Preview event summary.",
+            timestamp: Date(),
+            fingerprint: "preview:\(plugin.id):\(trimmedEventType)"
+        )
+        var previews: [String] = []
+        for action in previewableActions {
+            let runtimeAction = ActionRuntimeProviderAction(
+                actionRunID: "run_preview_\(action.action.replacingOccurrences(of: ".", with: "_"))",
+                action: action.action,
+                provider: plugin.id,
+                parameters: action.parameters.merging(["account_id": account.id]) { _, selectedAccountID in selectedAccountID },
+                event: event
+            )
+            previews.append(try await previewProviderActionRequest(runtimeAction))
+        }
+        return previews.joined(separator: "\n\n---\n\n")
     }
 
     public func setAppRule(_ rule: Rule, enabled: Bool, for plugin: InstalledPlugin) async {
@@ -811,6 +859,10 @@ public final class PluginStoreViewModel: ObservableObject {
         ActionRunner.safetyLevel(for: action.action, declaredActions: pluginActions[plugin.id, default: []])
     }
 
+    private func declaredAction(_ actionID: String, for plugin: InstalledPlugin) -> PackagedPluginAction? {
+        pluginActions[plugin.id, default: []].first { $0.id == actionID }
+    }
+
     private func hasGrantedPermission(_ permission: PluginPermission, for plugin: InstalledPlugin) -> Bool {
         installedPermissions[plugin.id, default: []].contains {
             $0.permission == permission && $0.granted
@@ -868,6 +920,23 @@ public final class PluginStoreViewModel: ObservableObject {
     }
 
     private static let newAccountPrefix = "__new__:"
+}
+
+private enum PluginRulePreviewError: Error, LocalizedError {
+    case accountRequired
+    case eventTypeRequired
+    case noProviderActions
+
+    var errorDescription: String? {
+        switch self {
+        case .accountRequired:
+            return "Save an app before previewing provider actions."
+        case .eventTypeRequired:
+            return "Event type is required before previewing provider actions."
+        case .noProviderActions:
+            return "This rule has no provider-backed write actions to preview."
+        }
+    }
 }
 
 public struct PluginStoreContainerView: View {
@@ -1028,7 +1097,10 @@ public struct PluginStoreContainerView: View {
             previewingPluginID: previewingPluginID,
             previewResults: previewResults,
             previewErrors: previewErrors,
-            previewPluginFixture: pluginFixturePreviewAction
+            previewPluginFixture: pluginFixturePreviewAction,
+            previewRuleActions: { plugin, eventType, actions in
+                try await viewModel.previewProviderActionRequests(for: plugin, eventType: eventType, actions: actions)
+            }
         )
         .overlay(alignment: .bottom) {
             if let loadError = viewModel.loadError {
@@ -1285,6 +1357,9 @@ public struct PluginSettingsContainerView: View {
             },
             setDashboardTileField: { plugin, field, enabled in
                 Task { await viewModel.setDashboardTileField(field, enabled: enabled, for: plugin) }
+            },
+            previewRuleActions: { plugin, eventType, actions in
+                try await viewModel.previewProviderActionRequests(for: plugin, eventType: eventType, actions: actions)
             }
         )
     }
@@ -1434,6 +1509,7 @@ public struct PluginStoreView: View {
     private let previewResults: [String: String]
     private let previewErrors: [String: String]
     private let previewPluginFixture: ((InstalledPlugin, String?) -> Void)?
+    private let previewRuleActions: (InstalledPlugin, String, [RuleActionDefinition]) async throws -> String
     @State private var pluginPendingRemoval: InstalledPlugin?
     @State private var presentedSettingsPlugin: InstalledPlugin?
 
@@ -1497,7 +1573,8 @@ public struct PluginStoreView: View {
         previewingPluginID: String? = nil,
         previewResults: [String: String] = [:],
         previewErrors: [String: String] = [:],
-        previewPluginFixture: ((InstalledPlugin, String?) -> Void)? = nil
+        previewPluginFixture: ((InstalledPlugin, String?) -> Void)? = nil,
+        previewRuleActions: @escaping (InstalledPlugin, String, [RuleActionDefinition]) async throws -> String = { _, _, _ in "" }
     ) {
         self.catalog = catalog
         self.installingPluginID = installingPluginID
@@ -1559,6 +1636,7 @@ public struct PluginStoreView: View {
         self.previewResults = previewResults
         self.previewErrors = previewErrors
         self.previewPluginFixture = previewPluginFixture
+        self.previewRuleActions = previewRuleActions
     }
 
     public var body: some View {
@@ -1686,7 +1764,8 @@ public struct PluginStoreView: View {
             saveCustomAppRule: saveCustomAppRule,
             setAppRuleEnabled: setAppRuleEnabled,
             deleteAppRule: deleteAppRule,
-            setDashboardTileField: setDashboardTileField
+            setDashboardTileField: setDashboardTileField,
+            previewRuleActions: previewRuleActions
         )
     }
 
@@ -1953,6 +2032,7 @@ private struct PluginSettingsPanel: View {
     let setAppRuleEnabled: (InstalledPlugin, Rule, Bool) -> Void
     let deleteAppRule: (InstalledPlugin, Rule) -> Void
     let setDashboardTileField: (InstalledPlugin, String, Bool) -> Void
+    let previewRuleActions: (InstalledPlugin, String, [RuleActionDefinition]) async throws -> String
     @State private var confirmsAppRemoval = false
 
     var body: some View {
@@ -2132,6 +2212,9 @@ private struct PluginSettingsPanel: View {
                         },
                         deleteRule: { rule in
                             deleteAppRule(plugin, rule)
+                        },
+                        previewRuleActions: { eventType, actions in
+                            try await previewRuleActions(plugin, eventType, actions)
                         }
                     )
                     VStack(spacing: 10) {
@@ -2524,6 +2607,7 @@ private struct CustomAppRulesPanel: View {
     let saveRule: (String?, String, String, [RuleCondition], [RuleActionDefinition]) -> Void
     let setRuleEnabled: (Rule, Bool) -> Void
     let deleteRule: (Rule) -> Void
+    let previewRuleActions: (String, [RuleActionDefinition]) async throws -> String
     @State private var editingRuleID: String?
     @State private var draftName = ""
     @State private var draftEventType = ""
@@ -2532,6 +2616,9 @@ private struct CustomAppRulesPanel: View {
         CustomRuleActionDraft(action: "status.inbox.add"),
         CustomRuleActionDraft(action: "notification.show", value: "{{event.title}}")
     ]
+    @State private var requestPreviewResult: String?
+    @State private var requestPreviewError: String?
+    @State private var isPreviewingRequest = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -2627,6 +2714,14 @@ private struct CustomAppRulesPanel: View {
                         hasWritePermission: hasWritePermission,
                         actionSafetyLevel: actionSafetyLevel
                     )
+                    if canPreviewProviderActions {
+                        ProviderActionRequestPreviewPanel(
+                            isPreviewing: isPreviewingRequest,
+                            result: requestPreviewResult,
+                            error: requestPreviewError,
+                            preview: runRequestPreview
+                        )
+                    }
                     HStack {
                         if editingRuleID != nil {
                             Button("Cancel") {
@@ -2690,6 +2785,13 @@ private struct CustomAppRulesPanel: View {
         draftRuleActions.contains { actionSafetyLevel(for: $0) == .reviewRequired }
     }
 
+    private var canPreviewProviderActions: Bool {
+        draftRuleActions.contains { action in
+            actionSafetyLevel(for: action) == .reviewRequired &&
+                actionDefinition(for: action.action) != nil
+        }
+    }
+
     private var hasWritePermission: Bool {
         permissions.contains { $0.permission == .writeActions && $0.granted }
     }
@@ -2722,6 +2824,8 @@ private struct CustomAppRulesPanel: View {
         draftEventType = rule.eventType
         draftConditions = rule.conditions.isEmpty ? [CustomRuleConditionDraft()] : rule.conditions.map(CustomRuleConditionDraft.init)
         draftActions = rule.actions.isEmpty ? [CustomRuleActionDraft()] : rule.actions.map(CustomRuleActionDraft.init)
+        requestPreviewResult = nil
+        requestPreviewError = nil
     }
 
     private func resetDraft() {
@@ -2733,6 +2837,26 @@ private struct CustomAppRulesPanel: View {
             CustomRuleActionDraft(action: "status.inbox.add"),
             CustomRuleActionDraft(action: "notification.show", value: "{{event.title}}")
         ]
+        requestPreviewResult = nil
+        requestPreviewError = nil
+    }
+
+    private func runRequestPreview() {
+        guard isPreviewingRequest == false else { return }
+        isPreviewingRequest = true
+        requestPreviewResult = nil
+        requestPreviewError = nil
+        let eventType = draftEventType
+        let actions = draftRuleActions
+
+        Task { @MainActor in
+            defer { isPreviewingRequest = false }
+            do {
+                requestPreviewResult = try await previewRuleActions(eventType, actions)
+            } catch {
+                requestPreviewError = error.localizedDescription
+            }
+        }
     }
 
     private func appScopedRuleID(accountID: String, presetID: String) -> String {
@@ -2744,6 +2868,54 @@ private struct CustomAppRulesPanel: View {
                 String(character).rangeOfCharacter(from: allowed) == nil ? "_" : String(character)
             }
             .joined()
+    }
+}
+
+private struct ProviderActionRequestPreviewPanel: View {
+    let isPreviewing: Bool
+    let result: String?
+    let error: String?
+    let preview: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Label("Request preview", systemImage: "doc.text.magnifyingglass")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    preview()
+                } label: {
+                    if isPreviewing {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Label("Preview", systemImage: "eye")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(isPreviewing)
+            }
+            if let result, result.isEmpty == false {
+                Text(result)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let error {
+                Text(error)
+                    .font(.caption2)
+                    .foregroundStyle(.red)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.statusSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 

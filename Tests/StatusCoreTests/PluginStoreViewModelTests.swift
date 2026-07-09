@@ -701,6 +701,73 @@ import StatusCore
 }
 
 @MainActor
+@Test func pluginStoreViewModelPreviewsDeclaredProviderWriteActionRequest() async throws {
+    let plugin = InstalledPlugin(
+        id: "com.example.linear",
+        name: "Linear",
+        author: "Example",
+        description: "Linear issue creation.",
+        category: "operations",
+        trustLevel: .verifiedThirdParty,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/com.example.linear",
+        installedAt: Date(timeIntervalSince1970: 1_783_433_520),
+        updatedAt: Date(timeIntervalSince1970: 1_783_433_520)
+    )
+    let account = PluginAccountConfiguration(
+        id: "acc_linear",
+        pluginID: plugin.id,
+        accountName: "Team",
+        variables: [:]
+    )
+    let action = PackagedPluginAction(
+        id: "linear.createIssue",
+        label: "Create Linear issue",
+        requiresWritePermission: true,
+        inputSchema: PackagedPluginActionInputSchema(fields: [
+            PackagedPluginActionInputField(
+                key: "title",
+                label: "Title",
+                type: .template,
+                required: true,
+                defaultValue: "{{event.title}}"
+            )
+        ]),
+        request: "create_issue"
+    )
+    var capturedAction: ActionRuntimeProviderAction?
+    let viewModel = PluginStoreViewModel(
+        loadInstalled: { [plugin] },
+        loadAvailable: { [] },
+        loadActions: { _ in [action] },
+        installPlugin: { _ in },
+        canConfigurePlugin: { _ in true },
+        loadAccounts: { _ in [account] },
+        previewProviderActionRequest: { action in
+            capturedAction = action
+            return "POST https://api.linear.app/graphql\nBody: redacted"
+        }
+    )
+
+    await viewModel.reload()
+    let preview = try await viewModel.previewProviderActionRequests(
+        for: plugin,
+        eventType: "github.workflow.failed",
+        actions: [
+            RuleActionDefinition(action: "linear.createIssue", parameters: ["title": "{{event.title}}"])
+        ]
+    )
+
+    let previewAction = try #require(capturedAction)
+    #expect(preview == "POST https://api.linear.app/graphql\nBody: redacted")
+    #expect(previewAction.action == "linear.createIssue")
+    #expect(previewAction.provider == plugin.id)
+    #expect(previewAction.parameters["account_id"] == account.id)
+    #expect(previewAction.parameters["title"] == "{{event.title}}")
+    #expect(previewAction.event.type == "github.workflow.failed")
+}
+
+@MainActor
 @Test func pluginStoreViewModelBuildsOAuthConnectionURL() async throws {
     let plugin = InstalledPlugin(
         id: "com.status.oauthgithub",

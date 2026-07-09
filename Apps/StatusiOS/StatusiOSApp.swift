@@ -205,6 +205,10 @@ private struct IOSRootView: View {
             )
         } testPluginRequest: { plugin, account, requestID in
             try await testConfiguredPluginRequest(pluginID: plugin.id, requestID: requestID, accountID: account.id)
+        } previewProviderActionRequest: { action in
+            try await PluginRuntimeService(store: LocalStatusStore.openApplicationSupportStore())
+                .previewProviderActionRequest(action)
+                .summary
         }
     }
 
