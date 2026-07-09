@@ -38,6 +38,9 @@ private struct IOSRootView: View {
                         IOSPluginAppDetail(
                             pluginID: route.pluginID,
                             accountID: route.accountID,
+                            settingsViewModel: {
+                                makePluginStoreViewModel(platform: .iOS)
+                            },
                             runPlugin: { pluginID, accountID, accountName in
                                 try await runConfiguredPluginCheck(
                                     pluginID: pluginID,
@@ -560,6 +563,7 @@ private struct IOSAppRoute: Hashable {
 private struct IOSPluginAppDetail: View {
     let pluginID: String
     let accountID: String?
+    let settingsViewModel: () -> PluginStoreViewModel
     let runPlugin: (String, String, String) async throws -> String
 
     @State private var plugin: InstalledPlugin?
@@ -570,6 +574,7 @@ private struct IOSPluginAppDetail: View {
     @State private var runResult: String?
     @State private var runError: String?
     @State private var isRunning = false
+    @State private var showsSettings = false
 
     var body: some View {
         Group {
@@ -579,7 +584,9 @@ private struct IOSPluginAppDetail: View {
                     app: app,
                     runtimeStatus: runtimeStatus,
                     resources: resources,
-                    openSettings: {},
+                    openSettings: {
+                        showsSettings = true
+                    },
                     run: runnableAction
                 )
                 .overlay(alignment: .bottom) {
@@ -597,6 +604,25 @@ private struct IOSPluginAppDetail: View {
         }
         .refreshable {
             load()
+        }
+        .sheet(isPresented: $showsSettings) {
+            NavigationStack {
+                PluginSettingsContainerView(
+                    viewModel: settingsViewModel(),
+                    pluginID: pluginID,
+                    initialAccountID: accountID
+                )
+                .navigationTitle("App Settings")
+                #if os(iOS)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") {
+                            showsSettings = false
+                        }
+                    }
+                }
+                #endif
+            }
         }
     }
 

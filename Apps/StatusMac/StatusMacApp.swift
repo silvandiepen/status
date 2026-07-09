@@ -16,9 +16,9 @@ struct StatusMacApp: App {
         }
         .windowStyle(.titleBar)
 
-        WindowGroup("App Settings", id: "integration-settings", for: String.self) { $pluginID in
-            if let pluginID {
-                MacPluginSettingsWindow(pluginID: pluginID)
+        WindowGroup("App Settings", id: "integration-settings", for: String.self) { $settingsRoute in
+            if let settingsRoute {
+                MacPluginSettingsWindow(route: MacPluginSettingsRoute(rawValue: settingsRoute))
                     .onOpenURL { url in
                         StatusOAuthCallbackRouter.publish(url)
                     }
@@ -29,12 +29,13 @@ struct StatusMacApp: App {
 }
 
 private struct MacPluginSettingsWindow: View {
-    let pluginID: String
+    let route: MacPluginSettingsRoute
 
     var body: some View {
         PluginSettingsContainerView(
             viewModel: makePluginStoreViewModel(platform: .macOS),
-            pluginID: pluginID
+            pluginID: route.pluginID,
+            initialAccountID: route.accountID
         )
         .frame(minWidth: 640, minHeight: 520)
         .navigationTitle("App Settings")
@@ -248,6 +249,31 @@ private struct MacPluginSettingsWindow: View {
     }
 }
 
+private struct MacPluginSettingsRoute: Equatable {
+    var pluginID: String
+    var accountID: String?
+
+    init(pluginID: String, accountID: String? = nil) {
+        self.pluginID = pluginID
+        self.accountID = accountID
+    }
+
+    init(rawValue: String) {
+        let parts = rawValue.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false)
+        self.pluginID = parts.first.map(String.init) ?? rawValue
+        if parts.count == 2 {
+            let accountID = String(parts[1])
+            self.accountID = accountID.isEmpty ? nil : accountID
+        } else {
+            self.accountID = nil
+        }
+    }
+
+    var rawValue: String {
+        "\(pluginID)|\(accountID ?? "")"
+    }
+}
+
 private struct MacRootView: View {
     @Environment(\.openWindow) private var openWindow
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
@@ -332,7 +358,10 @@ private struct MacRootView: View {
                     PluginStoreContainerView(
                         viewModel: makePluginStoreViewModel(platform: .macOS),
                         openSettings: { plugin in
-                            openWindow(id: "integration-settings", value: plugin.id)
+                            openWindow(
+                                id: "integration-settings",
+                                value: MacPluginSettingsRoute(pluginID: plugin.id).rawValue
+                            )
                         },
                         installLocalPlugin: {
                             try await installLocalPluginFolder()
@@ -349,7 +378,10 @@ private struct MacRootView: View {
                         pluginID: pluginID,
                         accountID: accountID,
                         openSettings: {
-                            openWindow(id: "integration-settings", value: pluginID)
+                            openWindow(
+                                id: "integration-settings",
+                                value: MacPluginSettingsRoute(pluginID: pluginID, accountID: accountID).rawValue
+                            )
                         },
                         runPlugin: { pluginID, accountID, accountName in
                             try await runConfiguredPluginCheck(

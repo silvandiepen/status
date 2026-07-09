@@ -875,13 +875,17 @@ public struct PluginStoreContainerView: View {
 public struct PluginSettingsContainerView: View {
     @StateObject private var viewModel: PluginStoreViewModel
     private let pluginID: String
+    private let initialAccountID: String?
+    @State private var appliedInitialAccountSelection = false
 
     public init(
         viewModel: @autoclosure @escaping () -> PluginStoreViewModel,
-        pluginID: String
+        pluginID: String,
+        initialAccountID: String? = nil
     ) {
         _viewModel = StateObject(wrappedValue: viewModel())
         self.pluginID = pluginID
+        self.initialAccountID = initialAccountID
     }
 
     public var body: some View {
@@ -913,9 +917,11 @@ public struct PluginSettingsContainerView: View {
         }
         .task {
             await viewModel.reload()
+            applyInitialAccountSelectionIfNeeded()
         }
         .refreshable {
             await viewModel.reload()
+            applyInitialAccountSelectionIfNeeded()
         }
         .onOpenURL { url in
             Task {
@@ -928,6 +934,17 @@ public struct PluginSettingsContainerView: View {
                 await viewModel.handleOAuthCallbackIfPending(callbackURL: url)
             }
         }
+    }
+
+    private func applyInitialAccountSelectionIfNeeded() {
+        guard appliedInitialAccountSelection == false,
+              let initialAccountID,
+              let plugin = viewModel.catalog.installed.first(where: { $0.id == pluginID }),
+              viewModel.configuredAccounts[pluginID, default: []].contains(where: { $0.id == initialAccountID }) else {
+            return
+        }
+        viewModel.selectAccount(initialAccountID, for: plugin)
+        appliedInitialAccountSelection = true
     }
 
     @ViewBuilder
