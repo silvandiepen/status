@@ -247,10 +247,20 @@ public struct MappingTemplateContext: Equatable, Sendable {
         }
 
         for field in fieldParts {
-            guard case .object(let object) = current, let next = object[field] else {
+            switch current {
+            case .object(let object):
+                guard let next = object[field] else {
+                    return nil
+                }
+                current = next
+            case .array(let array):
+                guard let index = Int(field), array.indices.contains(index) else {
+                    return nil
+                }
+                current = array[index]
+            case .string, .number, .bool, .null:
                 return nil
             }
-            current = next
         }
         return current
     }

@@ -16,6 +16,7 @@ import Testing
         "com.status.appstoreconnect",
         "com.status.github",
         "com.status.gitlab",
+        "com.status.googleplay",
         "com.status.jira",
         "com.status.website",
         "com.status.youtube"
@@ -26,9 +27,11 @@ import Testing
     #expect(try store.installedPlugin(id: "com.status.gitlab")?.setup?.fields.first?.id == "projectId")
     #expect(try store.triggers().contains { $0.pluginID == "com.status.website" && $0.kind == .manual && $0.requestID == "check_site" })
     #expect(try store.triggers().contains { $0.pluginID == "com.status.gitlab" && $0.kind == .cron && $0.requestID == "list_pipelines" })
+    #expect(try store.triggers().contains { $0.pluginID == "com.status.googleplay" && $0.kind == .cron && $0.requestID == "list_reviews" })
     #expect(try store.triggers().contains { $0.pluginID == "com.status.youtube" && $0.kind == .cron && $0.requestID == "list_my_channels" })
     #expect(try store.rules().contains { $0.provider == "com.status.website" && $0.eventType == "website.down" })
     #expect(try store.rules().contains { $0.provider == "com.status.gitlab" && $0.eventType == "gitlab.pipeline.failed" })
+    #expect(try store.rules().contains { $0.provider == "com.status.googleplay" && $0.eventType == "googleplay.review.needs_attention" })
     #expect(try store.rules().contains { $0.provider == "com.status.youtube" && $0.eventType == "youtube.channel.visibility_limited" })
     #expect(try store.installedPluginDefinition(pluginID: "com.status.jira")?.actions.map(\.id) == ["jira.createIssue"])
     let websiteVersion = try #require(try store.installedPluginVersions(pluginID: "com.status.website").first)
@@ -144,6 +147,69 @@ import Testing
     #expect(uploadOutput.events.map { $0.type } == ["youtube.video.published"])
     #expect(uploadOutput.events[0].summary == "Status update was published on Status Foundry.")
     #expect(uploadOutput.events[0].timestamp == ISO8601DateFormatter().date(from: "2026-07-09T10:00:00Z"))
+}
+
+@Test func bundledGooglePlayPluginMapsReviewsAndMetrics() throws {
+    let database = try temporaryBundledPluginDatabase()
+    let store = StatusPersistenceStore(database: database)
+    let installRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent("status-bundled-\(UUID().uuidString)", isDirectory: true)
+    let installer = BundledPluginInstaller(store: store, installRoot: installRoot)
+    _ = try installer.install(pluginID: "com.status.googleplay", installedAt: Date(timeIntervalSince1970: 1_783_433_520))
+    let definition = try #require(try store.installedPluginDefinition(pluginID: "com.status.googleplay"))
+    let capturedAt = Date(timeIntervalSince1970: 1_783_433_520)
+
+    let output = try PluginMappingExecutor.execute(
+        definition.mappings,
+        input: PluginMappingExecutionInput(
+            pluginID: "com.status.googleplay",
+            accountID: "acct_play",
+            provider: "com.status.googleplay",
+            requestID: "list_reviews",
+            payload: decodeBundledMappingJSON("""
+            {
+              "reviews": [
+                {
+                  "reviewId": "gp_review_1",
+                  "comments": [
+                    {
+                      "userComment": {
+                        "text": "Login broke after the update.",
+                        "starRating": 1,
+                        "reviewerLanguage": "en",
+                        "appVersionName": "2.3.0",
+                        "androidOsVersion": "34",
+                        "lastModified": {
+                          "seconds": "1783433520",
+                          "nanos": 0
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+            """),
+            capturedAt: capturedAt,
+            account: .object(["packageName": .string("com.status.app")])
+        )
+    )
+
+    #expect(output.resources.map { $0.resource.id } == ["acct_play:gp_review_1"])
+    #expect(output.resources[0].resource.name == "Login broke after the update.")
+    #expect(output.resources[0].state["packageName"] == "com.status.app")
+    #expect(output.resources[0].state["starRating"] == "1")
+    #expect(output.resources[0].resource.actionURL?.absoluteString == "https://play.google.com/console/developers/app/app-dashboard?packageName=com.status.app")
+    #expect(output.events.map { $0.type } == [
+        "googleplay.review.received",
+        "googleplay.review.needs_attention"
+    ])
+    #expect(output.events[0].summary == "1 star review for com.status.app.")
+    #expect(output.events[0].severity == Severity.warning)
+    #expect(output.events[1].summary == "com.status.app received a 1 star review.")
+    #expect(output.events[1].severity == Severity.warning)
+    #expect(output.metrics.map { $0.metric.id } == ["acct_play:gp_review_1:metric:review_rating"])
+    #expect(output.metrics[0].metric.value == "1")
 }
 
 private func decodeBundledMappingJSON(_ string: String) throws -> MappingJSONValue {

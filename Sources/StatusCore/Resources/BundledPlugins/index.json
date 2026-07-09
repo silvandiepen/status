@@ -60,6 +60,27 @@
       "manifestResourceName": "com.status.gitlab-0.1.0-manifest.json"
     },
     {
+      "id": "com.status.googleplay",
+      "version": "0.1.0",
+      "trustLevel": "official",
+      "minCoreVersion": "0.1.0",
+      "platforms": [
+        "macOS",
+        "iOS"
+      ],
+      "domains": [
+        "accounts.google.com",
+        "oauth2.googleapis.com",
+        "androidpublisher.googleapis.com"
+      ],
+      "sha256": "94415cac80b819be51c0ccba0513f533cae094b3595fed923be07f7678e61da4",
+      "signature": "51NAoNUiDrN0UrKB1PJ+xneH3HFDZGmmj5BTXEJ3zHwDPenp274DUL9QF28loHhuA5obuCNrClhsvNzI49goAA==",
+      "signedBy": "status-foundry-dev",
+      "releasedAt": "2026-07-09T12:00:00Z",
+      "packageResourceName": "com.status.googleplay-0.1.0.statusplugin.zip",
+      "manifestResourceName": "com.status.googleplay-0.1.0-manifest.json"
+    },
+    {
       "id": "com.status.jira",
       "version": "0.1.0",
       "trustLevel": "official",

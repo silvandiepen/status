@@ -1,0 +1,65 @@
+{
+  "resources": [
+    {
+      "type": "review",
+      "request": "list_reviews",
+      "source": "$.reviews[*]",
+      "id": "$.reviewId",
+      "name": "$.comments[0].userComment.text",
+      "fields": {
+        "packageName": "{{account.packageName}}",
+        "starRating": "$.comments[0].userComment.starRating",
+        "reviewerLanguage": "$.comments[0].userComment.reviewerLanguage",
+        "appVersionName": "$.comments[0].userComment.appVersionName",
+        "androidOsVersion": "$.comments[0].userComment.androidOsVersion",
+        "lastModified": "$.comments[0].userComment.lastModified.seconds"
+      },
+      "actionUrl": "https://play.google.com/console/developers/app/app-dashboard?packageName={{account.packageName}}"
+    }
+  ],
+  "events": [
+    {
+      "type": "googleplay.review.received",
+      "request": "list_reviews",
+      "source": "$.reviews[*]",
+      "resourceId": "$.reviewId",
+      "title": "Google Play review received",
+      "summary": "{{comments.0.userComment.starRating}} star review for {{account.packageName}}.",
+      "severity": {
+        "path": "$.comments[0].userComment.starRating",
+        "map": {
+          "1": "warning",
+          "2": "warning",
+          "3": "notice",
+          "4": "notice",
+          "5": "notice"
+        },
+        "default": "notice"
+      },
+      "actionUrl": "https://play.google.com/console/developers/app/app-dashboard?packageName={{account.packageName}}",
+      "timestamp": "$.comments[0].userComment.lastModified.seconds"
+    },
+    {
+      "type": "googleplay.review.needs_attention",
+      "request": "list_reviews",
+      "source": "$.reviews[*]",
+      "when": "$.comments[0].userComment.starRating <= 2",
+      "resourceId": "$.reviewId",
+      "title": "Low Google Play review",
+      "summary": "{{account.packageName}} received a {{comments.0.userComment.starRating}} star review.",
+      "severity": "warning",
+      "actionUrl": "https://play.google.com/console/developers/app/app-dashboard?packageName={{account.packageName}}",
+      "timestamp": "$.comments[0].userComment.lastModified.seconds"
+    }
+  ],
+  "metrics": [
+    {
+      "request": "list_reviews",
+      "source": "$.reviews[*]",
+      "name": "review_rating",
+      "resourceId": "$.reviewId",
+      "value": "$.comments[0].userComment.starRating",
+      "timestamp": "$.comments[0].userComment.lastModified.seconds"
+    }
+  ]
+}

@@ -67,7 +67,14 @@ import Testing
         "item": .object([
             "id": .string("42"),
             "ready": .bool(true),
-            "count": .number(3)
+            "count": .number(3),
+            "comments": .array([
+                .object([
+                    "userComment": .object([
+                        "starRating": .number(1)
+                    ])
+                ])
+            ])
         ]),
         "resource": .object([
             "name": .string("Status")
@@ -78,11 +85,11 @@ import Testing
     ])
 
     let rendered = MappingTemplateRenderer.render(
-        "{{resource.name}} {{id}} {{ready}} {{count}} {{event.severity}} {{missing}}",
+        "{{resource.name}} {{id}} {{ready}} {{count}} {{comments.0.userComment.starRating}} {{event.severity}} {{missing}}",
         context: context
     )
 
-    #expect(rendered == "Status 42 true 3 warning ")
+    #expect(rendered == "Status 42 true 3 1 warning ")
 }
 
 @Test func mappingTemplateEscapesLiteralOpeningBraces() {

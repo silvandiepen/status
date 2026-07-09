@@ -1,0 +1,29 @@
+{
+  "id": "com.status.googleplay",
+  "name": "Google Play",
+  "version": "0.1.0",
+  "author": {
+    "name": "Status Foundry",
+    "publisherId": "status-foundry"
+  },
+  "category": "developer",
+  "description": "Read-only Google Play Console status for Android app reviews, ratings, and release-facing signals.",
+  "icon": "sf:play.square.stack",
+  "accentColor": "#34A853",
+  "minCoreVersion": "0.1.0",
+  "platforms": [
+    "macOS",
+    "iOS"
+  ],
+  "permissions": [
+    "network",
+    "keychain",
+    "oauth",
+    "background-refresh"
+  ],
+  "domains": [
+    "accounts.google.com",
+    "oauth2.googleapis.com",
+    "androidpublisher.googleapis.com"
+  ]
+}

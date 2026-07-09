@@ -1,0 +1,17 @@
+{
+  "triggers": [
+    {
+      "id": "poll_reviews",
+      "type": "cron",
+      "label": "Check recent reviews",
+      "request": "list_reviews",
+      "defaultSchedule": "0 * * * *"
+    },
+    {
+      "id": "refresh_reviews",
+      "type": "manual",
+      "label": "Refresh reviews",
+      "request": "list_reviews"
+    }
+  ]
+}

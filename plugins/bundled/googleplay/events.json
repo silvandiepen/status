@@ -1,0 +1,20 @@
+{
+  "events": [
+    {
+      "type": "googleplay.review.received",
+      "label": "Google Play review received",
+      "description": "A Google Play user review was returned for a configured app.",
+      "resourceType": "review",
+      "defaultSeverity": "notice",
+      "notificationDefault": "digest"
+    },
+    {
+      "type": "googleplay.review.needs_attention",
+      "label": "Low Google Play review",
+      "description": "A configured Google Play app received a low-rating review.",
+      "resourceType": "review",
+      "defaultSeverity": "warning",
+      "notificationDefault": "dashboard-only"
+    }
+  ]
+}

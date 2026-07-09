@@ -1,0 +1,29 @@
+{
+  "presets": [
+    {
+      "name": "Notify on low Google Play reviews",
+      "description": "Adds low-rating Google Play reviews to the Status inbox and shows a local notification.",
+      "when": {
+        "eventType": "googleplay.review.needs_attention",
+        "provider": "com.status.googleplay"
+      },
+      "if": [
+        {
+          "field": "severity",
+          "operator": "matches_severity",
+          "value": "warning"
+        }
+      ],
+      "then": [
+        {
+          "action": "notification.show",
+          "title": "Google Play review needs attention"
+        },
+        {
+          "action": "status.inbox.add",
+          "title": "Low Google Play review"
+        }
+      ]
+    }
+  ]
+}

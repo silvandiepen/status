@@ -1,0 +1,18 @@
+{
+  "views": [
+    {
+      "id": "reviews",
+      "type": "resource_list",
+      "title": "Recent Reviews",
+      "resourceType": "review",
+      "fields": ["starRating", "reviewerLanguage", "appVersionName"]
+    },
+    {
+      "id": "review-ratings",
+      "type": "metric_grid",
+      "title": "Review Ratings",
+      "resourceType": "review",
+      "fields": ["starRating", "reviewerLanguage", "appVersionName"]
+    }
+  ]
+}

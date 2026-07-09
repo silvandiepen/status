@@ -1,0 +1,14 @@
+{
+  "title": "Connect a Google Play app",
+  "description": "Use an OAuth account with access to the Google Play Console app, then enter the Android package name.",
+  "fields": [
+    {
+      "id": "packageName",
+      "label": "Package name",
+      "type": "text",
+      "required": true,
+      "placeholder": "com.example.app",
+      "helpText": "The Android package name shown in Google Play Console."
+    }
+  ]
+}

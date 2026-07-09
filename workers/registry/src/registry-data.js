@@ -129,6 +129,51 @@ export const registry = {
       ]
     },
     {
+      "id": "com.status.googleplay",
+      "name": "Google Play",
+      "summary": "Track Google Play reviews and low-rating app feedback.",
+      "description": "Read-only Google Play Console status for Android app reviews, ratings, and release-facing signals.",
+      "category": "developer",
+      "icon": "sf:play.square.stack",
+      "accentColor": "#34A853",
+      "author": {
+        "name": "Status Foundry",
+        "publisherId": "status-foundry",
+        "websitePath": "/publishers/status-foundry/",
+        "externalUrl": "https://github.com/statusfoundry",
+        "repositoryUrl": "https://github.com/statusfoundry/status",
+        "publisherSummary": "Official Status integrations and reference plugin packages."
+      },
+      "trustLevel": "official",
+      "permissions": [
+        "network",
+        "keychain",
+        "oauth",
+        "background-refresh"
+      ],
+      "domains": [
+        "accounts.google.com",
+        "oauth2.googleapis.com",
+        "androidpublisher.googleapis.com"
+      ],
+      "versions": [
+        {
+          "version": "0.1.0",
+          "minCoreVersion": "0.1.0",
+          "platforms": [
+            "macOS",
+            "iOS"
+          ],
+          "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.googleplay/0.1.0/com.status.googleplay-0.1.0.statusplugin.zip",
+          "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.googleplay/0.1.0/manifest.json",
+          "sha256": "94415cac80b819be51c0ccba0513f533cae094b3595fed923be07f7678e61da4",
+          "signature": "51NAoNUiDrN0UrKB1PJ+xneH3HFDZGmmj5BTXEJ3zHwDPenp274DUL9QF28loHhuA5obuCNrClhsvNzI49goAA==",
+          "signedBy": "status-foundry-dev",
+          "releasedAt": "2026-07-09T12:00:00Z"
+        }
+      ]
+    },
+    {
       "id": "com.status.jira",
       "name": "Jira",
       "summary": "Track Jira project issues and create follow-up issues from Status automations.",
