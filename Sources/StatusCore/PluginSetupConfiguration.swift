@@ -164,6 +164,20 @@ public enum PluginSetupConfiguration {
         return "Saved \(displayName)."
     }
 
+    @discardableResult
+    public static func deleteAccountConfiguration(
+        accountID: String,
+        store: StatusPersistenceStore,
+        credentialStore: CredentialStore
+    ) throws -> String? {
+        let configuration = try store.accountConfiguration(accountID: accountID)
+        try store.deleteAccountConfiguration(accountID: accountID)
+        if let credentialRef = configuration?.credentialRef {
+            try credentialStore.delete(reference: credentialRef)
+        }
+        return configuration?.accountName
+    }
+
     public static func accountID(pluginID: String, displayName: String) -> String {
         let raw = "\(pluginID)_\(displayName)"
         let sanitized = raw

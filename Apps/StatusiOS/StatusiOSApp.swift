@@ -184,7 +184,11 @@ private struct IOSRootView: View {
         } saveConfigurationValues: { plugin, accountID, displayName, values in
             try savePluginSetup(plugin: plugin, accountID: accountID, displayName: displayName, values: values)
         } deleteConfiguration: { _, account in
-            try LocalStatusStore.openApplicationSupportStore().deleteAccountConfiguration(accountID: account.id)
+            try PluginSetupConfiguration.deleteAccountConfiguration(
+                accountID: account.id,
+                store: LocalStatusStore.openApplicationSupportStore(),
+                credentialStore: KeychainCredentialStore()
+            )
             return "Removed \(account.accountName)."
         } completeOAuthConnection: { plugin, accountID, displayName, values, request, callbackURL in
             try await saveOAuthPluginSetup(
