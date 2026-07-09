@@ -296,7 +296,7 @@ private struct MacRootView: View {
                         Label("Apps", systemImage: "puzzlepiece.extension")
                     }
                     NavigationLink(value: MacSection.rules) {
-                        Label("Rules", systemImage: "slider.horizontal.3")
+                        Label("Cross-App", systemImage: "slider.horizontal.3")
                     }
                     NavigationLink(value: MacSection.audit) {
                         Label("Audit Log", systemImage: "list.bullet.rectangle")
@@ -365,7 +365,7 @@ private struct MacRootView: View {
                 detailWithIntegrationTabs {
                     RulesContainerView(viewModel: makeRulesViewModel())
                 }
-                    .navigationTitle("Rules")
+                    .navigationTitle("Cross-App Rules")
             case .audit:
                 detailWithIntegrationTabs {
                     AuditLogContainerView(viewModel: makeAuditLogViewModel())

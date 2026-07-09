@@ -272,9 +272,9 @@ public struct RulesListView: View {
     }
 
     public var body: some View {
-        StatusListPage(title: "Rules", subtitle: "\(rules.count) local automation rule\(rules.count == 1 ? "" : "s").") {
+        StatusListPage(title: "Cross-App Rules", subtitle: "\(rules.count) cross-app automation rule\(rules.count == 1 ? "" : "s").") {
             if rules.isEmpty {
-                EmptyState(title: "No rules", detail: "Suggested plugin rules appear here after plugin install and stay disabled until the user enables them.")
+                EmptyState(title: "No cross-app rules", detail: "App-specific rules live in each app's settings. Only rules linking multiple apps appear here.")
             } else {
                 VStack(spacing: 10) {
                     ForEach(rules) { rule in

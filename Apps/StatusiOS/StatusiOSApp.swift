@@ -71,10 +71,10 @@ private struct IOSRootView: View {
 
             NavigationStack {
                 RulesContainerView(viewModel: makeRulesViewModel())
-                    .navigationTitle("Rules")
+                    .navigationTitle("Cross-App Rules")
             }
             .tabItem {
-                Label("Rules", systemImage: "slider.horizontal.3")
+                Label("Cross-App", systemImage: "slider.horizontal.3")
             }
 
             NavigationStack {
