@@ -5,6 +5,8 @@
   "author": "Status Foundry",
   "category": "developer",
   "description": "Read-only GitHub repository events for workflow failures, pull requests, and issue activity.",
+  "icon": "sf:chevron.left.forwardslash.chevron.right",
+  "accentColor": "#4B5563",
   "minCoreVersion": "0.1.0",
   "platforms": ["macOS", "iOS"],
   "permissions": ["network", "keychain", "background-refresh"],

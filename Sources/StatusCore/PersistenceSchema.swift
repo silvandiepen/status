@@ -1,7 +1,7 @@
 import Foundation
 
 public enum StatusDatabaseMigrator {
-    public static let currentUserVersion = 4
+    public static let currentUserVersion = 5
 
     public static func migrate(_ database: SQLiteDatabase) throws {
         try database.executeBatch("""
@@ -28,6 +28,14 @@ public enum StatusDatabaseMigrator {
         if numericUserVersion > 0 && numericUserVersion < 4 {
             try database.executeBatch(notificationPreferencesSchema)
         }
+        if numericUserVersion > 0 && numericUserVersion < 5 {
+            try addColumnIfMissing(
+                database,
+                table: "plugins",
+                column: "accent_color",
+                definition: "TEXT"
+            )
+        }
         try database.executeBatch("PRAGMA user_version = \(currentUserVersion);")
     }
 
@@ -53,6 +61,7 @@ public enum StatusDatabaseMigrator {
       description       TEXT NOT NULL,
       category          TEXT NOT NULL,
       icon_path         TEXT,
+      accent_color      TEXT,
       trust_level       TEXT NOT NULL,
       installed_version TEXT NOT NULL,
       install_path      TEXT NOT NULL,

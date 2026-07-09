@@ -209,6 +209,11 @@ Plugin packages now decode `views.json`, bundled packages include basic
 descriptors, the package builder validates view type/resource references, and
 integration settings render descriptor-driven native lists, detail panels,
 metric-style grids, timelines, and alert lists from persisted resources.
+Integration rows, sidebars, and the collapsed macOS integration strip use
+plugin-declared SF Symbol icons plus `#RRGGBB` accent colors from manifest
+metadata. The integrations page remains a catalog for installed/available
+plugins; detailed account setup opens separately, with macOS using a dedicated
+integration settings window.
 
 Depends: WP-3.1, WP-1.4.
 Acceptance: sample plugin's overview/list/detail views render natively on macOS and iOS.

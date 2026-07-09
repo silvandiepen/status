@@ -87,6 +87,7 @@ Fields:
 - description;
 - category;
 - icon;
+- accent color;
 - supported platforms;
 - minimum core version;
 - permissions;

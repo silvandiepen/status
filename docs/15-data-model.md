@@ -151,6 +151,7 @@ CREATE TABLE plugins (
   description       TEXT NOT NULL,
   category          TEXT NOT NULL,
   icon_path         TEXT,                       -- relative path inside install dir
+  accent_color      TEXT,                       -- #RRGGBB manifest accent color for app-owned UI
   trust_level       TEXT NOT NULL,              -- official | verified-third-party | local-dev
   installed_version TEXT NOT NULL,              -- matches a plugin_versions.version
   install_path      TEXT NOT NULL,              -- app support directory location

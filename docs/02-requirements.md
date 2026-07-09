@@ -107,6 +107,7 @@ Each integration must provide:
 
 - identity;
 - icon;
+- accent color;
 - description;
 - setup schema;
 - permissions;

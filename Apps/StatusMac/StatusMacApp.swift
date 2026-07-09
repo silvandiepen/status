@@ -188,7 +188,12 @@ private struct MacRootView: View {
                                     Text(plugin.name)
                                         .lineLimit(1)
                                 } icon: {
-                                    IntegrationIcon(provider: plugin.id, size: 22)
+                                    IntegrationIcon(
+                                        provider: plugin.id,
+                                        icon: plugin.iconPath,
+                                        accentColor: plugin.accentColor,
+                                        size: 22
+                                    )
                                 }
                             }
                             .buttonStyle(.plain)
@@ -290,7 +295,12 @@ private struct MacRootView: View {
                         Button {
                             selection = .integrations
                         } label: {
-                            IntegrationIcon(provider: plugin.id, size: 28)
+                            IntegrationIcon(
+                                provider: plugin.id,
+                                icon: plugin.iconPath,
+                                accentColor: plugin.accentColor,
+                                size: 28
+                            )
                         }
                         .buttonStyle(.plain)
                         .help(plugin.name)

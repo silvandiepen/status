@@ -5,6 +5,8 @@
   "author": "Status Foundry",
   "category": "developer",
   "description": "Read-only App Store Connect status events for apps, review state, build processing, and release readiness.",
+  "icon": "sf:app.badge",
+  "accentColor": "#2F80ED",
   "minCoreVersion": "0.1.0",
   "platforms": [
     "macOS",

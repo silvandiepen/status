@@ -1121,8 +1121,8 @@ public final class StatusPersistenceStore {
         try database.execute(
             """
             INSERT OR REPLACE INTO plugins
-            (id, name, author, description, category, icon_path, trust_level, installed_version, install_path, enabled, installed_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, COALESCE((SELECT installed_at FROM plugins WHERE id = ?), ?), ?)
+            (id, name, author, description, category, icon_path, accent_color, trust_level, installed_version, install_path, enabled, installed_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, COALESCE((SELECT installed_at FROM plugins WHERE id = ?), ?), ?)
             """,
             bindings: [
                 .text(record.manifest.id),
@@ -1131,6 +1131,7 @@ public final class StatusPersistenceStore {
                 .text(record.manifest.description),
                 .text(record.manifest.category),
                 record.manifest.icon.map { .text($0) } ?? .null,
+                record.manifest.accentColor.map { .text($0) } ?? .null,
                 .text(record.trustLevel.rawValue),
                 .text(record.manifest.version),
                 .text(record.installPath),
@@ -1412,6 +1413,7 @@ public final class StatusPersistenceStore {
             description: row.requiredText("description"),
             category: row.requiredText("category"),
             iconPath: row.optionalText("icon_path"),
+            accentColor: row.optionalText("accent_color"),
             trustLevel: PluginTrustLevel(rawValue: row.requiredText("trust_level")) ?? .localDev,
             installedVersion: installedVersion,
             installPath: row.requiredText("install_path"),

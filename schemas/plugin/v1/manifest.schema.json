@@ -39,6 +39,19 @@
       "minLength": 1,
       "maxLength": 500
     },
+    "icon": {
+      "type": "string",
+      "description": "SF Symbol name for the app-owned integration icon. A leading sf: prefix is accepted and stripped by native UI.",
+      "minLength": 1,
+      "maxLength": 80,
+      "examples": ["sf:globe"]
+    },
+    "accentColor": {
+      "type": "string",
+      "description": "Plugin accent color used for app-owned icons and rows.",
+      "pattern": "^#[0-9A-Fa-f]{6}$",
+      "examples": ["#2F80ED"]
+    },
     "minCoreVersion": {
       "$ref": "#/$defs/semver",
       "description": "Minimum Status core version this plugin requires."

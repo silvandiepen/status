@@ -80,6 +80,15 @@ import Testing
     }
 }
 
+@Test func accentColorMustBeHexColor() {
+    var manifest = appStoreConnectManifest()
+    manifest.accentColor = "blue"
+
+    #expect(throws: PluginValidationError.invalidAccentColor("blue")) {
+        try PluginManifestValidator.validate(PluginValidationInput(manifest: manifest))
+    }
+}
+
 private func appStoreConnectManifest() -> PluginManifest {
     PluginManifest(
         id: "com.status.appstoreconnect",
@@ -88,6 +97,8 @@ private func appStoreConnectManifest() -> PluginManifest {
         author: "Status",
         category: "Developer",
         description: "Shows app review states, versions, builds, ratings, and direct App Store Connect links.",
+        icon: "sf:app.badge",
+        accentColor: "#2F80ED",
         minCoreVersion: "1.0.0",
         platforms: [.macOS, .iOS],
         permissions: [.network, .keychain, .privateKey, .backgroundRefresh],

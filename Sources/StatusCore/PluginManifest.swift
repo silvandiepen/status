@@ -30,6 +30,7 @@ public enum PluginValidationError: Error, Equatable, LocalizedError, Sendable {
     case undeclaredRequestDomain(String)
     case writeActionWithoutPermission(String)
     case unsupportedOAuthInV1
+    case invalidAccentColor(String)
 
     public var errorDescription: String? {
         switch self {
@@ -55,6 +56,8 @@ public enum PluginValidationError: Error, Equatable, LocalizedError, Sendable {
             "Plugin action requires write-actions permission: \(action)"
         case .unsupportedOAuthInV1:
             "OAuth2 is defined in schema but deferred past v1."
+        case .invalidAccentColor(let value):
+            "Plugin accentColor must be a #RRGGBB hex color: \(value)"
         }
     }
 }
@@ -67,6 +70,7 @@ public struct PluginManifest: Codable, Equatable, Sendable {
     public var category: String
     public var description: String
     public var icon: String?
+    public var accentColor: String?
     public var minCoreVersion: String
     public var platforms: [PluginPlatform]
     public var permissions: [PluginPermission]
@@ -80,6 +84,7 @@ public struct PluginManifest: Codable, Equatable, Sendable {
         category: String,
         description: String,
         icon: String? = nil,
+        accentColor: String? = nil,
         minCoreVersion: String,
         platforms: [PluginPlatform],
         permissions: [PluginPermission],
@@ -92,6 +97,7 @@ public struct PluginManifest: Codable, Equatable, Sendable {
         self.category = category
         self.description = description
         self.icon = icon
+        self.accentColor = accentColor
         self.minCoreVersion = minCoreVersion
         self.platforms = platforms
         self.permissions = permissions
@@ -177,6 +183,9 @@ public enum PluginManifestValidator {
         for domain in manifest.domains {
             try validateDomain(domain)
         }
+        if let accentColor = manifest.accentColor {
+            try validateAccentColor(accentColor)
+        }
 
         let declaredDomains = Set(manifest.domains.map { $0.lowercased() })
         for request in input.requests {
@@ -234,5 +243,12 @@ public enum PluginManifestValidator {
             throw PluginValidationError.domainContainsWildcard(domain)
         }
         try requireNonEmpty(domain, field: "domains")
+    }
+
+    private static func validateAccentColor(_ accentColor: String) throws {
+        let isValid = accentColor.range(of: #"^#[0-9A-Fa-f]{6}$"#, options: .regularExpression) != nil
+        if isValid == false {
+            throw PluginValidationError.invalidAccentColor(accentColor)
+        }
     }
 }

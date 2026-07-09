@@ -218,6 +218,12 @@ function validateManifest(manifest, sourceName) {
   if (manifest.permissions.includes("oauth")) {
     fail(`${sourceName}: OAuth plugins are deferred past v1`);
   }
+  if (manifest.icon !== undefined && (typeof manifest.icon !== "string" || manifest.icon.trim() === "")) {
+    fail(`${sourceName}: manifest.icon must be a non-empty SF Symbol name or sf: prefixed name`);
+  }
+  if (manifest.accentColor !== undefined && /^#[0-9A-Fa-f]{6}$/.test(manifest.accentColor) === false) {
+    fail(`${sourceName}: manifest.accentColor must be a #RRGGBB hex color`);
+  }
 }
 
 function validateRequestDefinitions(manifest, requestsFile, sourceName) {
@@ -531,6 +537,8 @@ async function build() {
       summary: metadata.summary,
       description: manifest.description,
       category: manifest.category,
+      icon: manifest.icon,
+      accentColor: manifest.accentColor,
       author: manifest.author,
       trustLevel: metadata.trustLevel,
       permissions: manifest.permissions,

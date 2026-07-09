@@ -49,6 +49,8 @@ Example:
   "author": "Status",
   "category": "Developer",
   "description": "Shows app review states, versions, builds, ratings, and direct App Store Connect links.",
+  "icon": "sf:app.badge",
+  "accentColor": "#2F80ED",
   "minCoreVersion": "1.0.0",
   "platforms": ["macOS", "iOS"],
   "permissions": ["network", "keychain", "background-refresh"],
@@ -57,6 +59,8 @@ Example:
 ```
 
 The manifest does not list emitted events or actions. `events.json` is the single source of truth for event declarations and `actions.json` for actions, so the two lists cannot drift apart.
+
+Each integration declares its own app-owned visual identity through `icon` and `accentColor`. `icon` is an SF Symbol name, optionally prefixed with `sf:`, and `accentColor` is a `#RRGGBB` hex color. These fields are metadata only: plugins still do not ship custom UI, and Status decides how the icon/color appear in the sidebar, collapsed integration strip, catalog, settings window, notifications, and future mobile surfaces.
 
 ## Permissions
 

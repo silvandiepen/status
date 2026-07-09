@@ -7,6 +7,8 @@ export const registry = {
       "summary": "Track app review, builds, and release status.",
       "description": "Read-only App Store Connect status events for apps, review state, build processing, and release readiness.",
       "category": "developer",
+      "icon": "sf:app.badge",
+      "accentColor": "#2F80ED",
       "author": "Status Foundry",
       "trustLevel": "official",
       "permissions": [
@@ -28,8 +30,8 @@ export const registry = {
           ],
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.appstoreconnect/0.1.0/com.status.appstoreconnect-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.appstoreconnect/0.1.0/manifest.json",
-          "sha256": "f073deda441a714eaea42c3165ae763b97869849c8b65ce0c5e6e56a5fb0ab9f",
-          "signature": "TqpVY83St+nj6Qz8VARvTJycNudtySO35nErAJSQhp+ToneyFzTPPzYiLFKFOKAcpPaszDlZre+BNZvnRYq/Dw==",
+          "sha256": "bd33531a3265386201208a2c2765b44375d6845ce811163db31c112d2478a5ea",
+          "signature": "BunCY8njb11OWT1JUpdVUv+WzuZb+Cm3aq7/hT8yntFb1k2Hhfw50MPHEAg5IFqGF/WyNwvmiWc3omG6ydLsBg==",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-07T12:00:00Z"
         }
@@ -41,6 +43,8 @@ export const registry = {
       "summary": "Track workflow failures, pull requests, and issue activity.",
       "description": "Read-only GitHub repository events for workflow failures, pull requests, and issue activity.",
       "category": "developer",
+      "icon": "sf:chevron.left.forwardslash.chevron.right",
+      "accentColor": "#4B5563",
       "author": "Status Foundry",
       "trustLevel": "official",
       "permissions": [
@@ -61,8 +65,8 @@ export const registry = {
           ],
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.github/0.1.0/com.status.github-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.github/0.1.0/manifest.json",
-          "sha256": "47a057c490bcd941da44a68f25a91e2af1901212a072db6b8346cd1f6a398692",
-          "signature": "gzTVdjL8HleZMshqlM1EqfRmpLzn3xUGTdQANhEDNeg5gdb0csfZjnJMvQD5bGkzegC0eaG71RBl9xICV868CA==",
+          "sha256": "e8985720b4553e0b61737c5e25fcdad528ff69b972d6b2151d761b8a20623dda",
+          "signature": "D0K8ItAuwSir2LwkI9SD2JSAW9039qeJkGLoJ2Bm2ltQgqN5zZupR3C3ii4EHK7NT5wIkEZCHvuxVgTKvixgBg==",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-07T12:00:00Z"
         }
@@ -74,6 +78,8 @@ export const registry = {
       "summary": "Track website health and response status.",
       "description": "Declarative uptime checks for sites and endpoints the user chooses to track.",
       "category": "monitoring",
+      "icon": "sf:globe",
+      "accentColor": "#16A34A",
       "author": "Status Foundry",
       "trustLevel": "official",
       "permissions": [
@@ -92,8 +98,8 @@ export const registry = {
           ],
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.website/0.1.0/com.status.website-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.website/0.1.0/manifest.json",
-          "sha256": "db66ba5d7ca1e96a1af4055ea2c8c6778a0f0897c387bd6cf05686a609f6005a",
-          "signature": "kOFPIddeIzD5qolFxdQwxd3tss5QyugQ6gtQGXfYxdoOokDbQEeuZyd7v5dDIPG1spiJgGQ50x9uu6Gub5G3Aw==",
+          "sha256": "f0ce6b3ed640f0d12eeae201f3a8ca00359e668838bf912cbc3c0f42319e114b",
+          "signature": "iww0Veyc7yiJxC+HDHAllxPflBxkuS1+FWlSZLJH4fe9kWvUHa2mWbtIcj01rfxNt/ncU5+ylaM0ylLqQcuxAw==",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-07T12:00:00Z"
         }

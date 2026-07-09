@@ -889,7 +889,7 @@ private struct InstalledPluginRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            IntegrationIcon(provider: plugin.id, size: 32)
+            IntegrationIcon(provider: plugin.id, icon: plugin.iconPath, accentColor: plugin.accentColor, size: 32)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -995,7 +995,7 @@ private struct PluginSettingsPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
-                IntegrationIcon(provider: plugin.id, size: 32)
+                IntegrationIcon(provider: plugin.id, icon: plugin.iconPath, accentColor: plugin.accentColor, size: 32)
                     .padding(.top, 4)
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -1771,7 +1771,15 @@ public struct IntegrationVisual: Equatable {
         self.color = color
     }
 
-    public static func visual(for provider: String) -> IntegrationVisual {
+    public static func visual(for provider: String, icon: String? = nil, accentColor: String? = nil) -> IntegrationVisual {
+        let fallback = fallbackVisual(for: provider)
+        return IntegrationVisual(
+            systemImage: normalizedSystemImage(icon) ?? fallback.systemImage,
+            color: Color.statusHex(accentColor) ?? fallback.color
+        )
+    }
+
+    private static func fallbackVisual(for provider: String) -> IntegrationVisual {
         let key = provider.lowercased()
         if key.contains("github") {
             return IntegrationVisual(systemImage: "chevron.left.forwardslash.chevron.right", color: .primary)
@@ -1787,14 +1795,27 @@ public struct IntegrationVisual: Equatable {
         }
         return IntegrationVisual(systemImage: "puzzlepiece.extension", color: .orange)
     }
+
+    private static func normalizedSystemImage(_ icon: String?) -> String? {
+        guard let icon = icon?.trimmingCharacters(in: .whitespacesAndNewlines), icon.isEmpty == false else {
+            return nil
+        }
+        if icon.hasPrefix("sf:") {
+            return String(icon.dropFirst(3))
+        }
+        if icon.contains("/") || icon.contains(".") {
+            return nil
+        }
+        return icon
+    }
 }
 
 public struct IntegrationIcon: View {
     private let visual: IntegrationVisual
     private let size: CGFloat
 
-    public init(provider: String, size: CGFloat = 28) {
-        self.visual = IntegrationVisual.visual(for: provider)
+    public init(provider: String, icon: String? = nil, accentColor: String? = nil, size: CGFloat = 28) {
+        self.visual = IntegrationVisual.visual(for: provider, icon: icon, accentColor: accentColor)
         self.size = size
     }
 
@@ -1809,6 +1830,22 @@ public struct IntegrationIcon: View {
     }
 }
 
+private extension Color {
+    static func statusHex(_ value: String?) -> Color? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+            return nil
+        }
+        let hex = value.hasPrefix("#") ? String(value.dropFirst()) : value
+        guard hex.count == 6, let integer = Int(hex, radix: 16) else {
+            return nil
+        }
+        let red = Double((integer >> 16) & 0xff) / 255
+        let green = Double((integer >> 8) & 0xff) / 255
+        let blue = Double(integer & 0xff) / 255
+        return Color(red: red, green: green, blue: blue)
+    }
+}
+
 private struct AvailablePluginRow: View {
     let plugin: RegistryPluginSummary
     let isInstalled: Bool
@@ -1818,7 +1855,7 @@ private struct AvailablePluginRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
-                IntegrationIcon(provider: plugin.id, size: 32)
+                IntegrationIcon(provider: plugin.id, icon: plugin.icon, accentColor: plugin.accentColor, size: 32)
                     .padding(.top, 4)
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
