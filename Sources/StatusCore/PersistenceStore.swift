@@ -1038,13 +1038,31 @@ public final class StatusPersistenceStore {
     }
 
     public func integrationSummaries() throws -> [IntegrationSummary] {
-        try database.query(
+        let accountSummaries = try database.query(
             """
             SELECT id, provider, display_name, status, last_error, last_refreshed_at
             FROM accounts
             ORDER BY display_name ASC, id ASC
             """
         ).map(integrationSummary(from:))
+        let pluginSummaries = try database.query(
+            """
+            SELECT id, name, enabled
+            FROM plugins
+            WHERE NOT EXISTS (
+              SELECT 1 FROM accounts WHERE accounts.plugin_id = plugins.id
+            )
+            ORDER BY name ASC, id ASC
+            """
+        ).map(installedPluginIntegrationSummary(from:))
+
+        return (accountSummaries + pluginSummaries).sorted { lhs, rhs in
+            let comparison = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
+            if comparison == .orderedSame {
+                return lhs.id < rhs.id
+            }
+            return comparison == .orderedAscending
+        }
     }
 
     public func dashboardSnapshot(now: Date = Date()) throws -> DashboardSnapshot {
@@ -1555,6 +1573,18 @@ public final class StatusPersistenceStore {
         )
     }
 
+    private func installedPluginIntegrationSummary(from row: [String: SQLiteValue]) throws -> IntegrationSummary {
+        let enabled = row.optionalInteger("enabled") != 0
+        return try IntegrationSummary(
+            id: row.requiredText("id"),
+            name: row.requiredText("name"),
+            provider: row.requiredText("id"),
+            state: enabled ? "Setup needed" : "Disabled",
+            severity: .notice,
+            lastSyncDescription: "Never synced"
+        )
+    }
+
     private func dashboardHeadline(statusItems: [StatusItem], integrations: [IntegrationSummary]) -> String {
         let criticalCount = statusItems.filter { $0.severity == .critical }.count
         if criticalCount == 1 {
@@ -1592,11 +1622,15 @@ public final class StatusPersistenceStore {
         let integrationCount = integrations.count
         let eventCount = recentEvents.count
         if openCount == 0 {
-            return "\(integrationCount) integrations tracked, \(eventCount) recent events, no open attention items."
+            return "\(integrationCount) \(plural("integration", count: integrationCount)) tracked, \(eventCount) \(plural("recent event", count: eventCount)), no open attention items."
         }
 
         let newest = statusItems.map(\.updatedAt).max() ?? now
-        return "\(openCount) open attention items across \(integrationCount) integrations. Newest update: \(lastRefreshDescription(ISO8601.string(from: newest)))."
+        return "\(openCount) open attention \(plural("item", count: openCount)) across \(integrationCount) \(plural("integration", count: integrationCount)). Newest update: \(lastRefreshDescription(ISO8601.string(from: newest)))."
+    }
+
+    private func plural(_ singular: String, count: Int) -> String {
+        count == 1 ? singular : "\(singular)s"
     }
 
     private func lastRefreshDescription(_ isoDate: String?) -> String {
