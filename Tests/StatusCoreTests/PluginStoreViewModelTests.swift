@@ -9,6 +9,14 @@ import StatusCore
     #expect(visual.systemImage == "app.badge")
 }
 
+@Test func integrationVisualUsesNativeBrandMarksForOfficialProviders() {
+    let github = IntegrationVisual.visual(for: "com.status.github", icon: "sf:chevron.left.forwardslash.chevron.right")
+    let appStoreConnect = IntegrationVisual.visual(for: "com.status.appstoreconnect", icon: "sf:app.badge")
+
+    #expect(github.brand == .github)
+    #expect(appStoreConnect.brand == .appStoreConnect)
+}
+
 @MainActor
 @Test func pluginStoreViewModelLoadsRuntimeStatusesForInstalledPlugins() async throws {
     let plugin = InstalledPlugin(

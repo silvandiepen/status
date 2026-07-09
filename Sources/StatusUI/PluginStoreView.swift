@@ -2849,14 +2849,13 @@ public struct IntegrationIcon: View {
     private var iconContent: some View {
         switch visual.brand {
         case .github:
-            Text("GH")
-                .font(.system(size: max(10, size * 0.34), weight: .black, design: .rounded))
+            GitHubBrandMark()
                 .foregroundStyle(Color.white)
-                .frame(width: size, height: size)
+                .padding(size * 0.18)
         case .appStoreConnect:
-            Image(systemName: "apple.logo")
-                .font(.system(size: max(12, size * 0.5), weight: .semibold))
+            AppStoreConnectBrandMark()
                 .foregroundStyle(Color.white)
+                .padding(size * 0.17)
         case nil:
             Image(systemName: visual.systemImage)
                 .font(.system(size: max(12, size * 0.48), weight: .semibold))
@@ -2902,6 +2901,72 @@ private extension Color {
         let green = Double((integer >> 8) & 0xff) / 255
         let blue = Double(integer & 0xff) / 255
         return Color(red: red, green: green, blue: blue)
+    }
+}
+
+private struct GitHubBrandMark: View {
+    var body: some View {
+        GeometryReader { proxy in
+            let side = min(proxy.size.width, proxy.size.height)
+            ZStack {
+                GitHubEarShape()
+                    .frame(width: side * 0.28, height: side * 0.25)
+                    .rotationEffect(.degrees(-18))
+                    .offset(x: -side * 0.22, y: -side * 0.22)
+                GitHubEarShape()
+                    .frame(width: side * 0.28, height: side * 0.25)
+                    .rotationEffect(.degrees(18))
+                    .offset(x: side * 0.22, y: -side * 0.22)
+                Circle()
+                    .frame(width: side * 0.74, height: side * 0.74)
+                    .offset(y: -side * 0.04)
+                RoundedRectangle(cornerRadius: side * 0.12)
+                    .frame(width: side * 0.46, height: side * 0.24)
+                    .offset(y: side * 0.30)
+                Circle()
+                    .fill(Color(red: 0.09, green: 0.10, blue: 0.12))
+                    .frame(width: side * 0.08, height: side * 0.08)
+                    .offset(x: -side * 0.15, y: -side * 0.05)
+                Circle()
+                    .fill(Color(red: 0.09, green: 0.10, blue: 0.12))
+                    .frame(width: side * 0.08, height: side * 0.08)
+                    .offset(x: side * 0.15, y: -side * 0.05)
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+        }
+    }
+}
+
+private struct GitHubEarShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY * 0.82))
+        path.closeSubpath()
+        return path
+    }
+}
+
+private struct AppStoreConnectBrandMark: View {
+    var body: some View {
+        GeometryReader { proxy in
+            let side = min(proxy.size.width, proxy.size.height)
+            ZStack {
+                Capsule()
+                    .frame(width: side * 0.18, height: side * 0.78)
+                    .rotationEffect(.degrees(28))
+                    .offset(x: -side * 0.12)
+                Capsule()
+                    .frame(width: side * 0.18, height: side * 0.78)
+                    .rotationEffect(.degrees(-28))
+                    .offset(x: side * 0.12)
+                Capsule()
+                    .frame(width: side * 0.70, height: side * 0.16)
+                    .offset(y: side * 0.20)
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+        }
     }
 }
 
