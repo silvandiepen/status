@@ -42,7 +42,7 @@ private struct MacPluginSettingsWindow: View {
     }
 
     private func makePluginStoreViewModel(platform: PluginPlatform) -> PluginStoreViewModel {
-        let registry = PluginRegistryClient(baseURL: URL(string: "https://status-registry.hakobs.com")!)
+        let registry = PluginRegistryClient(baseURL: StatusAppConfiguration.registryBaseURL())
         return PluginStoreViewModel {
             try bootstrapBundledPlugins()
             return try LocalStatusStore.openApplicationSupportStore().installedPlugins()
@@ -609,7 +609,11 @@ private struct MacRootView: View {
     }
 
     private var registryBaseURL: URL {
-        URL(string: "https://status-registry.hakobs.com")!
+        StatusAppConfiguration.registryBaseURL()
+    }
+
+    private var registryHost: String {
+        StatusAppConfiguration.registryHost()
     }
 
     private func makeAlertsViewModel() -> AlertsViewModel {
@@ -785,7 +789,7 @@ private struct MacRootView: View {
     private func makeRegistryCheckAction() -> RuntimeAction {
         RuntimeAction(
             title: "Registry health check",
-            detail: "Runs the installed Website plugin against status-registry.hakobs.com and stores the result locally.",
+            detail: "Runs the installed Website plugin against \(registryHost) and stores the result locally.",
             buttonTitle: "Run check"
         ) {
             try await runRegistryCheck(pluginID: WebsitePluginSetup.pluginID)
@@ -801,7 +805,7 @@ private struct MacRootView: View {
                 requestID: WebsitePluginSetup.requestID,
                 accountID: "acct_status_registry",
                 accountName: "Status registry",
-                variables: ["host": "status-registry.hakobs.com"]
+                variables: ["host": registryHost]
             )
         )
         return "\(result.mappingOutput.resources.count) resource stored, \(result.mappingOutput.events.count) events processed."

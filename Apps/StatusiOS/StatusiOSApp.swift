@@ -213,7 +213,11 @@ private struct IOSRootView: View {
     }
 
     private var registryBaseURL: URL {
-        URL(string: "https://status-registry.hakobs.com")!
+        StatusAppConfiguration.registryBaseURL()
+    }
+
+    private var registryHost: String {
+        StatusAppConfiguration.registryHost()
     }
 
     private func makeAlertsViewModel() -> AlertsViewModel {
@@ -389,7 +393,7 @@ private struct IOSRootView: View {
     private func makeRegistryCheckAction() -> RuntimeAction {
         RuntimeAction(
             title: "Registry health check",
-            detail: "Runs the installed Website plugin against status-registry.hakobs.com and stores the result locally.",
+            detail: "Runs the installed Website plugin against \(registryHost) and stores the result locally.",
             buttonTitle: "Run check"
         ) {
             try await runRegistryCheck(pluginID: WebsitePluginSetup.pluginID)
@@ -405,7 +409,7 @@ private struct IOSRootView: View {
                 requestID: WebsitePluginSetup.requestID,
                 accountID: "acct_status_registry",
                 accountName: "Status registry",
-                variables: ["host": "status-registry.hakobs.com"]
+                variables: ["host": registryHost]
             )
         )
         return "\(result.mappingOutput.resources.count) resource stored, \(result.mappingOutput.events.count) events processed."

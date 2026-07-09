@@ -105,6 +105,9 @@ If Xcode project generation is easier, use XcodeGen and document the command. If
 - Current Cloudflare account: `me@sil.mt` / `8cef251b5fdcf6c6f63db98b7aa49f9a`.
 - Registry and relay are separate Workers.
 - Do not build relay before registry.
+- Native app registry base URL defaults to `https://status-registry.hakobs.com`.
+  Override it with `STATUS_REGISTRY_URL` for temporary Worker URLs while the
+  custom domain is not ready. The settings screen shows the active registry URL.
 
 ### Third-party plugins
 

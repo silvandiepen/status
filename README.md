@@ -148,6 +148,11 @@ Current deployed surfaces:
 - Registry health: `https://status-registry.hakobs.com/health`
 - Plugin list: `https://status-registry.hakobs.com/v1/plugins`
 
+The native apps default to `https://status-registry.hakobs.com`. For temporary
+Cloudflare Worker previews or local registry testing, set `STATUS_REGISTRY_URL`
+in the run scheme/environment, or set the same key in app defaults. The value
+must be an `http` or `https` URL with a host.
+
 Deployment commands:
 
 ```sh

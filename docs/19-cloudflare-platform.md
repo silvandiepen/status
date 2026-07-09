@@ -303,6 +303,18 @@ Cloudflare R2
 → bucket: status-plugins
 ```
 
+Native app runtime configuration:
+
+```txt
+Default registry URL: https://status-registry.hakobs.com
+Override key: STATUS_REGISTRY_URL
+Allowed override shape: http(s) URL with a host
+```
+
+Use the override for temporary Worker URLs and preview deployments. The app's
+registry health check monitors the host from the active registry URL, so the
+same build can validate either the custom domain or a temporary Worker host.
+
 Required DNS record for the marketing website:
 
 ```txt
