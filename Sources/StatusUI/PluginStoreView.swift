@@ -375,20 +375,23 @@ public final class PluginStoreViewModel: ObservableObject {
         }
     }
 
-    public func beginOAuthConnection(_ plugin: InstalledPlugin) {
+    @discardableResult
+    public func beginOAuthConnection(_ plugin: InstalledPlugin) -> URL? {
         let key = setupKey(for: plugin)
         oauthConnectionURLs[key] = nil
         oauthConnectionErrors[key] = nil
         do {
             guard let auth = plugin.auth, auth.type == .oauth2 else {
                 oauthConnectionErrors[key] = "This plugin does not use OAuth."
-                return
+                return nil
             }
             let request = try PluginOAuth.authorizationRequest(pluginID: plugin.id, auth: auth)
             oauthConnectionRequests[key] = request
             oauthConnectionURLs[key] = request.url
+            return request.url
         } catch {
             oauthConnectionErrors[key] = error.localizedDescription
+            return nil
         }
     }
 
@@ -1077,7 +1080,7 @@ public struct PluginStoreView: View {
     private let selectAccount: (InstalledPlugin, String) -> Void
     private let addAccount: (InstalledPlugin) -> Void
     private let saveSetup: (InstalledPlugin) -> Void
-    private let beginOAuthConnection: (InstalledPlugin) -> Void
+    private let beginOAuthConnection: (InstalledPlugin) -> URL?
     private let testRequest: (InstalledPlugin, String) -> Void
     private let canRun: (InstalledPlugin) -> Bool
     private let run: (InstalledPlugin) -> Void
@@ -1135,7 +1138,7 @@ public struct PluginStoreView: View {
         selectAccount: @escaping (InstalledPlugin, String) -> Void = { _, _ in },
         addAccount: @escaping (InstalledPlugin) -> Void = { _ in },
         saveSetup: @escaping (InstalledPlugin) -> Void = { _ in },
-        beginOAuthConnection: @escaping (InstalledPlugin) -> Void = { _ in },
+        beginOAuthConnection: @escaping (InstalledPlugin) -> URL? = { _ in nil },
         testRequest: @escaping (InstalledPlugin, String) -> Void = { _, _ in },
         canRun: @escaping (InstalledPlugin) -> Bool = { _ in false },
         run: @escaping (InstalledPlugin) -> Void = { _ in },
@@ -1576,7 +1579,7 @@ private struct PluginSettingsPanel: View {
     let selectAccount: (InstalledPlugin, String) -> Void
     let addAccount: (InstalledPlugin) -> Void
     let saveSetup: (InstalledPlugin) -> Void
-    let beginOAuthConnection: (InstalledPlugin) -> Void
+    let beginOAuthConnection: (InstalledPlugin) -> URL?
     let testRequest: (InstalledPlugin, String) -> Void
     let canRun: Bool
     let isRunning: Bool
@@ -2432,10 +2435,12 @@ private struct PluginPermissionToggle: View {
 }
 
 private struct PluginOAuthConnectionPanel: View {
+    @Environment(\.openURL) private var openURL
+
     let plugin: InstalledPlugin
     let authorizationURL: URL?
     let error: String?
-    let connect: () -> Void
+    let connect: () -> URL?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -2443,7 +2448,9 @@ private struct PluginOAuthConnectionPanel: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
             Button {
-                connect()
+                if let url = connect() {
+                    openURL(url)
+                }
             } label: {
                 Label("Connect account", systemImage: "person.crop.circle.badge.checkmark")
             }

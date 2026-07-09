@@ -184,7 +184,7 @@ Only `official` and `verified-third-party` packages appear in the hosted registr
 - do not build custom plugin UI;
 - do not call undeclared domains;
 - do not request write permissions unless actions need them;
-- do not expect OAuth-based registry plugins until OAuth is explicitly supported;
+- do not put OAuth client secrets or token handling in the plugin package;
 - do not publish unsigned packages to the public registry yourself.
 
 ## Related docs

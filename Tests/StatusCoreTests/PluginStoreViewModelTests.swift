@@ -274,10 +274,11 @@ import StatusCore
     )
 
     await viewModel.reload()
-    viewModel.beginOAuthConnection(plugin)
+    let launchedURL = viewModel.beginOAuthConnection(plugin)
 
     let selectedAccountID = viewModel.selectedAccountIDs[plugin.id]
     let url = try #require(viewModel.oauthConnectionURLs["\(plugin.id):\(selectedAccountID ?? "__new__:")"])
+    #expect(launchedURL == url)
     let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
     let query = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).compactMap { item in
         item.value.map { (item.name, $0) }
