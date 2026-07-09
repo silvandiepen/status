@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Status mark "Stream": the feed reduced to a glyph — newest item flagged, older items receding. -->
+  <circle cx="15" cy="17" r="6" fill="#3E9B5F"/>
+  <rect x="27" y="12.5" width="25" height="9" rx="4.5" fill="currentColor"/>
+  <rect x="9"  y="27.5" width="43" height="9" rx="4.5" fill="currentColor" opacity=".55"/>
+  <rect x="9"  y="42.5" width="30" height="9" rx="4.5" fill="currentColor" opacity=".3"/>
+</svg>

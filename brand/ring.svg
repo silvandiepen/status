@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Status mark "Ring": four segments = connected sources, center dot = the one answer.
+       Ring uses currentColor; the dot takes the current severity color (#3E9B5F = ok).
+       Segments: dasharray (16 + 13.845) x 4 = 2 * pi * 19. -->
+  <g fill="none">
+    <circle cx="32" cy="32" r="19" stroke="currentColor" stroke-width="6.5"
+            stroke-linecap="round" stroke-dasharray="16 13.845"
+            transform="rotate(-24.1 32 32)"/>
+    <circle cx="32" cy="32" r="6.5" fill="#3E9B5F"/>
+  </g>
+</svg>
