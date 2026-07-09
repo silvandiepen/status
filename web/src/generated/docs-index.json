@@ -1,0 +1,93 @@
+{
+  "generatedAt": "2026-07-09T00:00:00Z",
+  "documents": [
+    {
+      "slug": "doctrine",
+      "title": "Status Doctrine",
+      "path": "/docs/doctrine/",
+      "sourcePath": "DOCTRINE.md",
+      "sourceUrl": "https://github.com/statusfoundry/status/blob/main/DOCTRINE.md",
+      "summary": "Non-negotiable product beliefs for the native app, plugin model, local-first posture, and automation boundaries."
+    },
+    {
+      "slug": "spec",
+      "title": "Status Canonical Specification",
+      "path": "/docs/spec/",
+      "sourcePath": "SPEC.md",
+      "sourceUrl": "https://github.com/statusfoundry/status/blob/main/SPEC.md",
+      "summary": "The product and technical source of truth for the core event pipeline, object model, plugin scope, and MVP."
+    },
+    {
+      "slug": "architecture",
+      "title": "Architecture",
+      "path": "/docs/architecture/",
+      "sourcePath": "docs/03-architecture.md",
+      "sourceUrl": "https://github.com/statusfoundry/status/blob/main/docs/03-architecture.md",
+      "summary": "System boundaries, shared core responsibilities, persistence, app shells, registry, and future cloud relay boundaries."
+    },
+    {
+      "slug": "plugin-system",
+      "title": "Plugin System",
+      "path": "/docs/plugin-system/",
+      "sourcePath": "docs/04-plugin-system.md",
+      "sourceUrl": "https://github.com/statusfoundry/status/blob/main/docs/04-plugin-system.md",
+      "summary": "Declarative plugin package shape, permissions, registry hosting, publishing, trust levels, and install flow."
+    },
+    {
+      "slug": "events-automation",
+      "title": "Events and Automation",
+      "path": "/docs/events-automation/",
+      "sourcePath": "docs/05-events-automation.md",
+      "sourceUrl": "https://github.com/statusfoundry/status/blob/main/docs/05-events-automation.md",
+      "summary": "Explainable rules, controlled actions, notification decisions, action runs, and audit output."
+    },
+    {
+      "slug": "integrations",
+      "title": "Official Plugins and App Ideas",
+      "path": "/docs/integrations/",
+      "sourcePath": "docs/06-integrations.md",
+      "sourceUrl": "https://github.com/statusfoundry/status/blob/main/docs/06-integrations.md",
+      "summary": "Planned providers, MVP auth paths, normalized resources, events, metrics, and action boundaries."
+    },
+    {
+      "slug": "security-privacy",
+      "title": "Security and Privacy",
+      "path": "/docs/security-privacy/",
+      "sourcePath": "docs/07-security-privacy.md",
+      "sourceUrl": "https://github.com/statusfoundry/status/blob/main/docs/07-security-privacy.md",
+      "summary": "Local-first data handling, credential storage, plugin trust, signing, OAuth posture, and action safety."
+    },
+    {
+      "slug": "testing",
+      "title": "Testing",
+      "path": "/docs/testing/",
+      "sourcePath": "docs/18-testing.md",
+      "sourceUrl": "https://github.com/statusfoundry/status/blob/main/docs/18-testing.md",
+      "summary": "Required checks for StatusCore, StatusUI, schemas, registry, website, package fixtures, and CI."
+    },
+    {
+      "slug": "cloudflare-platform",
+      "title": "Cloudflare Platform",
+      "path": "/docs/cloudflare-platform/",
+      "sourcePath": "docs/19-cloudflare-platform.md",
+      "sourceUrl": "https://github.com/statusfoundry/status/blob/main/docs/19-cloudflare-platform.md",
+      "summary": "Pages, Workers, R2, registry API, package hosting, revocations, and deployment responsibilities."
+    },
+    {
+      "slug": "handoff-checklist",
+      "title": "Handoff Checklist",
+      "path": "/docs/handoff-checklist/",
+      "sourcePath": "docs/20-handoff-checklist.md",
+      "sourceUrl": "https://github.com/statusfoundry/status/blob/main/docs/20-handoff-checklist.md",
+      "summary": "Operational runbook for agents and maintainers continuing implementation without product questions."
+    },
+    {
+      "slug": "plugin-author-guide",
+      "title": "Plugin Author Guide",
+      "path": "/docs/plugin-author-guide/",
+      "sourcePath": "docs/21-plugin-author-guide.md",
+      "sourceUrl": "https://github.com/statusfoundry/status/blob/main/docs/21-plugin-author-guide.md",
+      "summary": "How to copy the example template, validate a plugin locally, test in Developer Mode, and submit for registry review."
+    }
+  ]
+}

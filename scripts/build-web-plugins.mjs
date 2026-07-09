@@ -1,8 +1,11 @@
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildDocPathMap } from './lib/doc-path-map.mjs';
 import { loadPublishers, resolveAuthor } from './lib/publishers.mjs';
 import { renderMarkdown } from './lib/render-markdown.mjs';
+
+const docPathMap = buildDocPathMap();
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outputPath = path.join(root, 'web', 'src', 'generated', 'plugins.json');
@@ -52,7 +55,7 @@ async function loadPluginDoc(pluginDirectory, publishers, { requireReadme }) {
   }
 
   const sourcePath = path.relative(root, readmePath).split(path.sep).join('/');
-  const { html: readmeHtml } = await renderMarkdown(readme, { stripTitle: true });
+  const { html: readmeHtml } = await renderMarkdown(readme, { stripTitle: true, docPathMap });
 
   return {
     id: manifest.id,
@@ -70,7 +73,6 @@ async function loadPluginDoc(pluginDirectory, publishers, { requireReadme }) {
     sourceUrl: `${repositoryBaseURL}/${sourcePath}`,
     websitePath: `/plugins/${manifest.id}/`,
     readmeTitle: titleFromMarkdown(readme, manifest.name),
-    readme,
     readmeHtml,
   };
 }

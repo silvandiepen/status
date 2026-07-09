@@ -22,13 +22,50 @@ const DOC_LANGS = [
 
 let rendererPromise;
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function stripLeadingTitle(markdown) {
+  return markdown.replace(/^#\s+[^\n]+\n+/, '');
+}
+
+export function linkifyPublishedDocReferences(markdown, docPathMap = {}) {
+  let linked = markdown;
+  const sourcePaths = Object.keys(docPathMap).sort((left, right) => right.length - left.length);
+
+  for (const sourcePath of sourcePaths) {
+    const href = docPathMap[sourcePath];
+    linked = linked.replace(
+      new RegExp(`\`${escapeRegExp(sourcePath)}\``, 'g'),
+      `[${sourcePath}](${href})`,
+    );
+  }
+
+  return linked;
+}
+
+function stripShikiInlineStyles(html) {
+  return html
+    .replace(/\sstyle="[^"]*"/g, '')
+    .replace(/\bgithub-light\b/g, '')
+    .replace(/\bgithub-dark\b/g, '')
+    .replace(/class="shiki\s+"/g, 'class="shiki"')
+    .replace(/class="shiki\s+"/g, 'class="shiki"');
+}
+
 async function createRenderer() {
-  const highlighter = await createJavaScriptShikiHighlighter({
-    themes: ['github-light'],
+  const baseHighlighter = await createJavaScriptShikiHighlighter({
+    themes: ['github-light', 'github-dark'],
     langs: DOC_LANGS,
     defaultTheme: 'github-light',
     defaultLang: 'text',
   });
+
+  const highlighter = (code, input) => {
+    const highlighted = baseHighlighter(code, input);
+    return typeof highlighted === 'string' ? stripShikiInlineStyles(highlighted) : highlighted;
+  };
 
   return useNizel({
     preset: 'docs',
@@ -48,12 +85,9 @@ export async function getMarkdownRenderer() {
   return rendererPromise;
 }
 
-export function stripLeadingTitle(markdown) {
-  return markdown.replace(/^#\s+[^\n]+\n+/, '');
-}
-
-export async function renderMarkdown(markdown, { stripTitle = false } = {}) {
-  const source = stripTitle ? stripLeadingTitle(markdown) : markdown;
+export async function renderMarkdown(markdown, { stripTitle = false, docPathMap = {} } = {}) {
+  const withLinks = linkifyPublishedDocReferences(markdown, docPathMap);
+  const source = stripTitle ? stripLeadingTitle(withLinks) : withLinks;
   const nizel = await getMarkdownRenderer();
   const { html, toc, readingTime } = await nizel(source);
   return { html, toc, readingTime };

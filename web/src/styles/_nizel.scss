@@ -8,6 +8,25 @@
   --nizel-font-body: var(--font-family);
   --nizel-font-heading: var(--font-family);
   --nizel-font-code: var(--font-family-monospace, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  --nizel-code-background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  --nizel-code-block-background: var(--color-surface-raised);
+}
+
+html.dark .nizel-content {
+  --nizel-foreground: var(--color-text-primary);
+  --nizel-background: var(--color-surface);
+  --nizel-surface: var(--color-bg);
+  --nizel-border: var(--color-border-light);
+  --nizel-primary: var(--color-accent);
+  --nizel-secondary: var(--color-secondary, var(--color-accent));
+  --nizel-code-background: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+  --nizel-code-block-background: var(--color-surface-raised);
+  --nizel-shiki-keyword: var(--color-accent);
+  --nizel-shiki-string: #79c0ff;
+  --nizel-shiki-comment: var(--color-text-tertiary);
+  --nizel-shiki-number: #d2a8ff;
+  --nizel-shiki-function: #ffa657;
+  --nizel-shiki-tag: #7ee787;
 }
 
 .markdown-content {
@@ -16,4 +35,9 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: var(--space-l);
+
+  pre.shiki {
+    background: var(--nizel-code-block-background) !important;
+    color: var(--color-text-primary) !important;
+  }
 }

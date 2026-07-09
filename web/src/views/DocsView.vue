@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useBemm } from 'bemm'
 import SiteLayout from '@/components/SiteLayout.vue'
-import docsData from '@/generated/docs.json'
+import docsData from '@/generated/docs-index.json'
 
 const bemm = useBemm('page', { return: 'string' })
 const docsCardBemm = useBemm('docs-card', { return: 'string' })
