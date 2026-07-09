@@ -14,11 +14,37 @@ struct StatusiOSApp: App {
 }
 
 private struct IOSRootView: View {
+    @State private var overviewPath: [IOSAppRoute] = []
+
     var body: some View {
         TabView {
-            NavigationStack {
-                DashboardContainerView(viewModel: makeDashboardViewModel())
+            NavigationStack(path: $overviewPath) {
+                DashboardContainerView(
+                    viewModel: makeDashboardViewModel(),
+                    openApp: { app in
+                        overviewPath.append(
+                            IOSAppRoute(
+                                pluginID: app.provider,
+                                accountID: app.id == app.provider ? nil : app.id
+                            )
+                        )
+                    }
+                )
                     .navigationTitle("Overview")
+                    .navigationDestination(for: IOSAppRoute.self) { route in
+                        IOSPluginAppDetail(
+                            pluginID: route.pluginID,
+                            accountID: route.accountID,
+                            runPlugin: { pluginID, accountID, accountName in
+                                try await runConfiguredPluginCheck(
+                                    pluginID: pluginID,
+                                    accountID: accountID,
+                                    accountName: accountName
+                                )
+                            }
+                        )
+                        .navigationTitle("App")
+                    }
             }
             .tabItem {
                 Label("Overview", systemImage: "rectangle.grid.2x2")
@@ -438,6 +464,137 @@ private struct IOSRootView: View {
 
     private func reopenExpiredSnoozedItems() throws {
         _ = try LocalStatusStore.openApplicationSupportStore().reopenExpiredSnoozedItems(at: Date())
+    }
+}
+
+private struct IOSAppRoute: Hashable {
+    let pluginID: String
+    let accountID: String?
+}
+
+private struct IOSPluginAppDetail: View {
+    let pluginID: String
+    let accountID: String?
+    let runPlugin: (String, String, String) async throws -> String
+
+    @State private var plugin: InstalledPlugin?
+    @State private var app: PluginAccountConfiguration?
+    @State private var runtimeStatus: PluginRuntimeStatus?
+    @State private var resources: [Resource] = []
+    @State private var loadError: String?
+    @State private var runResult: String?
+    @State private var runError: String?
+    @State private var isRunning = false
+
+    var body: some View {
+        Group {
+            if let plugin {
+                PluginAppDetailView(
+                    plugin: plugin,
+                    app: app,
+                    runtimeStatus: runtimeStatus,
+                    resources: resources,
+                    openSettings: {},
+                    run: runnableAction
+                )
+                .overlay(alignment: .bottom) {
+                    statusOverlay
+                }
+            } else if let loadError {
+                ContentUnavailableView("App unavailable", systemImage: "puzzlepiece.extension", description: Text(loadError))
+            } else {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .task(id: "\(pluginID):\(accountID ?? "__setup__")") {
+            load()
+        }
+        .refreshable {
+            load()
+        }
+    }
+
+    @ViewBuilder
+    private var statusOverlay: some View {
+        if isRunning {
+            ProgressView()
+                .padding(10)
+                .background(.thinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .padding()
+        } else if let runResult {
+            Text(runResult)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(10)
+                .background(.thinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .padding()
+        } else if let runError {
+            Text(runError)
+                .font(.caption)
+                .foregroundStyle(.red)
+                .padding(10)
+                .background(.thinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .padding()
+        }
+    }
+
+    private var runnableAction: (() -> Void)? {
+        guard let accountID, let app else {
+            return nil
+        }
+        return {
+            Task {
+                await run(accountID: accountID, accountName: app.accountName)
+            }
+        }
+    }
+
+    private func load() {
+        do {
+            let store = try LocalStatusStore.openApplicationSupportStore()
+            let loadedPlugin = try store.installedPlugin(id: pluginID)
+            plugin = loadedPlugin
+            app = try accountID.flatMap { try store.accountConfiguration(accountID: $0) }
+            resources = try store.resources(pluginID: pluginID, accountID: accountID)
+            runtimeStatus = try recentRuntimeStatus(store: store, pluginID: pluginID)
+            loadError = loadedPlugin == nil ? "This plugin is not installed on this device." : nil
+        } catch {
+            plugin = nil
+            app = nil
+            resources = []
+            runtimeStatus = nil
+            loadError = error.localizedDescription
+        }
+    }
+
+    private func run(accountID: String, accountName: String) async {
+        isRunning = true
+        runResult = nil
+        runError = nil
+        do {
+            runResult = try await runPlugin(pluginID, accountID, accountName)
+            load()
+        } catch {
+            runError = error.localizedDescription
+        }
+        isRunning = false
+    }
+
+    private func recentRuntimeStatus(store: StatusPersistenceStore, pluginID: String) throws -> PluginRuntimeStatus? {
+        guard let job = try store.recentJobs(pluginID: pluginID, limit: 1).first else {
+            return nil
+        }
+        return PluginRuntimeStatus(
+            pluginID: job.pluginID,
+            status: job.status,
+            detail: job.error ?? "Job \(job.id) completed from \(job.triggerID).",
+            timestamp: job.finishedAt ?? job.startedAt ?? job.queuedAt,
+            emittedEventCount: job.emittedEventIDs.count
+        )
     }
 }
 
