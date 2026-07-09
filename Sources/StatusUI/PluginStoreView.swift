@@ -428,6 +428,11 @@ public final class PluginStoreViewModel: ObservableObject {
                 oauthConnectionErrors[key] = "This plugin does not use OAuth."
                 return nil
             }
+            let missingPermissions = missingOAuthPermissions(for: plugin)
+            guard missingPermissions.isEmpty else {
+                oauthConnectionErrors[key] = "Grant \(missingPermissions.map(\.label).joined(separator: ", ")) permission before connecting this app."
+                return nil
+            }
             let request = try PluginOAuth.authorizationRequest(pluginID: plugin.id, auth: auth)
             oauthConnectionRequests[key] = request
             oauthConnectionURLs[key] = request.url
@@ -459,6 +464,13 @@ public final class PluginStoreViewModel: ObservableObject {
         oauthConnectionRequests.first { _, request in
             callbackURL.queryValue(named: "state") == request.state
         }
+    }
+
+    private func missingOAuthPermissions(for plugin: InstalledPlugin) -> [PluginPermission] {
+        let granted = Set(installedPermissions[plugin.id, default: []]
+            .filter(\.granted)
+            .map(\.permission))
+        return [PluginPermission.oauth, .keychain, .network].filter { granted.contains($0) == false }
     }
 
     private func completeOAuthConnection(

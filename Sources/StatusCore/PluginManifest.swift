@@ -31,6 +31,7 @@ public enum PluginValidationError: Error, Equatable, LocalizedError, Sendable {
     case writeActionWithoutPermission(String)
     case oauthWithoutPermission(String)
     case oauthWithoutKeychain(String)
+    case oauthWithoutNetwork(String)
     case oauthMissingProvider(String)
     case oauthMissingApplicationID(String)
     case oauthMissingConfiguration(String)
@@ -64,6 +65,8 @@ public enum PluginValidationError: Error, Equatable, LocalizedError, Sendable {
             "OAuth plugin requires the oauth permission: \(pluginID)"
         case .oauthWithoutKeychain(let pluginID):
             "OAuth plugin requires the keychain permission: \(pluginID)"
+        case .oauthWithoutNetwork(let pluginID):
+            "OAuth plugin requires the network permission: \(pluginID)"
         case .oauthMissingProvider(let pluginID):
             "OAuth plugin must declare an auth provider: \(pluginID)"
         case .oauthMissingApplicationID(let pluginID):
@@ -259,6 +262,9 @@ public enum PluginManifestValidator {
             }
             guard manifest.permissions.contains(.keychain) else {
                 throw PluginValidationError.oauthWithoutKeychain(manifest.id)
+            }
+            guard manifest.permissions.contains(.network) else {
+                throw PluginValidationError.oauthWithoutNetwork(manifest.id)
             }
             guard let provider = auth.provider?.trimmingCharacters(in: .whitespacesAndNewlines),
                   provider.isEmpty == false else {

@@ -329,6 +329,7 @@ import StatusCore
         loadInstalled: { [plugin] },
         loadAvailable: { [] },
         installPlugin: { _ in },
+        loadPermissions: { _ in grantedOAuthPermissions(pluginID: plugin.id) },
         canConfigurePlugin: { _ in true }
     )
 
@@ -350,6 +351,31 @@ import StatusCore
     #expect(query["code_challenge_method"] == "S256")
     #expect(query["code_challenge"]?.isEmpty == false)
     #expect(viewModel.oauthConnectionErrors["\(plugin.id):\(selectedAccountID ?? "__new__:")"] == nil)
+}
+
+@MainActor
+@Test func pluginStoreViewModelRequiresOAuthPermissionGrantsBeforeConnecting() async throws {
+    let plugin = oauthGitHubPlugin()
+    let viewModel = PluginStoreViewModel(
+        loadInstalled: { [plugin] },
+        loadAvailable: { [] },
+        installPlugin: { _ in },
+        loadPermissions: { _ in [
+            InstalledPluginPermission(id: "plp_oauth", pluginID: plugin.id, permission: .oauth, granted: true),
+            InstalledPluginPermission(id: "plp_keychain", pluginID: plugin.id, permission: .keychain, granted: false),
+            InstalledPluginPermission(id: "plp_network", pluginID: plugin.id, permission: .network, granted: true)
+        ] },
+        canConfigurePlugin: { _ in true }
+    )
+
+    await viewModel.reload()
+    let launchedURL = viewModel.beginOAuthConnection(plugin)
+
+    let selectedAccountID = viewModel.selectedAccountIDs[plugin.id]
+    let key = "\(plugin.id):\(selectedAccountID ?? "__new__:")"
+    #expect(launchedURL == nil)
+    #expect(viewModel.oauthConnectionURLs[key] == nil)
+    #expect(viewModel.oauthConnectionErrors[key] == "Grant Keychain permission before connecting this app.")
 }
 
 @MainActor
@@ -386,6 +412,7 @@ import StatusCore
         loadInstalled: { [plugin] },
         loadAvailable: { [] },
         installPlugin: { _ in },
+        loadPermissions: { _ in grantedOAuthPermissions(pluginID: plugin.id) },
         canConfigurePlugin: { _ in true },
         completeOAuthConnection: { plugin, accountID, displayName, values, _, callbackURL in
             completed.append((plugin.id, accountID, displayName, values, callbackURL))
@@ -466,6 +493,7 @@ import StatusCore
         loadInstalled: { [plugin] },
         loadAvailable: { [] },
         installPlugin: { _ in },
+        loadPermissions: { _ in grantedOAuthPermissions(pluginID: plugin.id) },
         canConfigurePlugin: { _ in true },
         completeOAuthConnection: { _, _, _, _, _, callbackURL in
             completedCallbackURL = callbackURL
@@ -491,4 +519,38 @@ import StatusCore
     #expect(completedCallbackURL == callbackURL)
     #expect(viewModel.setupResults[key] == "Saved OAuth app.")
     #expect(viewModel.oauthConnectionURLs[key] == nil)
+}
+
+private func oauthGitHubPlugin() -> InstalledPlugin {
+    InstalledPlugin(
+        id: "com.status.oauthgithub",
+        name: "OAuth GitHub",
+        author: "Status Foundry",
+        description: "OAuth GitHub checks.",
+        category: "development",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/com.status.oauthgithub",
+        auth: PackagedPluginAuth(
+            type: .oauth2,
+            provider: "github",
+            applicationId: "status-foundry.github",
+            oauth2: PackagedPluginOAuth2(
+                authorizationURL: URL(string: "https://github.com/login/oauth/authorize")!,
+                tokenURL: URL(string: "https://github.com/login/oauth/access_token")!,
+                redirectURI: "status://oauth/github",
+                scopes: ["repo"]
+            )
+        ),
+        installedAt: Date(timeIntervalSince1970: 1_783_433_520),
+        updatedAt: Date(timeIntervalSince1970: 1_783_433_520)
+    )
+}
+
+private func grantedOAuthPermissions(pluginID: String) -> [InstalledPluginPermission] {
+    [
+        InstalledPluginPermission(id: "plp_\(pluginID)_oauth", pluginID: pluginID, permission: .oauth, granted: true),
+        InstalledPluginPermission(id: "plp_\(pluginID)_keychain", pluginID: pluginID, permission: .keychain, granted: true),
+        InstalledPluginPermission(id: "plp_\(pluginID)_network", pluginID: pluginID, permission: .network, granted: true)
+    ]
 }

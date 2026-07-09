@@ -101,6 +101,28 @@ import Testing
     )
 }
 
+@Test func oauthRequiresNetworkPermissionForTokenExchange() throws {
+    var manifest = appStoreConnectManifest()
+    manifest.permissions = [.keychain, .oauth]
+    manifest.domains = ["api.appstoreconnect.apple.com", "github.com"]
+    let auth = PackagedPluginAuth(
+        type: .oauth2,
+        provider: "github",
+        applicationId: "status-foundry.github",
+        oauth2: PackagedPluginOAuth2(
+            authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
+            tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
+            redirectURI: "status://oauth/github"
+        )
+    )
+
+    #expect(throws: PluginValidationError.oauthWithoutNetwork(manifest.id)) {
+        try PluginManifestValidator.validate(
+            PluginValidationInput(manifest: manifest, authDefinitions: [auth])
+        )
+    }
+}
+
 @Test func oauthEndpointDomainsMustBeDeclaredByPlugin() throws {
     var manifest = appStoreConnectManifest()
     manifest.permissions.append(.oauth)
