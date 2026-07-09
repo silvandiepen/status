@@ -2023,27 +2023,30 @@ private extension PluginPermission {
 public struct IntegrationVisual: Equatable {
     public var systemImage: String
     public var color: Color
+    public var brand: IntegrationBrand?
 
-    public init(systemImage: String, color: Color) {
+    public init(systemImage: String, color: Color, brand: IntegrationBrand? = nil) {
         self.systemImage = systemImage
         self.color = color
+        self.brand = brand
     }
 
     public static func visual(for provider: String, icon: String? = nil, accentColor: String? = nil) -> IntegrationVisual {
         let fallback = fallbackVisual(for: provider)
         return IntegrationVisual(
             systemImage: normalizedSystemImage(icon) ?? fallback.systemImage,
-            color: Color.statusHex(accentColor) ?? fallback.color
+            color: Color.statusHex(accentColor) ?? fallback.color,
+            brand: fallback.brand
         )
     }
 
     private static func fallbackVisual(for provider: String) -> IntegrationVisual {
         let key = provider.lowercased()
         if key.contains("github") {
-            return IntegrationVisual(systemImage: "chevron.left.forwardslash.chevron.right", color: .primary)
+            return IntegrationVisual(systemImage: "chevron.left.forwardslash.chevron.right", color: .primary, brand: .github)
         }
         if key.contains("appstore") {
-            return IntegrationVisual(systemImage: "app.badge", color: .blue)
+            return IntegrationVisual(systemImage: "app.badge", color: .blue, brand: .appStoreConnect)
         }
         if key.contains("website") || key.contains("uptime") {
             return IntegrationVisual(systemImage: "globe", color: .green)
@@ -2068,6 +2071,11 @@ public struct IntegrationVisual: Equatable {
     }
 }
 
+public enum IntegrationBrand: Equatable {
+    case github
+    case appStoreConnect
+}
+
 public struct IntegrationIcon: View {
     private let visual: IntegrationVisual
     private let size: CGFloat
@@ -2078,13 +2086,54 @@ public struct IntegrationIcon: View {
     }
 
     public var body: some View {
-        Image(systemName: visual.systemImage)
-            .font(.system(size: max(12, size * 0.48), weight: .semibold))
-            .foregroundStyle(visual.color)
+        iconContent
             .frame(width: size, height: size)
-            .background(visual.color.opacity(0.12))
+            .background(backgroundStyle)
             .clipShape(RoundedRectangle(cornerRadius: min(8, size * 0.25)))
             .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var iconContent: some View {
+        switch visual.brand {
+        case .github:
+            Text("GH")
+                .font(.system(size: max(10, size * 0.34), weight: .black, design: .rounded))
+                .foregroundStyle(Color.white)
+                .frame(width: size, height: size)
+        case .appStoreConnect:
+            Image(systemName: "apple.logo")
+                .font(.system(size: max(12, size * 0.5), weight: .semibold))
+                .foregroundStyle(Color.white)
+        case nil:
+            Image(systemName: visual.systemImage)
+                .font(.system(size: max(12, size * 0.48), weight: .semibold))
+                .foregroundStyle(visual.color)
+        }
+    }
+
+    @ViewBuilder
+    private var backgroundStyle: some View {
+        switch visual.brand {
+        case .github:
+            RoundedRectangle(cornerRadius: min(8, size * 0.25))
+                .fill(Color(red: 0.09, green: 0.10, blue: 0.12))
+        case .appStoreConnect:
+            RoundedRectangle(cornerRadius: min(8, size * 0.25))
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.04, green: 0.48, blue: 1.0),
+                            Color(red: 0.32, green: 0.73, blue: 1.0)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        case nil:
+            RoundedRectangle(cornerRadius: min(8, size * 0.25))
+                .fill(visual.color.opacity(0.12))
+        }
     }
 }
 

@@ -255,6 +255,8 @@ Acceptance: GitHub can show recent workflow runs/commits/review requests in its 
 
 ### WP-3.8a Packaged plugin brand icons — Design Agent + Plugin Agent
 
+Status: Partially implemented in native UI fallback rendering. The shared `IntegrationIcon` now renders provider-aware native brand treatments for official GitHub and App Store Connect plugins across the catalog, sidebar, collapsed app strip, dashboard tiles, and settings wherever those surfaces use the shared icon component. Remaining work is true packaged vector asset support: include `icon.svg` in package archives, validate official plugin icon assets, persist package-relative asset paths separately from SF Symbol fallbacks, and render those assets cross-platform.
+
 Add native support for packaged `icon.svg` assets while keeping the manifest `icon` SF Symbol as fallback. Update bundled GitHub and App Store Connect plugins with legally usable, recognizable icons, validate icon presence for official plugins, and render the packaged icon in the plugin catalog, app sidebar, collapsed app strip, app settings, dashboard tiles, and notification surfaces.
 
 Depends: WP-3.7.
