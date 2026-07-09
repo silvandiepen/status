@@ -1,0 +1,11 @@
+{
+  "events": [
+    {
+      "type": "jira.issue.open",
+      "label": "Jira issue open",
+      "resourceType": "jira_issue",
+      "defaultSeverity": "notice",
+      "notificationDefault": "dashboard-only"
+    }
+  ]
+}

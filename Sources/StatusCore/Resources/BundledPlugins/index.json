@@ -60,6 +60,23 @@
       "manifestResourceName": "com.status.gitlab-0.1.0-manifest.json"
     },
     {
+      "id": "com.status.jira",
+      "version": "0.1.0",
+      "trustLevel": "official",
+      "minCoreVersion": "0.1.0",
+      "platforms": [
+        "macOS",
+        "iOS"
+      ],
+      "domains": [],
+      "sha256": "19fa13a45e90cd7612d37b3499c60be5dfd9b02fb2c08c9ab86f86966e83601f",
+      "signature": "ZaMoiaP8NJYK6UF8Nt/blkJQIPkaAgoQjPijZQzSxwmCAI4NszkeBSpk3NjZOqor2NcBBu9NisxHtz+P1/ooBw==",
+      "signedBy": "status-foundry-dev",
+      "releasedAt": "2026-07-09T12:00:00Z",
+      "packageResourceName": "com.status.jira-0.1.0.statusplugin.zip",
+      "manifestResourceName": "com.status.jira-0.1.0-manifest.json"
+    },
+    {
       "id": "com.status.website",
       "version": "0.1.0",
       "trustLevel": "official",

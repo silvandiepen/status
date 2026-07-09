@@ -1,0 +1,17 @@
+{
+  "triggers": [
+    {
+      "id": "poll_project_issues",
+      "type": "cron",
+      "label": "Check Jira issues",
+      "defaultSchedule": "*/30 * * * *",
+      "request": "search_project_issues"
+    },
+    {
+      "id": "refresh_project_issues",
+      "type": "manual",
+      "label": "Refresh Jira issues",
+      "request": "search_project_issues"
+    }
+  ]
+}

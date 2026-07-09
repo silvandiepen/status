@@ -1,0 +1,36 @@
+{
+  "requests": {
+    "search_project_issues": {
+      "method": "GET",
+      "url": "https://{{account.site}}/rest/api/3/search",
+      "auth": "default",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "query": {
+        "jql": "project = {{account.projectKey}} ORDER BY updated DESC",
+        "maxResults": "25",
+        "fields": "summary,status,assignee,priority,updated"
+      },
+      "timeoutSeconds": 30
+    },
+    "create_issue": {
+      "method": "POST",
+      "url": "https://{{account.site}}/rest/api/3/issue",
+      "auth": "default",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "fields": {
+          "project": { "key": "{{project}}" },
+          "summary": "{{summary}}",
+          "description": "{{event.summary}}",
+          "issuetype": { "name": "Task" }
+        }
+      },
+      "timeoutSeconds": 30
+    }
+  }
+}

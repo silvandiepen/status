@@ -1,0 +1,16 @@
+{
+  "presets": [
+    {
+      "name": "Show open Jira issues on dashboard",
+      "description": "Adds open Jira issue events to the Status inbox without interruptive notifications.",
+      "when": {
+        "eventType": "jira.issue.open"
+      },
+      "then": [
+        {
+          "action": "status.inbox.add"
+        }
+      ]
+    }
+  ]
+}

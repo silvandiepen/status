@@ -1,0 +1,33 @@
+{
+  "resources": [
+    {
+      "type": "jira_issue",
+      "request": "search_project_issues",
+      "items": "$.issues[*]",
+      "id": "$.id",
+      "name": "$.key",
+      "fields": {
+        "summary": "$.fields.summary",
+        "status": "$.fields.status.name",
+        "assignee": "$.fields.assignee.displayName",
+        "priority": "$.fields.priority.name",
+        "updated": "$.fields.updated"
+      },
+      "actionUrl": "https://{{account.site}}/browse/{{key}}"
+    }
+  ],
+  "events": [
+    {
+      "type": "jira.issue.open",
+      "request": "search_project_issues",
+      "items": "$.issues[*]",
+      "when": "$.fields.status.statusCategory.key != 'done'",
+      "resourceId": "$.id",
+      "title": "Jira issue open",
+      "summary": "{{key}} is {{fields.status.name}}: {{fields.summary}}",
+      "severity": "notice",
+      "actionUrl": "https://{{account.site}}/browse/{{key}}",
+      "timestamp": "$.fields.updated"
+    }
+  ]
+}

@@ -16,6 +16,7 @@ import Testing
         "com.status.appstoreconnect",
         "com.status.github",
         "com.status.gitlab",
+        "com.status.jira",
         "com.status.website"
     ])
     #expect(results.map(\.plugin.id).sorted() == packages.map(\.id).sorted())
@@ -26,6 +27,7 @@ import Testing
     #expect(try store.triggers().contains { $0.pluginID == "com.status.gitlab" && $0.kind == .cron && $0.requestID == "list_pipelines" })
     #expect(try store.rules().contains { $0.provider == "com.status.website" && $0.eventType == "website.down" })
     #expect(try store.rules().contains { $0.provider == "com.status.gitlab" && $0.eventType == "gitlab.pipeline.failed" })
+    #expect(try store.installedPluginDefinition(pluginID: "com.status.jira")?.actions.map(\.id) == ["jira.createIssue"])
     let websiteVersion = try #require(try store.installedPluginVersions(pluginID: "com.status.website").first)
     #expect(FileManager.default.fileExists(atPath: try #require(websiteVersion.packagePath)))
 }

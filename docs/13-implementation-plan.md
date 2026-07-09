@@ -282,6 +282,7 @@ Fully parallel once Milestone 3 is done; each is a self-contained package under 
 - **WP-4.3 RSS/feed** — Plugin Agent.
 - **WP-4.4 Generic webhook (local model per WP-0.9 decision)** — Plugin Agent + Security Agent.
 - **WP-4.6 GitLab read plugin** — Plugin Agent. Status: implemented as a bundled official package with project setup, `PRIVATE-TOKEN` api-key auth, project details, failed pipeline events, merge request/issue opened events, native views, disabled notification presets, bundled artifacts, and registry metadata.
+- **WP-4.7 Jira read/action plugin** — Plugin Agent. Status: implemented as a bundled official package with Atlassian site/project setup, basic-auth API-token auth, project issue reads, native issue views, dashboard-only issue events, disabled app-scoped presets, and controlled `jira.createIssue` action metadata for reviewed rule actions.
 
 ### WP-4.5 Official plugin documentation template — Product Agent + Plugin Agent
 

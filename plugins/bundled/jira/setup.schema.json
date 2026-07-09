@@ -1,0 +1,20 @@
+{
+  "title": "Jira project",
+  "description": "Configure one Jira project on one Atlassian site.",
+  "fields": [
+    {
+      "key": "site",
+      "label": "Atlassian site",
+      "type": "hostname",
+      "placeholder": "example.atlassian.net",
+      "required": true
+    },
+    {
+      "key": "projectKey",
+      "label": "Project key",
+      "type": "text",
+      "placeholder": "STATUS",
+      "required": true
+    }
+  ]
+}

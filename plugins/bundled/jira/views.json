@@ -1,0 +1,18 @@
+{
+  "views": [
+    {
+      "id": "issues",
+      "type": "resource_list",
+      "title": "Jira issues",
+      "resourceType": "jira_issue",
+      "fields": ["status", "priority", "assignee", "summary"]
+    },
+    {
+      "id": "issue_activity",
+      "type": "timeline",
+      "title": "Recent Jira issue activity",
+      "resourceType": "jira_issue",
+      "fields": ["status", "updated"]
+    }
+  ]
+}

@@ -129,6 +129,48 @@
       ]
     },
     {
+      "id": "com.status.jira",
+      "name": "Jira",
+      "summary": "Track Jira project issues and create follow-up issues from Status automations.",
+      "description": "Read Jira project issues and create controlled follow-up issues from Status rules.",
+      "category": "developer",
+      "icon": "sf:checklist",
+      "accentColor": "#0C66E4",
+      "author": {
+        "name": "Status Foundry",
+        "publisherId": "status-foundry",
+        "websitePath": "/publishers/status-foundry/",
+        "externalUrl": "https://github.com/statusfoundry",
+        "repositoryUrl": "https://github.com/statusfoundry/status",
+        "publisherSummary": "Official Status integrations and reference plugin packages."
+      },
+      "trustLevel": "official",
+      "permissions": [
+        "network",
+        "keychain",
+        "write-actions",
+        "user-configured-domains",
+        "background-refresh"
+      ],
+      "domains": [],
+      "versions": [
+        {
+          "version": "0.1.0",
+          "minCoreVersion": "0.1.0",
+          "platforms": [
+            "macOS",
+            "iOS"
+          ],
+          "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.jira/0.1.0/com.status.jira-0.1.0.statusplugin.zip",
+          "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.jira/0.1.0/manifest.json",
+          "sha256": "19fa13a45e90cd7612d37b3499c60be5dfd9b02fb2c08c9ab86f86966e83601f",
+          "signature": "ZaMoiaP8NJYK6UF8Nt/blkJQIPkaAgoQjPijZQzSxwmCAI4NszkeBSpk3NjZOqor2NcBBu9NisxHtz+P1/ooBw==",
+          "signedBy": "status-foundry-dev",
+          "releasedAt": "2026-07-09T12:00:00Z"
+        }
+      ]
+    },
+    {
       "id": "com.status.website",
       "name": "Website Uptime",
       "summary": "Track website health and response status.",

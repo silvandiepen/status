@@ -267,6 +267,8 @@ Avoid v1:
 
 ## Jira plugin
 
+Status: bundled official v1 package implemented for Jira Cloud project issue reads and controlled issue creation. It uses a user-configured Atlassian hostname, project key setup, basic-auth API-token credentials, manual/cron project issue checks, native issue resource views, dashboard-only `jira.issue.open` events, disabled app-scoped presets, and the reviewed `jira.createIssue` action. Broader board/sprint/blocker semantics remain planned.
+
 Purpose:
 
 - show assigned issues;

@@ -1,0 +1,26 @@
+{
+  "id": "com.status.jira",
+  "name": "Jira",
+  "version": "0.1.0",
+  "author": {
+    "name": "Status Foundry",
+    "publisherId": "status-foundry"
+  },
+  "category": "developer",
+  "description": "Read Jira project issues and create controlled follow-up issues from Status rules.",
+  "icon": "sf:checklist",
+  "accentColor": "#0C66E4",
+  "minCoreVersion": "0.1.0",
+  "platforms": [
+    "macOS",
+    "iOS"
+  ],
+  "permissions": [
+    "network",
+    "keychain",
+    "write-actions",
+    "user-configured-domains",
+    "background-refresh"
+  ],
+  "domains": []
+}

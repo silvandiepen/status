@@ -1,0 +1,30 @@
+{
+  "actions": [
+    {
+      "id": "jira.createIssue",
+      "label": "Create Jira issue",
+      "description": "Create a Task issue in the configured Jira project after an explicit Status rule/action review.",
+      "requiresWritePermission": true,
+      "safety": "review-required",
+      "inputSchema": {
+        "fields": [
+          {
+            "key": "project",
+            "label": "Project key",
+            "type": "template",
+            "required": true,
+            "default": "{{account.projectKey}}"
+          },
+          {
+            "key": "summary",
+            "label": "Summary",
+            "type": "template",
+            "required": true,
+            "default": "{{event.title}}"
+          }
+        ]
+      },
+      "request": "create_issue"
+    }
+  ]
+}

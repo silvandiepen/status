@@ -32,6 +32,13 @@
           "published": true
         },
         {
+          "id": "com.status.jira",
+          "name": "Jira",
+          "summary": "Track Jira project issues and create follow-up issues from Status automations.",
+          "websitePath": "/plugins/com.status.jira/",
+          "published": true
+        },
+        {
           "id": "com.status.example.mockops",
           "name": "Mock Operations",
           "summary": "Example declarative plugin package for operational status data.",
