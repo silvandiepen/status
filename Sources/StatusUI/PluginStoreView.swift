@@ -57,6 +57,9 @@ public final class PluginStoreViewModel: ObservableObject {
     @Published public private(set) var oauthConnectionURLs: [String: URL]
     @Published public private(set) var oauthConnectionErrors: [String: String]
     @Published public private(set) var completingOAuthConnectionKey: String?
+    @Published public private(set) var testingRequestKey: String?
+    @Published public private(set) var testRequestResults: [String: String]
+    @Published public private(set) var testRequestErrors: [String: String]
 
     private let loadInstalled: () throws -> [InstalledPlugin]
     private let loadAvailable: () async throws -> [RegistryPluginSummary]
@@ -79,6 +82,7 @@ public final class PluginStoreViewModel: ObservableObject {
     private let loadConfigurationValues: (InstalledPlugin, String?) throws -> [String: String]
     private let saveConfigurationValues: (InstalledPlugin, String?, String?, [String: String]) async throws -> String
     private let completeOAuthConnection: (InstalledPlugin, String?, String?, [String: String], PluginOAuthAuthorizationRequest, URL) async throws -> String
+    private let testPluginRequest: (InstalledPlugin, PluginAccountConfiguration, String) async throws -> String
     private var oauthConnectionRequests: [String: PluginOAuthAuthorizationRequest]
 
     public init(
@@ -105,7 +109,8 @@ public final class PluginStoreViewModel: ObservableObject {
         saveConfigurationValues: @escaping (InstalledPlugin, String?, String?, [String: String]) async throws -> String = { _, _, _, _ in "" },
         completeOAuthConnection: @escaping (InstalledPlugin, String?, String?, [String: String], PluginOAuthAuthorizationRequest, URL) async throws -> String = { _, _, _, _, _, _ in
             "OAuth callback received."
-        }
+        },
+        testPluginRequest: @escaping (InstalledPlugin, PluginAccountConfiguration, String) async throws -> String = { _, _, _ in "" }
     ) {
         self.catalog = initialCatalog
         self.runResults = [:]
@@ -126,6 +131,9 @@ public final class PluginStoreViewModel: ObservableObject {
         self.oauthConnectionURLs = [:]
         self.oauthConnectionErrors = [:]
         self.completingOAuthConnectionKey = nil
+        self.testingRequestKey = nil
+        self.testRequestResults = [:]
+        self.testRequestErrors = [:]
         self.oauthConnectionRequests = [:]
         self.loadInstalled = loadInstalled
         self.loadAvailable = loadAvailable
@@ -148,6 +156,7 @@ public final class PluginStoreViewModel: ObservableObject {
         self.loadConfigurationValues = loadConfigurationValues
         self.saveConfigurationValues = saveConfigurationValues
         self.completeOAuthConnection = completeOAuthConnection
+        self.testPluginRequest = testPluginRequest
     }
 
     public func reload() async {
@@ -204,6 +213,8 @@ public final class PluginStoreViewModel: ObservableObject {
         runErrors[plugin.id] = nil
         setupResults[plugin.id] = nil
         setupErrors[plugin.id] = nil
+        testRequestResults = testRequestResults.filter { key, _ in key.hasPrefix("\(plugin.id):") == false }
+        testRequestErrors = testRequestErrors.filter { key, _ in key.hasPrefix("\(plugin.id):") == false }
         defer { removingPluginID = nil }
 
         do {
@@ -435,6 +446,25 @@ public final class PluginStoreViewModel: ObservableObject {
         }
     }
 
+    public func testRequest(_ requestID: String, for plugin: InstalledPlugin) async {
+        guard testingRequestKey == nil else { return }
+        guard let account = selectedAccount(for: plugin) else {
+            testRequestErrors[setupKey(for: plugin)] = "Save an app before testing plugin requests."
+            return
+        }
+        let key = testRequestKey(pluginID: plugin.id, accountID: account.id, requestID: requestID)
+        testingRequestKey = key
+        testRequestResults[key] = nil
+        testRequestErrors[key] = nil
+        defer { testingRequestKey = nil }
+
+        do {
+            testRequestResults[key] = try await testPluginRequest(plugin, account, requestID)
+        } catch {
+            testRequestErrors[key] = error.localizedDescription
+        }
+    }
+
     private func refreshAccounts(for plugins: [InstalledPlugin]) {
         configuredAccounts = Dictionary(uniqueKeysWithValues: plugins.map { plugin in
             let accounts = (try? loadAccounts(plugin)) ?? []
@@ -548,6 +578,17 @@ public final class PluginStoreViewModel: ObservableObject {
         setupKey(pluginID: plugin.id, accountID: selectedAccountIDs[plugin.id])
     }
 
+    public func testRequestKey(plugin: InstalledPlugin, requestID: String) -> String? {
+        guard let account = selectedAccount(for: plugin) else {
+            return nil
+        }
+        return testRequestKey(pluginID: plugin.id, accountID: account.id, requestID: requestID)
+    }
+
+    public func testRequestKey(pluginID: String, accountID: String, requestID: String) -> String {
+        "\(pluginID):\(accountID):\(requestID)"
+    }
+
     private func pluginID(fromSetupKey key: String) -> String? {
         key.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init)
     }
@@ -630,6 +671,9 @@ public struct PluginStoreContainerView: View {
             savingDashboardTileFieldKey: viewModel.savingDashboardTileFieldKey,
             oauthConnectionURLs: viewModel.oauthConnectionURLs,
             oauthConnectionErrors: viewModel.oauthConnectionErrors,
+            testingRequestKey: viewModel.testingRequestKey,
+            testRequestResults: viewModel.testRequestResults,
+            testRequestErrors: viewModel.testRequestErrors,
             canConfigure: { plugin in
                 viewModel.canConfigure(plugin)
             },
@@ -652,6 +696,11 @@ public struct PluginStoreContainerView: View {
             },
             beginOAuthConnection: { plugin in
                 viewModel.beginOAuthConnection(plugin)
+            },
+            testRequest: { plugin, requestID in
+                Task {
+                    await viewModel.testRequest(requestID, for: plugin)
+                }
             },
             canRun: { plugin in
                 viewModel.canRun(plugin)
@@ -858,6 +907,9 @@ public struct PluginSettingsContainerView: View {
             savingDashboardTileFieldKey: viewModel.savingDashboardTileFieldKey,
             oauthConnectionURL: viewModel.oauthConnectionURLs[key],
             oauthConnectionError: viewModel.oauthConnectionErrors[key],
+            testingRequestKey: viewModel.testingRequestKey,
+            testRequestResults: viewModel.testRequestResults,
+            testRequestErrors: viewModel.testRequestErrors,
             updateSetupValue: { plugin, fieldID, value in
                 viewModel.updateSetupValue(plugin, fieldID: fieldID, value: value)
             },
@@ -875,6 +927,9 @@ public struct PluginSettingsContainerView: View {
             },
             beginOAuthConnection: { plugin in
                 viewModel.beginOAuthConnection(plugin)
+            },
+            testRequest: { plugin, requestID in
+                Task { await viewModel.testRequest(requestID, for: plugin) }
             },
             canRun: viewModel.canRun(plugin),
             isRunning: viewModel.runningPluginID == plugin.id,
@@ -1013,6 +1068,9 @@ public struct PluginStoreView: View {
     private let savingDashboardTileFieldKey: String?
     private let oauthConnectionURLs: [String: URL]
     private let oauthConnectionErrors: [String: String]
+    private let testingRequestKey: String?
+    private let testRequestResults: [String: String]
+    private let testRequestErrors: [String: String]
     private let canConfigure: (InstalledPlugin) -> Bool
     private let updateSetupValue: (InstalledPlugin, String, String) -> Void
     private let updateAccountDisplayName: (InstalledPlugin, String) -> Void
@@ -1020,6 +1078,7 @@ public struct PluginStoreView: View {
     private let addAccount: (InstalledPlugin) -> Void
     private let saveSetup: (InstalledPlugin) -> Void
     private let beginOAuthConnection: (InstalledPlugin) -> Void
+    private let testRequest: (InstalledPlugin, String) -> Void
     private let canRun: (InstalledPlugin) -> Bool
     private let run: (InstalledPlugin) -> Void
     private let install: (RegistryPluginSummary) -> Void
@@ -1067,6 +1126,9 @@ public struct PluginStoreView: View {
         savingDashboardTileFieldKey: String? = nil,
         oauthConnectionURLs: [String: URL] = [:],
         oauthConnectionErrors: [String: String] = [:],
+        testingRequestKey: String? = nil,
+        testRequestResults: [String: String] = [:],
+        testRequestErrors: [String: String] = [:],
         canConfigure: @escaping (InstalledPlugin) -> Bool = { _ in false },
         updateSetupValue: @escaping (InstalledPlugin, String, String) -> Void = { _, _, _ in },
         updateAccountDisplayName: @escaping (InstalledPlugin, String) -> Void = { _, _ in },
@@ -1074,6 +1136,7 @@ public struct PluginStoreView: View {
         addAccount: @escaping (InstalledPlugin) -> Void = { _ in },
         saveSetup: @escaping (InstalledPlugin) -> Void = { _ in },
         beginOAuthConnection: @escaping (InstalledPlugin) -> Void = { _ in },
+        testRequest: @escaping (InstalledPlugin, String) -> Void = { _, _ in },
         canRun: @escaping (InstalledPlugin) -> Bool = { _ in false },
         run: @escaping (InstalledPlugin) -> Void = { _ in },
         install: @escaping (RegistryPluginSummary) -> Void = { _ in },
@@ -1118,6 +1181,9 @@ public struct PluginStoreView: View {
         self.savingDashboardTileFieldKey = savingDashboardTileFieldKey
         self.oauthConnectionURLs = oauthConnectionURLs
         self.oauthConnectionErrors = oauthConnectionErrors
+        self.testingRequestKey = testingRequestKey
+        self.testRequestResults = testRequestResults
+        self.testRequestErrors = testRequestErrors
         self.canConfigure = canConfigure
         self.updateSetupValue = updateSetupValue
         self.updateAccountDisplayName = updateAccountDisplayName
@@ -1125,6 +1191,7 @@ public struct PluginStoreView: View {
         self.addAccount = addAccount
         self.saveSetup = saveSetup
         self.beginOAuthConnection = beginOAuthConnection
+        self.testRequest = testRequest
         self.canRun = canRun
         self.run = run
         self.install = install
@@ -1239,12 +1306,16 @@ public struct PluginStoreView: View {
             savingDashboardTileFieldKey: savingDashboardTileFieldKey,
             oauthConnectionURL: oauthConnectionURLs[setupKey(pluginID: plugin.id, accountID: selectedAccountID)],
             oauthConnectionError: oauthConnectionErrors[setupKey(pluginID: plugin.id, accountID: selectedAccountID)],
+            testingRequestKey: testingRequestKey,
+            testRequestResults: testRequestResults,
+            testRequestErrors: testRequestErrors,
             updateSetupValue: updateSetupValue,
             updateAccountDisplayName: updateAccountDisplayName,
             selectAccount: selectAccount,
             addAccount: addAccount,
             saveSetup: saveSetup,
             beginOAuthConnection: beginOAuthConnection,
+            testRequest: testRequest,
             canRun: canRun(plugin),
             isRunning: runningPluginID == plugin.id,
             runResult: runResults[setupKey(pluginID: plugin.id, accountID: selectedAccountID)],
@@ -1497,12 +1568,16 @@ private struct PluginSettingsPanel: View {
     let savingDashboardTileFieldKey: String?
     let oauthConnectionURL: URL?
     let oauthConnectionError: String?
+    let testingRequestKey: String?
+    let testRequestResults: [String: String]
+    let testRequestErrors: [String: String]
     let updateSetupValue: (InstalledPlugin, String, String) -> Void
     let updateAccountDisplayName: (InstalledPlugin, String) -> Void
     let selectAccount: (InstalledPlugin, String) -> Void
     let addAccount: (InstalledPlugin) -> Void
     let saveSetup: (InstalledPlugin) -> Void
     let beginOAuthConnection: (InstalledPlugin) -> Void
+    let testRequest: (InstalledPlugin, String) -> Void
     let canRun: Bool
     let isRunning: Bool
     let runResult: String?
@@ -1645,6 +1720,17 @@ private struct PluginSettingsPanel: View {
                             connect: { beginOAuthConnection(plugin) }
                         )
                     }
+                    PluginRequestTestPanel(
+                        plugin: plugin,
+                        requestIDs: requestIDs,
+                        selectedAccountID: selectedPersistedAccountID,
+                        testingRequestKey: testingRequestKey,
+                        results: testRequestResults,
+                        errors: testRequestErrors,
+                        test: { requestID in
+                            testRequest(plugin, requestID)
+                        }
+                    )
                     DashboardTileFieldsPanel(
                         selectedAccountID: selectedPersistedAccountID,
                         availableFields: availableDashboardTileFields,
@@ -1754,6 +1840,78 @@ private struct PluginSettingsPanel: View {
             return nil
         }
         return selectedAccountID
+    }
+
+    private var requestIDs: [String] {
+        Array(Set(triggers.compactMap(\.requestID))).sorted { lhs, rhs in
+            lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+        }
+    }
+}
+
+private struct PluginRequestTestPanel: View {
+    let plugin: InstalledPlugin
+    let requestIDs: [String]
+    let selectedAccountID: String?
+    let testingRequestKey: String?
+    let results: [String: String]
+    let errors: [String: String]
+    let test: (String) -> Void
+
+    var body: some View {
+        if requestIDs.isEmpty == false {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Test Requests")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                if selectedAccountID == nil {
+                    Text("Save an app before testing plugin requests.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(requestIDs, id: \.self) { requestID in
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 8) {
+                            Text(requestID)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
+                            Spacer(minLength: 8)
+                            Button {
+                                test(requestID)
+                            } label: {
+                                if testingRequestKey == key(for: requestID) {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    Label("Test", systemImage: "network")
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(selectedAccountID == nil || testingRequestKey != nil)
+                        }
+                        if let result = results[key(for: requestID)] {
+                            Text(result)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                        }
+                        if let error = errors[key(for: requestID)] {
+                            Text(error)
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                                .textSelection(.enabled)
+                        }
+                    }
+                    .padding(10)
+                    .background(Color.statusBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+            }
+        }
+    }
+
+    private func key(for requestID: String) -> String {
+        "\(plugin.id):\(selectedAccountID ?? "__new__:"):\(requestID)"
     }
 }
 

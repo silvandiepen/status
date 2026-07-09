@@ -233,11 +233,12 @@ a local folder as `local-dev` with explicit unsigned warnings, the macOS
 plugin catalog exposes an **Install Local** developer-mode folder picker,
 the macOS app settings surface exposes a non-persisting **Preview
 Fixture** JSON mapping preview, the local plugin validator prints package
-checksums without publishing, and
+checksums without publishing, the native app settings can run a
+non-persisting live request test against a saved app/account, and
 `plugins/examples/mock-operations` exercises every package file plus request
 fixtures through native mapping tests.
 
-Remaining: schema validation detail UI and live test-request runner UI.
+Remaining: schema validation detail UI.
 
 Local plugin folder install with unsigned warnings, schema validation UI, test-request runner, mapped-output preview; a `plugins/examples/mock-operations` sample plugin exercising every package file.
 

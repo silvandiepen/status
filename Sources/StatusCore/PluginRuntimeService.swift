@@ -28,6 +28,49 @@ public struct PluginRuntimeRequest: Equatable, Sendable {
     }
 }
 
+public struct PluginRequestPreviewResult: Equatable, Sendable {
+    public var pluginID: String
+    public var requestID: String
+    public var accountID: String
+    public var method: String
+    public var url: URL
+    public var statusCode: Int
+    public var responseByteCount: Int
+    public var bodyPreview: String?
+
+    public init(
+        pluginID: String,
+        requestID: String,
+        accountID: String,
+        method: String,
+        url: URL,
+        statusCode: Int,
+        responseByteCount: Int,
+        bodyPreview: String? = nil
+    ) {
+        self.pluginID = pluginID
+        self.requestID = requestID
+        self.accountID = accountID
+        self.method = method
+        self.url = url
+        self.statusCode = statusCode
+        self.responseByteCount = responseByteCount
+        self.bodyPreview = bodyPreview
+    }
+
+    public var summary: String {
+        var parts = [
+            "\(method) \(url.absoluteString)",
+            "HTTP \(statusCode)",
+            "\(responseByteCount) bytes"
+        ]
+        if let bodyPreview, bodyPreview.isEmpty == false {
+            parts.append(bodyPreview)
+        }
+        return parts.joined(separator: "\n")
+    }
+}
+
 private extension String {
     var nonEmpty: String? {
         isEmpty ? nil : self
@@ -285,6 +328,62 @@ public final class PluginRuntimeService: ProviderActionExecutor, @unchecked Send
             triggerID: "manual_\(request.requestID)",
             queuedAt: request.now,
             upsertAccount: true
+        )
+    }
+
+    public func previewConfiguredPluginRequest(
+        pluginID: String,
+        requestID: String,
+        accountID: String,
+        now: Date = Date()
+    ) async throws -> PluginRequestPreviewResult {
+        guard let configuration = try store.accountConfiguration(accountID: accountID) else {
+            throw PluginRuntimeServiceError.accountNotConfigured(accountID)
+        }
+        guard let plugin = try store.installedPlugin(id: pluginID), plugin.enabled else {
+            throw PluginRuntimeServiceError.pluginNotInstalled(pluginID)
+        }
+        guard let installedVersion = try store.installedPluginVersions(pluginID: pluginID)
+            .sorted(by: { $0.installedAt > $1.installedAt })
+            .first,
+            let packagePath = installedVersion.packagePath else {
+            throw PluginRuntimeServiceError.packageUnavailable(pluginID)
+        }
+        try requireGrantedPermissionIfDeclared(
+            pluginID: pluginID,
+            manifest: installedVersion.manifest,
+            permission: .network
+        )
+
+        let definition = try PluginPackageDefinition.decode(from: Data(contentsOf: URL(fileURLWithPath: packagePath)))
+        guard let requestDefinition = definition.requests.requests[requestID] else {
+            throw PluginRequestJobRunnerError.missingRequest(requestID)
+        }
+
+        let input = PluginRequestJobInput(
+            pluginID: pluginID,
+            accountID: configuration.id,
+            provider: pluginID,
+            requestID: requestID,
+            variables: configuration.variables,
+            headers: try await resolvedHeaders(base: [:], pluginID: pluginID, configuration: configuration, now: now),
+            capturedAt: now
+        )
+        let runner = PluginRequestJobRunner(
+            transport: transport,
+            committer: PluginMappingOutputCommitter(store: store)
+        )
+        let httpRequest = try runner.request(definition: requestDefinition, input: input)
+        let response = try await runner.response(for: httpRequest, requestID: requestID)
+        return PluginRequestPreviewResult(
+            pluginID: pluginID,
+            requestID: requestID,
+            accountID: configuration.id,
+            method: httpRequest.method,
+            url: response.url,
+            statusCode: response.statusCode,
+            responseByteCount: response.data.count,
+            bodyPreview: bodyPreview(from: response.data)
         )
     }
 
@@ -837,6 +936,18 @@ public final class PluginRuntimeService: ProviderActionExecutor, @unchecked Send
             }
         }
         return nil
+    }
+
+    private func bodyPreview(from data: Data, maxCharacters: Int = 500) -> String? {
+        guard let body = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+            body.isEmpty == false else {
+            return nil
+        }
+        guard body.count > maxCharacters else {
+            return body
+        }
+        return "\(body.prefix(maxCharacters))..."
     }
 
     private func jobID(pluginID: String, requestID: String, accountID: String, date: Date) -> String {

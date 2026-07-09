@@ -136,6 +136,105 @@ import Testing
     #expect(try store.notification(id: "ntf_\(actionRunID)")?.deliveredAt != nil)
 }
 
+@Test func pluginRuntimeServicePreviewsConfiguredRequestWithoutPersistingJobOutput() async throws {
+    let database = try temporaryRuntimeDatabase()
+    let store = StatusPersistenceStore(database: database)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let packageURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("status-preview-\(UUID().uuidString).statusplugin.zip")
+    let packageData = runtimeStoredZip(files: [
+        ("requests.json", Data("""
+        {
+          "requests": {
+            "check_site": {
+              "method": "GET",
+              "url": "https://{{host}}",
+              "timeoutSeconds": 15
+            }
+          }
+        }
+        """.utf8)),
+        ("mappings.json", Data("""
+        {
+          "resources": [
+            {
+              "type": "website",
+              "request": "check_site",
+              "id": "{{host}}",
+              "name": "{{host}}"
+            }
+          ],
+          "events": []
+        }
+        """.utf8))
+    ])
+    try packageData.write(to: packageURL)
+    let manifest = PluginManifest(
+        id: "com.status.website.preview",
+        name: "Website Preview",
+        version: "0.1.0",
+        author: PluginAuthor(name: "Status Foundry", publisherId: "status-foundry"),
+        category: "ops",
+        description: "Preview configured website requests.",
+        minCoreVersion: "0.1.0",
+        platforms: [.macOS, .iOS],
+        permissions: [.network],
+        domains: ["example.com"]
+    )
+    try store.installPlugin(
+        PluginInstallRecord(
+            manifest: manifest,
+            trustLevel: .official,
+            installPath: packageURL.deletingLastPathComponent().path,
+            packagePath: packageURL.path,
+            verification: PluginPackageVerificationResult(
+                pluginID: manifest.id,
+                version: manifest.version,
+                sha256: PluginPackageVerifier.sha256Hex(packageData),
+                signedBy: "status-foundry-dev"
+            ),
+            signature: "dev-signature",
+            packageDefinition: try PluginPackageDefinition.decode(from: packageData),
+            installedAt: now
+        )
+    )
+    try grantRuntimePermissions(manifest.permissions, pluginID: manifest.id, store: store, at: now)
+    try store.upsertAccountConfiguration(
+        PluginAccountConfiguration(
+            id: "acct_preview",
+            pluginID: manifest.id,
+            accountName: "Preview",
+            variables: ["host": "example.com"]
+        ),
+        updatedAt: now
+    )
+    let url = try #require(URL(string: "https://example.com"))
+    let service = PluginRuntimeService(
+        store: store,
+        transport: RuntimeFakeTransport(responses: [
+            url: PluginHTTPResponse(data: Data(#"{"ok":true}"#.utf8), statusCode: 200, url: url)
+        ])
+    )
+
+    let result = try await service.previewConfiguredPluginRequest(
+        pluginID: manifest.id,
+        requestID: "check_site",
+        accountID: "acct_preview",
+        now: now
+    )
+
+    #expect(result.pluginID == manifest.id)
+    #expect(result.requestID == "check_site")
+    #expect(result.accountID == "acct_preview")
+    #expect(result.method == "GET")
+    #expect(result.url == url)
+    #expect(result.statusCode == 200)
+    #expect(result.responseByteCount == 11)
+    #expect(result.bodyPreview == #"{"ok":true}"#)
+    #expect(try store.recentJobs(pluginID: manifest.id).isEmpty)
+    #expect(try store.resources(pluginID: manifest.id).isEmpty)
+}
+
 @Test func pluginRuntimeServiceRequiresGrantedNetworkPermission() async throws {
     let database = try temporaryRuntimeDatabase()
     let store = StatusPersistenceStore(database: database)

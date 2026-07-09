@@ -41,6 +41,53 @@ import StatusCore
 }
 
 @MainActor
+@Test func pluginStoreViewModelTestsConfiguredPluginRequest() async throws {
+    let plugin = InstalledPlugin(
+        id: "com.status.github",
+        name: "GitHub",
+        author: "Status Foundry",
+        description: "GitHub repository checks.",
+        category: "development",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/com.status.github",
+        installedAt: Date(timeIntervalSince1970: 1_783_433_520),
+        updatedAt: Date(timeIntervalSince1970: 1_783_433_520)
+    )
+    let account = PluginAccountConfiguration(
+        id: "acct_github",
+        pluginID: plugin.id,
+        accountName: "Status repo",
+        variables: ["owner": "statusfoundry", "repo": "status"]
+    )
+    var testedPluginID: String?
+    var testedAccountID: String?
+    var testedRequestID: String?
+    let viewModel = PluginStoreViewModel(
+        loadInstalled: { [plugin] },
+        loadAvailable: { [] },
+        installPlugin: { _ in },
+        loadAccounts: { _ in [account] },
+        testPluginRequest: { plugin, account, requestID in
+            testedPluginID = plugin.id
+            testedAccountID = account.id
+            testedRequestID = requestID
+            return "GET https://api.github.com/repos/statusfoundry/status/actions/runs\nHTTP 200\n2 bytes"
+        }
+    )
+
+    await viewModel.reload()
+    await viewModel.testRequest("list_workflow_runs", for: plugin)
+
+    let key = viewModel.testRequestKey(pluginID: plugin.id, accountID: account.id, requestID: "list_workflow_runs")
+    #expect(testedPluginID == plugin.id)
+    #expect(testedAccountID == account.id)
+    #expect(testedRequestID == "list_workflow_runs")
+    #expect(viewModel.testRequestResults[key] == "GET https://api.github.com/repos/statusfoundry/status/actions/runs\nHTTP 200\n2 bytes")
+    #expect(viewModel.testRequestErrors[key] == nil)
+}
+
+@MainActor
 @Test func pluginStoreViewModelLoadsResourcesForInstalledPlugins() async throws {
     let plugin = InstalledPlugin(
         id: "com.status.website",

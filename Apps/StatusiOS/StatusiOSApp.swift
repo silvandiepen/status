@@ -186,6 +186,8 @@ private struct IOSRootView: View {
                 request: request,
                 callbackURL: callbackURL
             )
+        } testPluginRequest: { plugin, account, requestID in
+            try await testConfiguredPluginRequest(pluginID: plugin.id, requestID: requestID, accountID: account.id)
         }
     }
 
@@ -397,6 +399,16 @@ private struct IOSRootView: View {
         )
         let result = try await service.runQueuedPluginJob(jobID: job.id)
         return "\(accountName): \(result.mappingOutput.resources.count) resource stored, \(result.mappingOutput.events.count) events processed."
+    }
+
+    private func testConfiguredPluginRequest(pluginID: String, requestID: String, accountID: String) async throws -> String {
+        let store = try LocalStatusStore.openApplicationSupportStore()
+        let service = PluginRuntimeService(store: store, effectDispatcher: IOSActionEffectDispatcher())
+        return try await service.previewConfiguredPluginRequest(
+            pluginID: pluginID,
+            requestID: requestID,
+            accountID: accountID
+        ).summary
     }
 
     private func canRunConfiguredPlugin(pluginID: String) -> Bool {
