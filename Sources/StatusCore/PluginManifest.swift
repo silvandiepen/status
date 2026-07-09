@@ -71,7 +71,7 @@ public enum PluginValidationError: Error, Equatable, LocalizedError, Sendable {
         case .oauthMissingConfiguration(let pluginID):
             "OAuth plugin must declare authorization and token endpoints: \(pluginID)"
         case .oauthInvalidRedirectURI(let value):
-            "OAuth redirectUri must use the app-owned status://oauth/{provider} callback: \(value)"
+            "OAuth redirectUri must use the app-owned status://oauth/{provider} callback matching auth.provider: \(value)"
         case .invalidIcon(let value):
             "Plugin icon must be an SF Symbol name, optionally prefixed with sf:: \(value)"
         case .invalidAccentColor(let value):
@@ -260,7 +260,8 @@ public enum PluginManifestValidator {
             guard manifest.permissions.contains(.keychain) else {
                 throw PluginValidationError.oauthWithoutKeychain(manifest.id)
             }
-            guard auth.provider?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+            guard let provider = auth.provider?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  provider.isEmpty == false else {
                 throw PluginValidationError.oauthMissingProvider(manifest.id)
             }
             guard auth.applicationId?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
@@ -269,7 +270,7 @@ public enum PluginManifestValidator {
             guard let oauth = auth.oauth2 else {
                 throw PluginValidationError.oauthMissingConfiguration(manifest.id)
             }
-            try validateOAuthRedirectURI(oauth.redirectURI)
+            try validateOAuthRedirectURI(oauth.redirectURI, provider: provider)
             try validateDeclaredDomain(oauth.authorizationURL.host?.lowercased() ?? "", declaredDomains: declaredDomains)
             try validateDeclaredDomain(oauth.tokenURL.host?.lowercased() ?? "", declaredDomains: declaredDomains)
         }
@@ -335,7 +336,7 @@ public enum PluginManifestValidator {
         }
     }
 
-    private static func validateOAuthRedirectURI(_ redirectURI: String) throws {
+    private static func validateOAuthRedirectURI(_ redirectURI: String, provider: String) throws {
         guard let components = URLComponents(string: redirectURI),
               components.scheme == "status",
               components.host == "oauth",
@@ -345,7 +346,7 @@ public enum PluginManifestValidator {
         }
         let path = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         let isValidProviderPath = path.range(of: #"^[a-z][a-z0-9-]*$"#, options: .regularExpression) != nil
-        if isValidProviderPath == false {
+        if isValidProviderPath == false || path != provider {
             throw PluginValidationError.oauthInvalidRedirectURI(redirectURI)
         }
     }

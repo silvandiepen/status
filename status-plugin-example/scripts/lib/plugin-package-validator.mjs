@@ -440,9 +440,9 @@ function validateDeclaredHost(manifest, host, sourceName, fieldName) {
   }
 }
 
-function validateOAuthRedirectURI(value, sourceName) {
-  if (typeof value !== "string" || /^status:\/\/oauth\/[a-z][a-z0-9-]*$/.test(value) === false) {
-    fail(`${sourceName}: auth.oauth2.redirectUri must match status://oauth/{provider-slug}`);
+function validateOAuthRedirectURI(value, provider, sourceName) {
+  if (typeof value !== "string" || value !== `status://oauth/${provider}`) {
+    fail(`${sourceName}: auth.oauth2.redirectUri must match status://oauth/{provider-slug} for auth.provider`);
   }
 }
 
@@ -463,11 +463,14 @@ function validateAuth(authFile, manifest, sourceName) {
   if (authFile.type === "oauth2" && (typeof authFile.applicationId !== "string" || authFile.applicationId.trim() === "")) {
     fail(`${sourceName}: oauth2 auth requires applicationId`);
   }
+  if (authFile.type === "oauth2" && (typeof authFile.provider !== "string" || authFile.provider.trim() === "")) {
+    fail(`${sourceName}: oauth2 auth requires provider`);
+  }
   if (authFile.type === "oauth2" && (!authFile.oauth2 || typeof authFile.oauth2 !== "object" || Array.isArray(authFile.oauth2))) {
     fail(`${sourceName}: oauth2 auth requires oauth2 endpoint configuration`);
   }
   if (authFile.type === "oauth2") {
-    validateOAuthRedirectURI(authFile.oauth2.redirectUri, sourceName);
+    validateOAuthRedirectURI(authFile.oauth2.redirectUri, authFile.provider, sourceName);
     validateDeclaredHost(
       manifest,
       hostFromURL(authFile.oauth2.authorizationUrl, sourceName, "auth.oauth2.authorizationUrl"),

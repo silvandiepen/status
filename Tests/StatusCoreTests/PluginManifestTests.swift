@@ -144,6 +144,28 @@ import Testing
     }
 }
 
+@Test func oauthRedirectURIMustMatchProviderSlug() throws {
+    var manifest = appStoreConnectManifest()
+    manifest.permissions.append(.oauth)
+    manifest.domains = ["api.appstoreconnect.apple.com", "github.com"]
+    let auth = PackagedPluginAuth(
+        type: .oauth2,
+        provider: "github",
+        applicationId: "status-foundry.github",
+        oauth2: PackagedPluginOAuth2(
+            authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
+            tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
+            redirectURI: "status://oauth/google"
+        )
+    )
+
+    #expect(throws: PluginValidationError.oauthInvalidRedirectURI("status://oauth/google")) {
+        try PluginManifestValidator.validate(
+            PluginValidationInput(manifest: manifest, authDefinitions: [auth])
+        )
+    }
+}
+
 @Test func pluginManifestRequiresIconAndAccentColor() {
     var manifest = appStoreConnectManifest()
     manifest.icon = nil

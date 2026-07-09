@@ -52,7 +52,7 @@ When a provider needs a registered application (GitHub OAuth app, Jira app, etc.
 "applicationId": "your-public-client-id"
 ```
 
-Never put client secrets in the plugin package. OAuth `redirectUri` must use `status://oauth/{provider-slug}`. Also list the authorization and token endpoint hosts in `manifest.json` `domains`; Status makes those network calls during connect and refresh.
+Never put client secrets in the plugin package. OAuth `redirectUri` must use `status://oauth/{provider-slug}` and the slug must exactly match `auth.provider`. Also list the authorization and token endpoint hosts in `manifest.json` `domains`; Status makes those network calls during connect and refresh.
 
 ### Standalone template repository
 
