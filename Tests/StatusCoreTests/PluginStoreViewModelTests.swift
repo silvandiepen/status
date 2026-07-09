@@ -361,3 +361,75 @@ import StatusCore
     #expect(viewModel.oauthConnectionURLs[key] == nil)
     #expect(viewModel.oauthConnectionErrors[key] == nil)
 }
+
+@MainActor
+@Test func pluginStoreViewModelIgnoresBroadcastOAuthCallbackWithoutPendingConnection() async throws {
+    let viewModel = PluginStoreViewModel(
+        loadInstalled: { [] },
+        loadAvailable: { [] },
+        installPlugin: { _ in }
+    )
+    let callbackURL = try #require(URL(string: "status://oauth/github?code=code-456&state=missing"))
+
+    let handled = await viewModel.handleOAuthCallbackIfPending(callbackURL: callbackURL)
+
+    #expect(handled == false)
+    #expect(viewModel.oauthConnectionErrors["oauth:callback"] == nil)
+}
+
+@MainActor
+@Test func pluginStoreViewModelHandlesBroadcastOAuthCallbackForPendingConnection() async throws {
+    let plugin = InstalledPlugin(
+        id: "com.status.oauthgithub",
+        name: "OAuth GitHub",
+        author: "Status Foundry",
+        description: "OAuth GitHub checks.",
+        category: "development",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/com.status.oauthgithub",
+        auth: PackagedPluginAuth(
+            type: .oauth2,
+            provider: "github",
+            applicationId: "status-foundry.github",
+            oauth2: PackagedPluginOAuth2(
+                authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
+                tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
+                redirectURI: "status://oauth/github",
+                scopes: ["repo"]
+            )
+        ),
+        installedAt: Date(timeIntervalSince1970: 1_783_433_520),
+        updatedAt: Date(timeIntervalSince1970: 1_783_433_520)
+    )
+    var completedCallbackURL: URL?
+    let viewModel = PluginStoreViewModel(
+        loadInstalled: { [plugin] },
+        loadAvailable: { [] },
+        installPlugin: { _ in },
+        canConfigurePlugin: { _ in true },
+        completeOAuthConnection: { _, _, _, _, _, callbackURL in
+            completedCallbackURL = callbackURL
+            return "Saved OAuth app."
+        }
+    )
+
+    await viewModel.reload()
+    viewModel.beginOAuthConnection(plugin)
+
+    let selectedAccountID = viewModel.selectedAccountIDs[plugin.id]
+    let key = "\(plugin.id):\(selectedAccountID ?? "__new__:")"
+    let authorizationURL = try #require(viewModel.oauthConnectionURLs[key])
+    let state = try #require(URLComponents(url: authorizationURL, resolvingAgainstBaseURL: false)?
+        .queryItems?
+        .first { $0.name == "state" }?
+        .value)
+    let callbackURL = try #require(URL(string: "status://oauth/github?code=code-456&state=\(state)"))
+
+    let handled = await viewModel.handleOAuthCallbackIfPending(callbackURL: callbackURL)
+
+    #expect(handled == true)
+    #expect(completedCallbackURL == callbackURL)
+    #expect(viewModel.setupResults[key] == "Saved OAuth app.")
+    #expect(viewModel.oauthConnectionURLs[key] == nil)
+}

@@ -1,6 +1,22 @@
 import StatusCore
 import SwiftUI
 
+public enum StatusOAuthCallbackRouter {
+    public static let notificationName = Notification.Name("StatusOAuthCallbackRouter.callbackURL")
+
+    public static func publish(_ url: URL) {
+        guard isOAuthCallback(url) else { return }
+        NotificationCenter.default.post(name: notificationName, object: url)
+    }
+
+    private static func isOAuthCallback(_ url: URL) -> Bool {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return false
+        }
+        return components.scheme == "status" && components.host == "oauth"
+    }
+}
+
 public struct PluginStoreCatalog: Equatable, Sendable {
     public var installed: [InstalledPlugin]
     public var available: [RegistryPluginSummary]
@@ -395,14 +411,33 @@ public final class PluginStoreViewModel: ObservableObject {
         }
     }
 
+    @discardableResult
+    public func handleOAuthCallbackIfPending(callbackURL: URL) async -> Bool {
+        guard completingOAuthConnectionKey == nil else { return true }
+        guard let match = pendingOAuthConnection(for: callbackURL) else { return false }
+        await completeOAuthConnection(callbackURL: callbackURL, match: match)
+        return true
+    }
+
     public func completeOAuthConnection(callbackURL: URL) async {
         guard completingOAuthConnectionKey == nil else { return }
-        guard let match = oauthConnectionRequests.first(where: { _, request in
-            callbackURL.queryValue(named: "state") == request.state
-        }) else {
+        guard let match = pendingOAuthConnection(for: callbackURL) else {
             oauthConnectionErrors["oauth:callback"] = "No pending OAuth connection matches this callback."
             return
         }
+        await completeOAuthConnection(callbackURL: callbackURL, match: match)
+    }
+
+    private func pendingOAuthConnection(for callbackURL: URL) -> (key: String, value: PluginOAuthAuthorizationRequest)? {
+        oauthConnectionRequests.first { _, request in
+            callbackURL.queryValue(named: "state") == request.state
+        }
+    }
+
+    private func completeOAuthConnection(
+        callbackURL: URL,
+        match: (key: String, value: PluginOAuthAuthorizationRequest)
+    ) async {
         guard let pluginID = pluginID(fromSetupKey: match.key),
               let plugin = catalog.installed.first(where: { $0.id == pluginID }) else {
             oauthConnectionErrors[match.key] = "OAuth plugin is no longer installed."
@@ -772,7 +807,13 @@ public struct PluginStoreContainerView: View {
         }
         .onOpenURL { url in
             Task {
-                await viewModel.completeOAuthConnection(callbackURL: url)
+                await viewModel.handleOAuthCallbackIfPending(callbackURL: url)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: StatusOAuthCallbackRouter.notificationName)) { notification in
+            guard let url = notification.object as? URL else { return }
+            Task {
+                await viewModel.handleOAuthCallbackIfPending(callbackURL: url)
             }
         }
     }
@@ -878,7 +919,13 @@ public struct PluginSettingsContainerView: View {
         }
         .onOpenURL { url in
             Task {
-                await viewModel.completeOAuthConnection(callbackURL: url)
+                await viewModel.handleOAuthCallbackIfPending(callbackURL: url)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: StatusOAuthCallbackRouter.notificationName)) { notification in
+            guard let url = notification.object as? URL else { return }
+            Task {
+                await viewModel.handleOAuthCallbackIfPending(callbackURL: url)
             }
         }
     }

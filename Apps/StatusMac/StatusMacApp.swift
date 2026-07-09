@@ -10,12 +10,18 @@ struct StatusMacApp: App {
     var body: some Scene {
         WindowGroup {
             MacRootView()
+                .onOpenURL { url in
+                    StatusOAuthCallbackRouter.publish(url)
+                }
         }
         .windowStyle(.titleBar)
 
         WindowGroup("App Settings", id: "integration-settings", for: String.self) { $pluginID in
             if let pluginID {
                 MacPluginSettingsWindow(pluginID: pluginID)
+                    .onOpenURL { url in
+                        StatusOAuthCallbackRouter.publish(url)
+                    }
             }
         }
         .windowStyle(.titleBar)

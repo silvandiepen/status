@@ -9,6 +9,9 @@ struct StatusiOSApp: App {
     var body: some Scene {
         WindowGroup {
             IOSRootView()
+                .onOpenURL { url in
+                    StatusOAuthCallbackRouter.publish(url)
+                }
         }
     }
 }
