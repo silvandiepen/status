@@ -726,7 +726,7 @@ public final class PluginStoreViewModel: ObservableObject {
     public func run(_ plugin: InstalledPlugin) async {
         guard runningPluginID == nil else { return }
         guard let account = selectedAccount(for: plugin) else {
-            runErrors[setupKey(for: plugin)] = "Save an account before running this plugin."
+            runErrors[setupKey(for: plugin)] = "Save an app before refreshing this plugin."
             return
         }
         let key = setupKey(pluginID: plugin.id, accountID: account.id)
@@ -1515,7 +1515,7 @@ public struct PluginAppDetailView: View {
                     Button {
                         run()
                     } label: {
-                        Label("Run", systemImage: "play")
+                        Label("Refresh", systemImage: "arrow.clockwise")
                     }
                     .buttonStyle(.bordered)
                 }
@@ -1571,7 +1571,7 @@ private struct PluginFallbackAppDataPanel: View {
             if resources.isEmpty {
                 EmptyPluginState(
                     title: "No data stored yet",
-                    detail: "Run this app after setup to fetch \(plugin.name) resources and events."
+                    detail: "Refresh this app after setup to fetch \(plugin.name) resources and events."
                 )
             } else {
                 VStack(spacing: 8) {
@@ -2083,7 +2083,7 @@ private struct InstalledPluginSection: View {
         }
         let accounts = configuredAccounts[plugin.id, default: []]
         guard let selectedAccount = selectedAccount(for: plugin, accounts: accounts) else {
-            return "Save an app before running this plugin."
+            return "Save an app before refreshing this plugin."
         }
         let missing = missingRuntimePermissions(
             selectedAccount: selectedAccount,
@@ -2092,7 +2092,7 @@ private struct InstalledPluginSection: View {
         guard missing.isEmpty == false else {
             return nil
         }
-        return "Grant \(permissionList(missing)) permission before running this app."
+        return "Grant \(permissionList(missing)) permission before refreshing this app."
     }
 
     private func selectedAccount(for plugin: InstalledPlugin, accounts: [PluginAccountConfiguration]) -> PluginAccountConfiguration? {
@@ -2217,7 +2217,7 @@ private struct InstalledPluginRow: View {
                         Button {
                             run(plugin)
                         } label: {
-                            Label("Run", systemImage: "play")
+                            Label("Refresh", systemImage: "arrow.clockwise")
                         }
                         .buttonStyle(.bordered)
                         .disabled(runUnavailableReason != nil)
@@ -2359,7 +2359,7 @@ private struct PluginSettingsPanel: View {
                                 ProgressView()
                                     .controlSize(.small)
                             } else {
-                                Text("Run")
+                                Text("Refresh")
                             }
                         }
                         .buttonStyle(.borderedProminent)
@@ -2652,13 +2652,13 @@ private struct PluginSettingsPanel: View {
             return nil
         }
         guard selectedPersistedAccountID != nil else {
-            return "Save an app before running this plugin."
+            return "Save an app before refreshing this plugin."
         }
         let missing = missingRuntimePermissions
         guard missing.isEmpty == false else {
             return nil
         }
-        return "Grant \(permissionList(missing)) permission before running this app."
+        return "Grant \(permissionList(missing)) permission before refreshing this app."
     }
 
     private var missingRuntimePermissions: [PluginPermission] {
@@ -2798,7 +2798,7 @@ private struct SettingsRunUnavailableView: View {
                 .frame(width: 12)
                 .padding(.top, 3)
             VStack(alignment: .leading, spacing: 4) {
-                Text("Run unavailable")
+                Text("Refresh unavailable")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.orange)
                 Text(reason)
@@ -2834,7 +2834,7 @@ private struct DashboardTileFieldsPanel: View {
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             } else if availableFields.isEmpty {
-                Text("Run this app once to collect fields that can be shown on the tile.")
+                Text("Refresh this app once to collect fields that can be shown on the tile.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)

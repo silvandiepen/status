@@ -1333,7 +1333,7 @@ private struct MacPluginAppDetail: View {
         guard missingRunPermissions.isEmpty == false else {
             return nil
         }
-        return "Grant \(permissionList(missingRunPermissions)) permission in App Settings before running this app."
+        return "Grant \(permissionList(missingRunPermissions)) permission in App Settings before refreshing this app."
     }
 
     private func load() {

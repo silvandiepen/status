@@ -174,6 +174,16 @@ private struct AppSection: View {
                     .truncationMode(.middle)
             }
             Spacer(minLength: 0)
+            if openApp != nil {
+                HStack(spacing: 5) {
+                    Text("Open app")
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
         }
         .frame(maxWidth: .infinity, minHeight: primaryItem == nil ? 150 : 210, alignment: .leading)
         .padding(14)
