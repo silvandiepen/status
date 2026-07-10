@@ -1,4 +1,8 @@
 {
+  "dashboardTile": {
+    "primaryFields": ["starRating"],
+    "secondaryFields": ["reviewerLanguage", "appVersionName"]
+  },
   "views": [
     {
       "id": "reviews",

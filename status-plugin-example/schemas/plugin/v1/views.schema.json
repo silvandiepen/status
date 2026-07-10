@@ -11,9 +11,33 @@
       "type": "array",
       "minItems": 1,
       "items": { "$ref": "#/$defs/view" }
+    },
+    "dashboardTile": {
+      "$ref": "#/$defs/dashboardTile"
     }
   },
   "$defs": {
+    "dashboardTile": {
+      "type": "object",
+      "description": "Recommended dashboard tile fields for newly configured apps. Status renders the tile natively and lets users override these choices per app.",
+      "additionalProperties": false,
+      "properties": {
+        "primaryFields": {
+          "type": "array",
+          "description": "Most important normalized resource fields to show first on the compact dashboard tile.",
+          "maxItems": 2,
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "secondaryFields": {
+          "type": "array",
+          "description": "Additional normalized resource fields to show after the primary field, up to the app-owned tile limit.",
+          "maxItems": 4,
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    },
     "view": {
       "type": "object",
       "additionalProperties": false,

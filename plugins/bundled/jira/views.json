@@ -1,4 +1,8 @@
 {
+  "dashboardTile": {
+    "primaryFields": ["status"],
+    "secondaryFields": ["priority", "assignee", "summary"]
+  },
   "views": [
     {
       "id": "issues",

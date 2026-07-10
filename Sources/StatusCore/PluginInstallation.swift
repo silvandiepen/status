@@ -15,6 +15,7 @@ public struct InstalledPlugin: Codable, Equatable, Sendable, Identifiable {
     public var auth: PackagedPluginAuth?
     public var setup: PackagedPluginSetup?
     public var views: [PackagedPluginView]
+    public var dashboardTile: PackagedPluginDashboardTile?
     public var installedAt: Date
     public var updatedAt: Date
 
@@ -33,6 +34,7 @@ public struct InstalledPlugin: Codable, Equatable, Sendable, Identifiable {
         auth: PackagedPluginAuth? = nil,
         setup: PackagedPluginSetup? = nil,
         views: [PackagedPluginView] = [],
+        dashboardTile: PackagedPluginDashboardTile? = nil,
         installedAt: Date,
         updatedAt: Date
     ) {
@@ -50,6 +52,7 @@ public struct InstalledPlugin: Codable, Equatable, Sendable, Identifiable {
         self.auth = auth
         self.setup = setup
         self.views = views
+        self.dashboardTile = dashboardTile
         self.installedAt = installedAt
         self.updatedAt = updatedAt
     }

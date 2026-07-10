@@ -9,6 +9,7 @@ public struct PluginPackageDefinition: Equatable, Sendable {
     public var actions: [PackagedPluginAction]
     public var mappings: PackagedPluginMappings
     public var views: [PackagedPluginView]
+    public var dashboardTile: PackagedPluginDashboardTile?
     public var rulePresets: [PackagedRulePreset]
 
     public init(
@@ -20,6 +21,7 @@ public struct PluginPackageDefinition: Equatable, Sendable {
         actions: [PackagedPluginAction] = [],
         mappings: PackagedPluginMappings = PackagedPluginMappings(),
         views: [PackagedPluginView] = [],
+        dashboardTile: PackagedPluginDashboardTile? = nil,
         rulePresets: [PackagedRulePreset] = []
     ) {
         self.auth = auth
@@ -30,6 +32,7 @@ public struct PluginPackageDefinition: Equatable, Sendable {
         self.actions = actions
         self.mappings = mappings
         self.views = views
+        self.dashboardTile = dashboardTile
         self.rulePresets = rulePresets
     }
 
@@ -65,9 +68,11 @@ public struct PluginPackageDefinition: Equatable, Sendable {
             try decoder.decode(PackagedPluginMappings.self, from: data)
         } ?? PackagedPluginMappings()
 
-        let views = try archive.file(named: "views.json").map { data in
-            try decoder.decode(PackagedPluginViewsFile.self, from: data).views
-        } ?? []
+        let viewsFile = try archive.file(named: "views.json").map { data in
+            try decoder.decode(PackagedPluginViewsFile.self, from: data)
+        }
+        let views = viewsFile?.views ?? []
+        let dashboardTile = viewsFile?.dashboardTile
 
         let presets = try archive.file(named: "rules.presets.json").map { data in
             try decoder.decode(PackagedRulePresetsFile.self, from: data).presets
@@ -75,7 +80,7 @@ public struct PluginPackageDefinition: Equatable, Sendable {
 
         try validateActionRequests(actions, requests: requests)
 
-        return PluginPackageDefinition(auth: auth, setup: setup, triggers: triggers, requests: requests, events: events, actions: actions, mappings: mappings, views: views, rulePresets: presets)
+        return PluginPackageDefinition(auth: auth, setup: setup, triggers: triggers, requests: requests, events: events, actions: actions, mappings: mappings, views: views, dashboardTile: dashboardTile, rulePresets: presets)
     }
 
     private static func validateActionRequests(_ actions: [PackagedPluginAction], requests: PackagedPluginRequests) throws {
@@ -96,6 +101,57 @@ public struct PackagedPluginActionsFile: Decodable, Equatable, Sendable {
 
 public struct PackagedPluginViewsFile: Decodable, Equatable, Sendable {
     public var views: [PackagedPluginView]
+    public var dashboardTile: PackagedPluginDashboardTile?
+
+    enum CodingKeys: String, CodingKey {
+        case views
+        case dashboardTile
+    }
+
+    public init(views: [PackagedPluginView], dashboardTile: PackagedPluginDashboardTile? = nil) {
+        self.views = views
+        self.dashboardTile = dashboardTile
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        views = try container.decode([PackagedPluginView].self, forKey: .views)
+        dashboardTile = try container.decodeIfPresent(PackagedPluginDashboardTile.self, forKey: .dashboardTile)
+    }
+}
+
+public struct PackagedPluginDashboardTile: Codable, Equatable, Sendable {
+    public var primaryFields: [String]
+    public var secondaryFields: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case primaryFields
+        case secondaryFields
+    }
+
+    public init(primaryFields: [String] = [], secondaryFields: [String] = []) {
+        self.primaryFields = primaryFields
+        self.secondaryFields = secondaryFields
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        primaryFields = try container.decodeIfPresent([String].self, forKey: .primaryFields) ?? []
+        secondaryFields = try container.decodeIfPresent([String].self, forKey: .secondaryFields) ?? []
+    }
+
+    public var defaultFields: [String] {
+        uniqueFields(primaryFields + secondaryFields)
+    }
+
+    private func uniqueFields(_ fields: [String]) -> [String] {
+        var seen: Set<String> = []
+        return fields.filter { field in
+            guard seen.contains(field) == false else { return false }
+            seen.insert(field)
+            return true
+        }
+    }
 }
 
 public struct PackagedPluginView: Codable, Equatable, Sendable, Identifiable {

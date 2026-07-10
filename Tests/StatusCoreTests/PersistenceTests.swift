@@ -1075,6 +1075,86 @@ import Testing
     ])
 }
 
+@Test func dashboardSnapshotShowsCanonicalAppTileFields() throws {
+    let database = try temporaryDatabase()
+    try StatusDatabaseMigrator.migrate(database)
+    let store = StatusPersistenceStore(database: database)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let manifest = PluginManifest(
+        id: "com.status.github",
+        name: "GitHub",
+        version: "0.1.0",
+        author: PluginAuthor(name: "Status Foundry", publisherId: "status-foundry"),
+        category: "developer",
+        description: "Read-only GitHub status events.",
+        minCoreVersion: "0.1.0",
+        platforms: [.macOS, .iOS],
+        permissions: [.network],
+        domains: ["api.github.com"]
+    )
+    try store.installPlugin(
+        PluginInstallRecord(
+            manifest: manifest,
+            trustLevel: .official,
+            installPath: "/Application Support/Status/Plugins/com.status.github",
+            verification: PluginPackageVerificationResult(
+                pluginID: manifest.id,
+                version: manifest.version,
+                sha256: "abc123",
+                signedBy: "status-foundry-dev"
+            ),
+            signature: "dev-signature",
+            installedAt: now
+        )
+    )
+    try store.upsertAccountConfiguration(
+        PluginAccountConfiguration(
+            id: "acc_work",
+            pluginID: "com.status.github",
+            accountName: "Work GitHub",
+            variables: [PluginSetupConfiguration.dashboardTileFieldsKey: "name,actionUrl"],
+            authType: "api-key",
+            credentialRef: "kc_github"
+        ),
+        updatedAt: now
+    )
+    try store.upsertResource(
+        Resource(
+            id: "res_repo",
+            accountID: "acc_work",
+            pluginID: "com.status.github",
+            type: "repository",
+            name: "statusfoundry/status",
+            actionURL: URL(string: "https://github.com/statusfoundry/status")
+        ),
+        externalID: "statusfoundry/status",
+        seenAt: now
+    )
+
+    let snapshot = try store.dashboardSnapshot(now: now)
+
+    #expect(snapshot.integrations.first?.tileItems == [
+        DashboardTileItem(
+            id: "name",
+            label: "Name",
+            value: "statusfoundry/status",
+            kind: .text,
+            resourceName: "statusfoundry/status",
+            resourceType: "repository",
+            actionURL: URL(string: "https://github.com/statusfoundry/status")
+        ),
+        DashboardTileItem(
+            id: "actionUrl",
+            label: "Action Url",
+            value: "https://github.com/statusfoundry/status",
+            kind: .link,
+            resourceName: "statusfoundry/status",
+            resourceType: "repository",
+            actionURL: URL(string: "https://github.com/statusfoundry/status")
+        )
+    ])
+}
+
 @Test func pluginInstallRecordPersistsPluginVersionAndPermissionDefaults() throws {
     let database = try temporaryDatabase()
     try StatusDatabaseMigrator.migrate(database)

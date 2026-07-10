@@ -1556,6 +1556,7 @@ public final class StatusPersistenceStore {
             auth: installedPluginAuth(pluginID: pluginID, version: installedVersion),
             setup: installedPluginSetup(pluginID: pluginID, version: installedVersion),
             views: installedPluginViews(pluginID: pluginID, version: installedVersion),
+            dashboardTile: installedPluginDashboardTile(pluginID: pluginID, version: installedVersion),
             installedAt: ISO8601.date(from: row.requiredText("installed_at")),
             updatedAt: ISO8601.date(from: row.requiredText("updated_at"))
         )
@@ -1571,6 +1572,10 @@ public final class StatusPersistenceStore {
 
     private func installedPluginViews(pluginID: String, version: String) -> [PackagedPluginView] {
         installedPluginDefinition(pluginID: pluginID, version: version)?.views ?? []
+    }
+
+    private func installedPluginDashboardTile(pluginID: String, version: String) -> PackagedPluginDashboardTile? {
+        installedPluginDefinition(pluginID: pluginID, version: version)?.dashboardTile
     }
 
     private func installedPluginDefinition(pluginID: String, version: String) -> PluginPackageDefinition? {
@@ -1760,8 +1765,8 @@ public final class StatusPersistenceStore {
         }
         let resources = try resources(pluginID: pluginID, accountID: accountID, limit: 10)
         return selectedFields.compactMap { field in
-            guard let resource = resources.first(where: { $0.fields[field]?.isEmpty == false }),
-                  let value = resource.fields[field] else {
+            guard let resource = resources.first(where: { dashboardTileValue(field: field, resource: $0)?.isEmpty == false }),
+                  let value = dashboardTileValue(field: field, resource: resource) else {
                 return nil
             }
             return DashboardTileItem(
@@ -1773,6 +1778,20 @@ public final class StatusPersistenceStore {
                 resourceType: resource.type,
                 actionURL: resource.actionURL
             )
+        }
+    }
+
+    private func dashboardTileValue(field: String, resource: Resource) -> String? {
+        if let value = resource.fields[field] {
+            return value
+        }
+        switch field {
+        case "name":
+            return resource.name
+        case "actionUrl":
+            return resource.actionURL?.absoluteString
+        default:
+            return nil
         }
     }
 

@@ -270,7 +270,7 @@ Supported view primitives:
 - automation builder;
 - audit log.
 
-Plugins may declare which views apply and which fields to show. Each configured app can choose which supported dashboard tile and detail views are enabled for that app. The app dashboard tile is intentionally compact: it should show the most important current state, recent critical events, or key metrics for that configured app. Clicking a tile or sidebar app opens that app's detail page, rendered from plugin-declared view descriptors and local app settings.
+Plugins may declare which views apply and which fields to show. `views.json` may include a `dashboardTile` template with recommended `primaryFields` and `secondaryFields` for newly configured apps; those fields reference normalized resource fields plus the canonical `name` and `actionUrl` values. Each configured app can choose which supported dashboard tile and detail views are enabled for that app, and Status preserves those per-app choices when setup changes. The app dashboard tile is intentionally compact: it should show the most important current state, recent critical events, or key metrics for that configured app. Clicking a tile or sidebar app opens that app's detail page, rendered from plugin-declared view descriptors and local app settings.
 
 The same plugin should render differently but natively on macOS and iOS.
 

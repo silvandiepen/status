@@ -1008,6 +1008,10 @@ import Testing
     let packageData = runtimeStoredZip(files: [
         ("views.json", Data("""
         {
+          "dashboardTile": {
+            "primaryFields": ["name"],
+            "secondaryFields": ["visibility", "actionUrl"]
+          },
           "views": [
             {
               "id": "repositories",
@@ -1044,6 +1048,10 @@ import Testing
             resourceType: "repository"
         )
     ])
+    #expect(definition.dashboardTile == PackagedPluginDashboardTile(
+        primaryFields: ["name"],
+        secondaryFields: ["visibility", "actionUrl"]
+    ))
 }
 
 @Test func pluginPackageDefinitionRejectsActionWithMissingRequest() throws {
@@ -1119,6 +1127,72 @@ import Testing
     #expect(configuration.authType == "bearer-token")
     #expect(configuration.variables == ["owner": "statusfoundry", "repo": "status"])
     #expect(try credentials.read(reference: credentialRef) == Data("github_pat_example".utf8))
+}
+
+@Test func pluginSetupSeedsDashboardTileDefaultsForNewApps() throws {
+    let database = try temporaryRuntimeDatabase()
+    let store = StatusPersistenceStore(database: database)
+    let service = PluginRuntimeService(store: store, credentialStore: nil)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let manifest = PluginManifest(
+        id: "com.status.website",
+        name: "Website",
+        version: "0.1.0",
+        author: PluginAuthor(name: "Status Foundry", publisherId: "status-foundry"),
+        category: "operations",
+        description: "Website checks.",
+        minCoreVersion: "0.1.0",
+        platforms: [.macOS, .iOS],
+        permissions: [.network],
+        domains: ["example.com"]
+    )
+    try store.installPlugin(
+        PluginInstallRecord(
+            manifest: manifest,
+            trustLevel: .official,
+            installPath: "/tmp/plugin",
+            verification: PluginPackageVerificationResult(
+                pluginID: manifest.id,
+                version: manifest.version,
+                sha256: "website123",
+                signedBy: "status-foundry-dev"
+            ),
+            signature: "dev-signature",
+            installedAt: now
+        )
+    )
+    let plugin = InstalledPlugin(
+        id: "com.status.website",
+        name: "Website",
+        author: "Status Foundry",
+        description: "Website checks.",
+        category: "operations",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/plugin",
+        setup: PackagedPluginSetup(
+            title: "Website",
+            fields: [
+                PackagedPluginSetupField(id: "host", label: "Host", type: .hostname, required: true)
+            ]
+        ),
+        dashboardTile: PackagedPluginDashboardTile(
+            primaryFields: ["reachable"],
+            secondaryFields: ["statusCode", "responseTimeMs", "actionUrl"]
+        ),
+        installedAt: now,
+        updatedAt: now
+    )
+
+    _ = try PluginSetupConfiguration.saveValues(
+        ["host": "https://example.com"],
+        for: plugin,
+        service: service,
+        now: now
+    )
+
+    let configuration = try #require(store.accountConfigurations(pluginID: "com.status.website").first)
+    #expect(configuration.variables[PluginSetupConfiguration.dashboardTileFieldsKey] == "reachable,statusCode,responseTimeMs,actionUrl")
 }
 
 @Test func oauthSetupValidatesRequiredFieldsBeforeStoringCredential() throws {

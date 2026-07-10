@@ -87,5 +87,6 @@ JSON Schema validates each file in isolation. The loader must additionally verif
 - every `request` reference (triggers, actions, mappings) names a key in `requests.json`;
 - every event type in mappings and presets is declared in `events.json`;
 - every `resourceType` (events, views) matches a resource mapping type;
+- every `dashboardTile.primaryFields` and `dashboardTile.secondaryFields` entry names either a normalized resource field from `mappings.json` or the canonical `name`/`actionUrl` resource value;
 - actions with `requiresWritePermission: true` have `write-actions` in the manifest permissions.
 - OAuth plugins have `oauth` and `keychain` manifest permissions plus provider/client metadata in `auth.json`.

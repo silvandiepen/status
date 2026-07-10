@@ -183,6 +183,12 @@ public enum PluginSetupConfiguration {
                 normalized[key] = value
             }
         }
+        if normalized[dashboardTileFieldsKey] == nil {
+            let defaultTileFields = plugin.dashboardTile?.defaultFields.prefix(4) ?? []
+            if defaultTileFields.isEmpty == false {
+                normalized[dashboardTileFieldsKey] = defaultTileFields.joined(separator: ",")
+            }
+        }
         return normalized
     }
 

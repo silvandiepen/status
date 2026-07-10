@@ -332,6 +332,10 @@ Example:
 
 ```json
 {
+  "dashboardTile": {
+    "primaryFields": ["state"],
+    "secondaryFields": ["version", "actionUrl"]
+  },
   "views": [
     {
       "id": "overview",
@@ -377,7 +381,14 @@ Each plugin should provide enough view descriptors for:
 - notification/rule controls scoped to the app;
 - direct source links back to the provider where the user can act.
 
-The dashboard tile is app-configurable. The plugin declares supported tile slots and fields; the user chooses which supported tile content appears for each configured app. For GitHub, this can include latest workflow runs, recent commits by the configured user, review requests, assigned issues, or failing repositories. For App Store Connect, this can include review state, build processing state, ratings movement, and direct App Store Connect links.
+The dashboard tile is app-configurable and app-owned. `dashboardTile` is an optional `views.json` object that declares recommended fields for newly configured apps:
+
+- `primaryFields` lists the most important fields to show first. Keep this to one field unless two are clearly necessary.
+- `secondaryFields` lists additional compact fields. Status currently stores and renders up to four fields per configured app.
+- Fields may reference normalized `mappings.json` resource fields, plus the canonical `name` and `actionUrl` resource values.
+- Users can override the selected fields per app in that app's settings. Existing app choices are preserved across setup edits.
+
+For GitHub, tile fields can include repository name, source link, workflow state, review requests, assigned issues, or failing repositories when the plugin maps those fields. For App Store Connect, fields can include review state, build processing state, ratings movement, and direct App Store Connect links.
 
 ## What plugins can do
 

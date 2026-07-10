@@ -2177,6 +2177,7 @@ private struct PluginSettingsPanel: View {
                     DashboardTileFieldsPanel(
                         selectedAccountID: selectedPersistedAccountID,
                         availableFields: availableDashboardTileFields,
+                        recommendedFields: recommendedDashboardTileFields,
                         selectedFields: selectedDashboardTileFields,
                         savingFieldKey: savingDashboardTileFieldKey,
                         setupKey: selectedPersistedAccountID.map { "\(plugin.id):\($0)" },
@@ -2332,10 +2333,25 @@ private struct PluginSettingsPanel: View {
     }
 
     private var availableDashboardTileFields: [String] {
+        let recommendedFields = recommendedDashboardTileFields
         let viewFields = plugin.views.flatMap(\.fields)
         let resourceFields = resources.flatMap { Array($0.fields.keys) }
-        return Array(Set(viewFields + resourceFields)).sorted { lhs, rhs in
+        let sortedFields = Array(Set(viewFields + resourceFields)).sorted { lhs, rhs in
             lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+        }
+        return uniqueFields(recommendedFields + sortedFields)
+    }
+
+    private var recommendedDashboardTileFields: [String] {
+        Array(plugin.dashboardTile?.defaultFields.prefix(4) ?? [])
+    }
+
+    private func uniqueFields(_ fields: [String]) -> [String] {
+        var seen: Set<String> = []
+        return fields.filter { field in
+            guard seen.contains(field) == false else { return false }
+            seen.insert(field)
+            return true
         }
     }
 
@@ -2422,6 +2438,7 @@ private struct PluginRequestTestPanel: View {
 private struct DashboardTileFieldsPanel: View {
     let selectedAccountID: String?
     let availableFields: [String]
+    let recommendedFields: [String]
     let selectedFields: [String]
     let savingFieldKey: String?
     let setupKey: String?
@@ -2451,8 +2468,15 @@ private struct DashboardTileFieldsPanel: View {
                                 set: { setField(field, $0) }
                             )
                         ) {
-                            Text(displayLabel(for: field))
-                                .font(.caption)
+                            HStack(spacing: 6) {
+                                Text(displayLabel(for: field))
+                                    .font(.caption)
+                                if recommendedFields.contains(field) {
+                                    Text("Default")
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
                         }
                         .disabled(isDisabled(field))
                     }

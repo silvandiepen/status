@@ -1,4 +1,8 @@
 {
+  "dashboardTile": {
+    "primaryFields": ["reachable"],
+    "secondaryFields": ["statusCode", "responseTimeMs", "actionUrl"]
+  },
   "views": [
     {
       "id": "overview",

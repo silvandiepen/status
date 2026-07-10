@@ -1,4 +1,8 @@
 {
+  "dashboardTile": {
+    "primaryFields": ["bundleId"],
+    "secondaryFields": ["sku", "actionUrl"]
+  },
   "views": [
     {
       "id": "apps",
