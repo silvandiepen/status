@@ -195,7 +195,7 @@ This repository now contains a working foundation:
 - native plugin store UI that browses and installs registry plugins;
 - Vue/TypeScript/Sass website using `@sil/ui` and `bemm`;
 - public docs, plugin, and developer website pages with local documentation detail routes;
-- bundled App Store Connect, GitHub, and Website Uptime plugin sources;
+- bundled App Store Connect, GitHub, GitLab, Google Play, Jira, Website Uptime, and YouTube plugin sources;
 - deterministic plugin package builder and generated registry artifacts;
 - Cloudflare registry Worker and deployment workflows;
 - GitHub Actions CI for Node/web/registry checks and native app builds.

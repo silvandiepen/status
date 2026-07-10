@@ -11,8 +11,8 @@ This repository now contains documentation, initial web/registry tooling, and th
 Current commands:
 
 ```txt
-npm install
 npm ci
+npm run dev
 npm run docs:build
 npm run plugins:build
 npm run plugins:validate-local -- plugins/examples/mock-operations
@@ -28,15 +28,19 @@ xcodebuild -project Status.xcodeproj -scheme StatusiOS -destination 'generic/pla
 Deployment commands, only when intentionally deploying:
 
 ```txt
+npm run plugins:upload-r2
 npm run pages:deploy
 npm run registry:deploy
 ```
 
+`npm ci` is the canonical dependency install command for local validation and CI.
+`npm run dev` starts the Vue documentation/marketing site on port 4000.
 `npm run docs:build` refreshes the generated website documentation index and local docs page content from the canonical Markdown files.
 `npm run plugins:build` validates bundled plugin source, builds deterministic package artifacts, and refreshes the generated registry metadata used by the Worker.
 `npm run plugins:validate-local -- <plugin-folder>` validates a local developer plugin folder, builds the deterministic package bytes in memory, prints the package checksum, and keeps the plugin in `local-dev` trust territory without publishing it.
 `npm run check` currently validates plugin package drift, validates website docs drift, runs TypeScript checks, builds the Vue/Sass website, runs registry Worker tests, and runs a Wrangler dry-run.
 `swift test` validates the shared native package. `xcodegen generate` creates the local Xcode project from `project.yml`; the generated project is intentionally ignored.
+The native apps default to `https://status-registry.hakobs.com`; set `STATUS_REGISTRY_URL` in the run environment when testing a temporary Worker or local registry endpoint.
 
 ## Read in this order
 

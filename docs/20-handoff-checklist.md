@@ -52,8 +52,8 @@ Use these decisions when implementation needs a default. Do not stop to ask unle
 ### First working app
 
 - Build against persisted local data; keep `MockDashboard` for previews and tests.
-- Include overview, needs-attention list, integration list, recent events, and audit preview.
-- Render plugin-declared `views.json` descriptors with app-owned native views in integration settings.
+- Include overview, needs-attention list, configured app list, recent events, and audit preview.
+- Render plugin-declared `views.json` descriptors with app-owned native views in app settings.
 - Use native SwiftUI controls.
 - Keep the UI calm, compact, and practical.
 
@@ -136,8 +136,8 @@ If Xcode project generation is easier, use XcodeGen and document the command. If
 ## Current completed baseline
 
 - [x] Swift package exists with `StatusCore` and `StatusUI`.
-- [x] macOS app target builds and opens the shared dashboard/integration/rules/audit/settings surfaces.
-- [x] iOS app target builds and opens the shared dashboard/integration/rules/audit/settings surfaces.
+- [x] macOS app target builds and opens the shared dashboard/plugins/apps/rules/audit/settings surfaces.
+- [x] iOS app target builds and opens the shared dashboard/plugins/apps/rules/audit/settings surfaces.
 - [x] Bundled official plugins install locally on first database bootstrap.
 - [x] Dashboard reads persisted items, events, metrics, accounts, installed-plugin setup states, and audit entries.
 - [x] Plugin packages are declarative ZIPs with manifests, auth/setup/requests/mappings/triggers/events/actions/rule presets.
@@ -176,7 +176,7 @@ Do this first if the target is anything beyond a pure skeleton.
 
 - [x] Create `docs/00-glossary.md`.
 - [x] Define Event vs StatusItem vs Notification vs ActionRun vs AuditEntry.
-- [x] Decide MVP integration wording: official App Store Connect, GitHub, and Website Uptime plugins first.
+- [x] Decide MVP plugin wording: official App Store Connect, GitHub, and Website Uptime plugins first.
 - [x] Mark Slack/calendar actions as future illustrative examples.
 - [x] Clarify generic webhook local behavior before relay.
 - [x] Link glossary from README.
@@ -232,13 +232,13 @@ Create StatusUI primitives:
 - [x] metric tile;
 - [x] audit row;
 - [x] severity badge;
-- [x] integration row.
+- [x] plugin/app row.
 
 macOS shell:
 
 - [x] sidebar;
 - [x] overview screen;
-- [x] integrations screen;
+- [x] plugins screen;
 - [x] audit screen;
 - [x] settings screen.
 
@@ -246,7 +246,7 @@ iOS shell:
 
 - [x] overview tab;
 - [x] alerts tab;
-- [x] integrations tab;
+- [x] plugins tab;
 - [x] rules tab;
 - [x] audit tab;
 - [x] settings tab.
@@ -335,7 +335,7 @@ These can run in parallel with skeleton work, but plugin runtime work should not
 - [x] Update `docs/04-plugin-system.md`.
 - [x] Decide OAuth status for v1.
 - [x] Implement native OAuth 2 PKCE authorization URL, callback handling, token exchange, Keychain-backed token storage, and refresh-token request support.
-- [x] Map MVP integrations to auth paths.
+- [x] Map MVP plugins to auth paths.
 
 ### Signing
 
