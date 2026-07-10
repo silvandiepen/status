@@ -151,7 +151,8 @@ Developer forks official plugin repo
 → includes fixtures and schema validation output
 → opens pull request
 → CI validates schemas, declared domains, mappings, and package shape
-→ maintainer/security review checks permissions and behavior
+→ CI prints checksum, permission diff, domain diff, write-action, and changed-fixture review evidence
+→ maintainer/security review checks permissions, domains, write actions, fixtures, and behavior
 → approved plugin is signed by Status
 → release workflow uploads immutable package to R2
 → registry snapshot is updated
