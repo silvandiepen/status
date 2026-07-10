@@ -194,7 +194,7 @@ This repository now contains a working foundation:
 - SQLite schema v0 migrator and persistence store;
 - registry client, package verifier, and plugin installer;
 - bundled official plugin packages that bootstrap locally before registry access;
-- native plugin store UI that browses and installs registry plugins;
+- native plugin store UI that browses, installs, updates, and removes registry plugins;
 - Vue/TypeScript/Sass website using `@sil/ui` and `bemm`;
 - public docs, plugin, and developer website pages with local documentation detail routes;
 - bundled App Store Connect, GitHub, GitLab, Google Play, Jira, Website Uptime, and YouTube plugin sources;

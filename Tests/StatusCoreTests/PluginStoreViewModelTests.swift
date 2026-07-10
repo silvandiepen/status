@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-import StatusCore
+@testable import StatusCore
 @testable import StatusUI
 
 @Test func integrationVisualAcceptsDottedSFSymbolNamesWithoutPrefix() {
@@ -15,6 +15,49 @@ import StatusCore
 
     #expect(github.brand == .github)
     #expect(appStoreConnect.brand == .appStoreConnect)
+}
+
+@Test func pluginStoreCatalogDetectsAvailableUpdates() throws {
+    let installed = InstalledPlugin(
+        id: "com.status.github",
+        name: "GitHub",
+        author: "Status Foundry",
+        description: "GitHub repository checks.",
+        category: "development",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/com.status.github",
+        installedAt: Date(timeIntervalSince1970: 1_783_433_520),
+        updatedAt: Date(timeIntervalSince1970: 1_783_433_520)
+    )
+    let update = registryPluginSummary(id: installed.id, latestVersion: "0.2.0")
+    let catalog = PluginStoreCatalog(installed: [installed], available: [update])
+
+    #expect(catalog.availableUpdate(for: installed) == update)
+}
+
+@Test func pluginStoreCatalogDoesNotOfferEqualOrOlderRegistryVersions() throws {
+    let installed = InstalledPlugin(
+        id: "com.status.github",
+        name: "GitHub",
+        author: "Status Foundry",
+        description: "GitHub repository checks.",
+        category: "development",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/com.status.github",
+        installedAt: Date(timeIntervalSince1970: 1_783_433_520),
+        updatedAt: Date(timeIntervalSince1970: 1_783_433_520)
+    )
+    let same = PluginStoreCatalog(installed: [installed], available: [
+        registryPluginSummary(id: installed.id, latestVersion: "0.1")
+    ])
+    let older = PluginStoreCatalog(installed: [installed], available: [
+        registryPluginSummary(id: installed.id, latestVersion: "0.0.9")
+    ])
+
+    #expect(same.availableUpdate(for: installed) == nil)
+    #expect(older.availableUpdate(for: installed) == nil)
 }
 
 @MainActor
@@ -1020,4 +1063,20 @@ private func grantedOAuthPermissions(pluginID: String) -> [InstalledPluginPermis
         InstalledPluginPermission(id: "plp_\(pluginID)_keychain", pluginID: pluginID, permission: .keychain, granted: true),
         InstalledPluginPermission(id: "plp_\(pluginID)_network", pluginID: pluginID, permission: .network, granted: true)
     ]
+}
+
+private func registryPluginSummary(id: String, latestVersion: String?) -> RegistryPluginSummary {
+    RegistryPluginSummary(
+        id: id,
+        name: "GitHub",
+        summary: "GitHub repository checks.",
+        description: "Read-only GitHub status events.",
+        category: "development",
+        author: PluginAuthor(name: "Status Foundry", publisherId: "status-foundry"),
+        trustLevel: .official,
+        latestVersion: latestVersion,
+        platforms: [.macOS, .iOS],
+        permissions: [.network],
+        domains: ["api.github.com"]
+    )
 }

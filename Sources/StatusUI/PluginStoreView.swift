@@ -28,6 +28,32 @@ public struct PluginStoreCatalog: Equatable, Sendable {
         self.installed = installed
         self.available = available
     }
+
+    public func availableUpdate(for plugin: InstalledPlugin) -> RegistryPluginSummary? {
+        guard let availablePlugin = available.first(where: { $0.id == plugin.id }),
+              let latestVersion = availablePlugin.latestVersion,
+              Self.compareVersion(latestVersion, to: plugin.installedVersion) == .orderedDescending else {
+            return nil
+        }
+        return availablePlugin
+    }
+
+    private static func compareVersion(_ lhs: String, to rhs: String) -> ComparisonResult {
+        let left = lhs.split(separator: ".").map { Int($0) ?? 0 }
+        let right = rhs.split(separator: ".").map { Int($0) ?? 0 }
+        for index in 0..<max(left.count, right.count) {
+            let delta = (left[safe: index] ?? 0) - (right[safe: index] ?? 0)
+            if delta > 0 { return .orderedDescending }
+            if delta < 0 { return .orderedAscending }
+        }
+        return .orderedSame
+    }
+}
+
+private extension Array {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
 }
 
 public struct PluginRuntimeStatus: Equatable, Sendable {
@@ -1655,10 +1681,15 @@ public struct PluginStoreView: View {
                 )
                 InstalledPluginSection(
                     plugins: catalog.installed,
+                    availableUpdates: Dictionary(uniqueKeysWithValues: catalog.installed.compactMap { plugin in
+                        catalog.availableUpdate(for: plugin).map { (plugin.id, $0) }
+                    }),
                     configuredAccounts: configuredAccounts,
                     runtimeStatuses: runtimeStatuses,
                     canRun: canRun,
                     run: run,
+                    installingPluginID: installingPluginID,
+                    install: install,
                     removingPluginID: removingPluginID,
                     openSettings: showSettings,
                     requestRemoval: { pluginPendingRemoval = $0 }
@@ -1829,10 +1860,13 @@ private struct PluginStoreHeader: View {
 
 private struct InstalledPluginSection: View {
     let plugins: [InstalledPlugin]
+    let availableUpdates: [String: RegistryPluginSummary]
     let configuredAccounts: [String: [PluginAccountConfiguration]]
     let runtimeStatuses: [String: PluginRuntimeStatus]
     let canRun: (InstalledPlugin) -> Bool
     let run: (InstalledPlugin) -> Void
+    let installingPluginID: String?
+    let install: (RegistryPluginSummary) -> Void
     let removingPluginID: String?
     let openSettings: (InstalledPlugin) -> Void
     let requestRemoval: (InstalledPlugin) -> Void
@@ -1849,10 +1883,13 @@ private struct InstalledPluginSection: View {
                     ForEach(plugins) { plugin in
                         InstalledPluginRow(
                             plugin: plugin,
+                            availableUpdate: availableUpdates[plugin.id],
                             accounts: configuredAccounts[plugin.id, default: []],
                             runtimeStatus: runtimeStatuses[plugin.id],
                             canRun: canRun(plugin),
                             run: run,
+                            isUpdating: installingPluginID == plugin.id,
+                            update: { summary in install(summary) },
                             isRemoving: removingPluginID == plugin.id,
                             openSettings: openSettings,
                             requestRemoval: requestRemoval
@@ -1896,10 +1933,13 @@ private struct AvailablePluginSection: View {
 
 private struct InstalledPluginRow: View {
     let plugin: InstalledPlugin
+    let availableUpdate: RegistryPluginSummary?
     let accounts: [PluginAccountConfiguration]
     let runtimeStatus: PluginRuntimeStatus?
     let canRun: Bool
     let run: (InstalledPlugin) -> Void
+    let isUpdating: Bool
+    let update: (RegistryPluginSummary) -> Void
     let isRemoving: Bool
     let openSettings: (InstalledPlugin) -> Void
     let requestRemoval: (InstalledPlugin) -> Void
@@ -1951,6 +1991,20 @@ private struct InstalledPluginRow: View {
                             Label("Run", systemImage: "play")
                         }
                         .buttonStyle(.bordered)
+                    }
+                    if let availableUpdate {
+                        Button {
+                            update(availableUpdate)
+                        } label: {
+                            if isUpdating {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Label("Update", systemImage: "arrow.down.circle")
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(isUpdating || isRemoving)
                     }
                     Button(role: .destructive) {
                         requestRemoval(plugin)
