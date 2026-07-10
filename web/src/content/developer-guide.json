@@ -38,6 +38,54 @@
       "body": "Include fixtures, declared domains, permissions, and validation evidence. Status reviews, signs, and publishes approved packages to the registry."
     }
   ],
+  "hosting": [
+    {
+      "title": "Website and docs",
+      "body": "Cloudflare Pages serves the marketing site, public documentation, plugin directory, publisher pages, and generated plugin README pages from this repository."
+    },
+    {
+      "title": "Registry API",
+      "body": "A Cloudflare Worker serves plugin metadata, compatibility-filtered versions, registry snapshots, health checks, and revocation data."
+    },
+    {
+      "title": "Package storage",
+      "body": "Cloudflare R2 stores immutable .statusplugin.zip packages, checksums, signatures, manifests, and registry snapshots. Published versions are never overwritten."
+    }
+  ],
+  "submission": [
+    {
+      "title": "No public upload in v1",
+      "body": "Third-party plugins enter through pull requests, not through a direct upload form. Upload endpoints can exist later as intake, but publication still requires review."
+    },
+    {
+      "title": "Validation first",
+      "body": "CI validates schemas, declared domains, cross-file references, fixtures, package shape, and checksum output before human review."
+    },
+    {
+      "title": "Reviewed publication",
+      "body": "Approved packages are signed by Status, uploaded to R2, added to registry metadata, and then installed by the app only after local verification."
+    }
+  ],
+  "trustLevels": [
+    {
+      "level": "official",
+      "body": "Built or maintained by Status, open-source by default, signed by Status, and listed in the hosted registry."
+    },
+    {
+      "level": "verified-third-party",
+      "body": "Submitted by an external maintainer, reviewed for permissions and behavior, countersigned by Status, and listed after approval."
+    },
+    {
+      "level": "local-dev",
+      "body": "Installed manually in Developer Mode, unsigned or self-signed, never silently upgraded from the public registry."
+    }
+  ],
+  "downloadFlow": [
+    "The app reads registry metadata from the active registry Worker URL.",
+    "The selected version includes a package URL, SHA-256 hash, signature, permissions, domains, and compatibility metadata.",
+    "The app downloads the package from R2-backed storage and verifies hash, signature, compatibility, and revocation locally.",
+    "Only after local verification does the app show permissions and install the plugin."
+  ],
   "commands": [
     {
       "label": "Install dependencies",

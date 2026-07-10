@@ -69,6 +69,45 @@ const devBemm = useBemm('developers-guide', { return: 'string' })
               </ol>
             </article>
 
+            <article :class="[bemm('card'), devBemm('card'), devBemm('card', 'wide')]">
+              <h2>Hosting model</h2>
+              <div :class="devBemm('split-list')">
+                <section v-for="item in guide.hosting" :key="item.title">
+                  <h3>{{ item.title }}</h3>
+                  <p>{{ item.body }}</p>
+                </section>
+              </div>
+            </article>
+
+            <article :class="[bemm('card'), devBemm('card')]">
+              <h2>Submission path</h2>
+              <ol :class="devBemm('workflow')">
+                <li v-for="item in guide.submission" :key="item.title">
+                  <strong>{{ item.title }}</strong>
+                  <span>{{ item.body }}</span>
+                </li>
+              </ol>
+            </article>
+
+            <article :class="[bemm('card'), devBemm('card')]">
+              <h2>Trust levels</h2>
+              <dl :class="devBemm('files')">
+                <div v-for="item in guide.trustLevels" :key="item.level">
+                  <dt><code>{{ item.level }}</code></dt>
+                  <dd>{{ item.body }}</dd>
+                </div>
+              </dl>
+            </article>
+
+            <article :class="[bemm('card'), devBemm('card'), devBemm('card', 'wide')]">
+              <h2>Install verification</h2>
+              <ol :class="devBemm('workflow')">
+                <li v-for="item in guide.downloadFlow" :key="item">
+                  <span>{{ item }}</span>
+                </li>
+              </ol>
+            </article>
+
             <article :class="[bemm('card'), devBemm('card')]">
               <h2>Package files</h2>
               <dl :class="devBemm('files')">
@@ -195,6 +234,28 @@ const devBemm = useBemm('developers-guide', { return: 'string' })
     }
   }
 
+  &__split-list {
+    display: grid;
+    gap: var(--space-m);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+
+    section {
+      display: grid;
+      gap: var(--space-xs);
+    }
+
+    h3 {
+      font-size: var(--font-size-base);
+      margin: 0;
+    }
+
+    p {
+      color: var(--color-text-secondary);
+      line-height: var(--line-height-relaxed);
+      margin: 0;
+    }
+  }
+
   &__doc-links {
     display: flex;
     flex-wrap: wrap;
@@ -224,6 +285,10 @@ const devBemm = useBemm('developers-guide', { return: 'string' })
 
     &__card--wide {
       grid-column: auto;
+    }
+
+    &__split-list {
+      grid-template-columns: 1fr;
     }
   }
 }
