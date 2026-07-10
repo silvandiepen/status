@@ -510,6 +510,65 @@ function validateAuth(authFile, manifest, sourceName) {
   }
 }
 
+function markdownHeadingText(markdown) {
+  return new Set(
+    markdown
+      .split(/\r?\n/)
+      .map((line) => line.match(/^#{2,3}\s+(.+)$/)?.[1]?.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
+function requireMarkdownNeedle(markdown, sourceName, label, value) {
+  if (!value) {
+    return;
+  }
+  if (markdown.includes(value) === false) {
+    fail(`${sourceName}: README.md must mention ${label} ${value}.`);
+  }
+}
+
+export async function validatePluginReadme(pluginDirectory, manifest, sourceName, readme) {
+  const markdown = readme ?? await readFile(path.join(pluginDirectory, "README.md"), "utf8");
+  const headings = markdownHeadingText(markdown);
+  const requiredHeadings = [
+    "why install this plugin",
+    "what you configure",
+    "what it exposes",
+    "resources",
+    "events",
+    "views",
+    "checks",
+    "suggested automations",
+    "actions",
+    "permissions and domains",
+    "what it does not do",
+    "setup"
+  ];
+
+  for (const heading of requiredHeadings) {
+    if (headings.has(heading) === false) {
+      fail(`${sourceName}: README.md is missing "## ${heading}" section from plugins/README.template.md.`);
+    }
+  }
+
+  const eventsFile = await readOptionalJSON(path.join(pluginDirectory, "events.json"));
+  const actionsFile = await readOptionalJSON(path.join(pluginDirectory, "actions.json"));
+
+  for (const permission of manifest.permissions ?? []) {
+    requireMarkdownNeedle(markdown, sourceName, "permission", permission);
+  }
+  for (const domain of manifest.domains ?? []) {
+    requireMarkdownNeedle(markdown, sourceName, "domain", domain);
+  }
+  for (const event of eventsFile?.events ?? []) {
+    requireMarkdownNeedle(markdown, sourceName, "event", event.type);
+  }
+  for (const action of actionsFile?.actions ?? []) {
+    requireMarkdownNeedle(markdown, sourceName, "action", action.id);
+  }
+}
+
 export async function validatePluginPackage(pluginDirectory, manifest, sourceName) {
   const authFile = await readOptionalJSON(path.join(pluginDirectory, "auth.json"));
   const requestsFile = await readOptionalJSON(path.join(pluginDirectory, "requests.json"));
@@ -529,6 +588,7 @@ export async function validatePluginPackage(pluginDirectory, manifest, sourceNam
   validateActions(actionsFile, requestIDs, manifest, sourceName);
   validateRulePresets(presetsFile, eventTypes, sourceName);
   await validateIconAsset(pluginDirectory, manifest, sourceName);
+  await validatePluginReadme(pluginDirectory, manifest, sourceName);
 }
 
 export async function pluginFiles(pluginDirectory) {

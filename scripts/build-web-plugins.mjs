@@ -2,6 +2,7 @@ import { readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDocPathMap } from './lib/doc-path-map.mjs';
+import { validatePluginReadme } from './lib/plugin-package-validator.mjs';
 import { loadPublishers, resolveAuthor } from './lib/publishers.mjs';
 import { renderMarkdown } from './lib/render-markdown.mjs';
 
@@ -26,76 +27,6 @@ async function directoryNames(directoryPath) {
     .sort();
 }
 
-async function readOptionalJSON(filePath) {
-  try {
-    return JSON.parse(await readFile(filePath, 'utf8'));
-  } catch (error) {
-    if (error?.code === 'ENOENT') {
-      return null;
-    }
-    throw error;
-  }
-}
-
-function markdownHeadingText(markdown) {
-  return new Set(
-    markdown
-      .split(/\r?\n/)
-      .map((line) => line.match(/^#{2,3}\s+(.+)$/)?.[1]?.trim().toLowerCase())
-      .filter(Boolean),
-  );
-}
-
-function requireMarkdownNeedle(markdown, sourceName, label, value) {
-  if (!value) {
-    return;
-  }
-  if (markdown.includes(value) === false) {
-    throw new Error(`${sourceName}: README.md must mention ${label} ${value}.`);
-  }
-}
-
-async function validatePluginReadme(pluginDirectory, manifest, readme) {
-  const sourceName = path.relative(root, pluginDirectory);
-  const headings = markdownHeadingText(readme);
-  const requiredHeadings = [
-    'why install this plugin',
-    'what you configure',
-    'what it exposes',
-    'resources',
-    'events',
-    'views',
-    'checks',
-    'suggested automations',
-    'actions',
-    'permissions and domains',
-    'what it does not do',
-    'setup',
-  ];
-
-  for (const heading of requiredHeadings) {
-    if (headings.has(heading) === false) {
-      throw new Error(`${sourceName}: README.md is missing "## ${heading}" section from plugins/README.template.md.`);
-    }
-  }
-
-  const eventsFile = await readOptionalJSON(path.join(pluginDirectory, 'events.json'));
-  const actionsFile = await readOptionalJSON(path.join(pluginDirectory, 'actions.json'));
-
-  for (const permission of manifest.permissions ?? []) {
-    requireMarkdownNeedle(readme, sourceName, 'permission', permission);
-  }
-  for (const domain of manifest.domains ?? []) {
-    requireMarkdownNeedle(readme, sourceName, 'domain', domain);
-  }
-  for (const event of eventsFile?.events ?? []) {
-    requireMarkdownNeedle(readme, sourceName, 'event', event.type);
-  }
-  for (const action of actionsFile?.actions ?? []) {
-    requireMarkdownNeedle(readme, sourceName, 'action', action.id);
-  }
-}
-
 async function loadPluginDoc(pluginDirectory, publishers, { requireReadme }) {
   const readmePath = path.join(pluginDirectory, 'README.md');
   const manifestPath = path.join(pluginDirectory, 'manifest.json');
@@ -111,7 +42,7 @@ async function loadPluginDoc(pluginDirectory, publishers, { requireReadme }) {
     throw error;
   }
 
-  await validatePluginReadme(pluginDirectory, manifest, readme);
+  await validatePluginReadme(pluginDirectory, manifest, path.relative(root, pluginDirectory), readme);
 
   let summary = manifest.description;
   let trustLevel = path.basename(path.dirname(pluginDirectory)) === 'bundled' ? 'official' : 'local-dev';

@@ -34,6 +34,8 @@ Copy that folder, rename it, and replace the example provider with your real HTT
 
 Every plugin must ship a `README.md` beside `manifest.json`. Use `plugins/README.template.md` as the starting point. The website publishes that README at `/plugins/{plugin-id}/` when you run `npm run plugins:docs:build`.
 
+Local validation also checks that README. It must keep the template's operational sections and mention every declared permission, declared domain, event type, and action ID. This keeps the app package, registry review, and website docs aligned from the same source file.
+
 Declare publisher metadata in `manifest.json`:
 
 ```json
@@ -96,6 +98,7 @@ This command:
 
 - validates `manifest.json` and every package file against `schemas/plugin/v1/`;
 - checks cross-file references such as trigger request IDs and action request bindings;
+- validates `README.md` against the official documentation contract;
 - builds the deterministic `.statusplugin.zip` bytes in memory;
 - prints the package filename and SHA-256 checksum;
 - keeps the package in `local-dev` trust territory (unsigned, Developer Mode only).
@@ -109,6 +112,7 @@ When a pull request changes files under `plugins/`, `schemas/plugin/`, or `statu
 - validates every bundled and example plugin package (`npm run plugins:check`);
 - validates the standalone template when relevant (`npm run plugin-example:check`);
 - re-validates only the plugin directories touched in the PR (`npm run plugins:validate-pr`);
+- checks plugin README coverage for required sections, declared permissions, declared domains, event types, and action IDs;
 - prints each deterministic package SHA-256;
 - writes a plugin review summary with the trust level, permission diff, domain diff, events, resources, triggers, views, actions, write actions, fixture files, and changed fixture files;
 - rejects new mapped plugins or `mappings.json` changes unless the same PR changes fixture evidence under `fixtures/`.
