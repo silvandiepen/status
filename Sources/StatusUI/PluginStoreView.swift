@@ -2544,7 +2544,16 @@ private struct PluginSettingsPanel: View {
             }
             PluginDeclaredViewsPanel(plugin: plugin, resources: resources)
             if canConfigure {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("App configuration")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    PluginAccountPicker(
+                        accounts: accounts,
+                        selectedAccountID: selectedAccountID,
+                        select: { selectAccount(plugin, $0) },
+                        addAccount: { addAccount(plugin) }
+                    )
                     Text("App name")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
@@ -2567,12 +2576,15 @@ private struct PluginSettingsPanel: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
-                    PluginAccountPicker(
-                        accounts: accounts,
-                        selectedAccountID: selectedAccountID,
-                        select: { selectAccount(plugin, $0) },
-                        addAccount: { addAccount(plugin) }
-                    )
+                    VStack(spacing: 10) {
+                        ForEach(setupFields, id: \.id) { field in
+                            PluginSetupFieldRow(
+                                field: field,
+                                value: setupValues[field.id, default: field.defaultValue ?? ""],
+                                updateValue: { updateSetupValue(plugin, field.id, $0) }
+                            )
+                        }
+                    }
                     if plugin.usesOAuth {
                         PluginOAuthConnectionPanel(
                             plugin: plugin,
@@ -2581,6 +2593,22 @@ private struct PluginSettingsPanel: View {
                             connect: { beginOAuthConnection(plugin) }
                         )
                     }
+                    HStack {
+                        Spacer()
+                        Button {
+                            saveSetup(plugin)
+                        } label: {
+                            if isSavingSetup {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Text("Save")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(isSavingSetup || hasMissingRequiredSetupValue)
+                    }
+                    Divider()
                     PluginRequestTestPanel(
                         plugin: plugin,
                         requestIDs: requestIDs,
@@ -2645,30 +2673,6 @@ private struct PluginSettingsPanel: View {
                             try await previewRuleActions(plugin, eventType, actions)
                         }
                     )
-                    VStack(spacing: 10) {
-                        ForEach(setupFields, id: \.id) { field in
-                            PluginSetupFieldRow(
-                                field: field,
-                                value: setupValues[field.id, default: field.defaultValue ?? ""],
-                                updateValue: { updateSetupValue(plugin, field.id, $0) }
-                            )
-                        }
-                    }
-                    HStack {
-                        Spacer()
-                        Button {
-                            saveSetup(plugin)
-                        } label: {
-                            if isSavingSetup {
-                                ProgressView()
-                                    .controlSize(.small)
-                            } else {
-                                Text("Save")
-                            }
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(isSavingSetup || hasMissingRequiredSetupValue)
-                    }
                     if selectedPersistedAccountID != nil {
                         Divider()
                         HStack(alignment: .center, spacing: 12) {
