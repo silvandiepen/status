@@ -402,12 +402,36 @@ public struct DashboardTileItem: Identifiable, Codable, Equatable, Sendable {
     public var id: String
     public var label: String
     public var value: String
+    public var kind: DashboardTileItemKind
+    public var resourceName: String?
+    public var resourceType: String?
+    public var actionURL: URL?
 
-    public init(id: String, label: String, value: String) {
+    public init(
+        id: String,
+        label: String,
+        value: String,
+        kind: DashboardTileItemKind = .text,
+        resourceName: String? = nil,
+        resourceType: String? = nil,
+        actionURL: URL? = nil
+    ) {
         self.id = id
         self.label = label
         self.value = value
+        self.kind = kind
+        self.resourceName = resourceName
+        self.resourceType = resourceType
+        self.actionURL = actionURL
     }
+}
+
+public enum DashboardTileItemKind: String, Codable, Equatable, Sendable {
+    case text
+    case count
+    case percent
+    case status
+    case link
 }
 
 public struct DashboardSnapshot: Codable, Equatable, Sendable {

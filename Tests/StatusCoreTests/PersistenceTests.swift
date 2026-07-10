@@ -1003,8 +1003,22 @@ import Testing
             severity: .ok,
             lastSyncDescription: "Never synced",
             tileItems: [
-                DashboardTileItem(id: "openIssues", label: "Open Issues", value: "3"),
-                DashboardTileItem(id: "lastCommit", label: "Last Commit", value: "Fix dashboard tiles")
+                DashboardTileItem(
+                    id: "openIssues",
+                    label: "Open Issues",
+                    value: "3",
+                    kind: .count,
+                    resourceName: "status",
+                    resourceType: "repository"
+                ),
+                DashboardTileItem(
+                    id: "lastCommit",
+                    label: "Last Commit",
+                    value: "Fix dashboard tiles",
+                    kind: .text,
+                    resourceName: "status",
+                    resourceType: "repository"
+                )
             ]
         )
     ])

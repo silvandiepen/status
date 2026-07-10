@@ -118,9 +118,22 @@ private struct AppSection: View {
 
     @ViewBuilder
     private func appTile(for app: IntegrationSummary) -> some View {
+        let primaryItem = app.tileItems.first
+        let secondaryItems = Array(app.tileItems.dropFirst().prefix(4))
         let tile = VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 10) {
                 IntegrationIcon(provider: app.provider, size: 30)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(app.provider)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Text(app.state)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(statusColor(for: app.severity))
+                        .lineLimit(1)
+                }
                 Spacer(minLength: 12)
                 SeverityDot(severity: app.severity)
                     .padding(.top, 5)
@@ -129,35 +142,26 @@ private struct AppSection: View {
                 Text(app.name)
                     .font(.headline)
                     .lineLimit(2)
-                Text(app.state)
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(.secondary)
                 Text(app.lastSyncDescription)
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
-            if app.tileItems.isEmpty == false {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(app.tileItems.prefix(3)) { item in
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(item.label)
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                                .lineLimit(1)
-                            Spacer(minLength: 8)
-                            Text(item.value)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                        }
-                    }
-                }
-                .padding(.top, 2)
+            if let primaryItem {
+                DashboardPrimaryTileItem(item: primaryItem)
+            }
+            if secondaryItems.isEmpty == false {
+                DashboardSecondaryTileItems(items: secondaryItems)
+            }
+            if let resourceName = primaryItem?.resourceName {
+                Text(resourceName)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
             Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, minHeight: 150, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: primaryItem == nil ? 150 : 210, alignment: .leading)
         .padding(14)
         .background(Color.statusSurface)
         .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -172,6 +176,114 @@ private struct AppSection: View {
             .accessibilityLabel(Text("Open \(app.name)"))
         } else {
             tile
+        }
+    }
+
+    private func statusColor(for severity: Severity) -> Color {
+        switch severity {
+        case .critical:
+            .red
+        case .warning:
+            .orange
+        case .notice:
+            .blue
+        case .ok:
+            .green
+        }
+    }
+}
+
+private struct DashboardPrimaryTileItem: View {
+    let item: DashboardTileItem
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(item.label)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                if item.kind == .link {
+                    Image(systemName: "arrow.up.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            Text(item.value)
+                .font(primaryFont)
+                .foregroundStyle(primaryColor)
+                .lineLimit(item.kind == .text ? 2 : 1)
+                .minimumScaleFactor(0.82)
+                .truncationMode(.tail)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(primaryColor.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var primaryFont: Font {
+        switch item.kind {
+        case .count, .percent:
+            .system(size: 32, weight: .semibold)
+        case .status:
+            .callout.weight(.semibold)
+        case .link, .text:
+            .callout.weight(.medium)
+        }
+    }
+
+    private var primaryColor: Color {
+        switch item.kind {
+        case .status:
+            statusColor
+        case .count, .percent:
+            .primary
+        case .link:
+            .blue
+        case .text:
+            .secondary
+        }
+    }
+
+    private var statusColor: Color {
+        let value = item.value.lowercased()
+        if value.contains("fail") || value.contains("reject") || value.contains("down") || value.contains("critical") {
+            return .red
+        }
+        if value.contains("warn") || value.contains("review") || value.contains("pending") || value.contains("slow") {
+            return .orange
+        }
+        if value.contains("ok") || value.contains("success") || value.contains("ready") || value.contains("up") {
+            return .green
+        }
+        return .blue
+    }
+}
+
+private struct DashboardSecondaryTileItems: View {
+    let items: [DashboardTileItem]
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 8)], spacing: 8) {
+            ForEach(items) { item in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.label)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                    Text(item.value)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(item.kind == .link ? .blue : .secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                        .truncationMode(.tail)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(8)
+                .background(Color.primary.opacity(0.035))
+                .clipShape(RoundedRectangle(cornerRadius: 7))
+            }
         }
     }
 }

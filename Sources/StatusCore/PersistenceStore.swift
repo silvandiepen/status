@@ -1764,8 +1764,42 @@ public final class StatusPersistenceStore {
                   let value = resource.fields[field] else {
                 return nil
             }
-            return DashboardTileItem(id: field, label: displayLabel(for: field), value: value)
+            return DashboardTileItem(
+                id: field,
+                label: displayLabel(for: field),
+                value: value,
+                kind: dashboardTileItemKind(field: field, value: value, resource: resource),
+                resourceName: resource.name,
+                resourceType: resource.type,
+                actionURL: resource.actionURL
+            )
         }
+    }
+
+    private func dashboardTileItemKind(field: String, value: String, resource: Resource) -> DashboardTileItemKind {
+        let normalizedField = field.lowercased()
+        let normalizedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if URL(string: normalizedValue)?.scheme?.hasPrefix("http") == true ||
+            normalizedField.contains("url") ||
+            normalizedField.contains("link") {
+            return .link
+        }
+        if normalizedField.contains("status") ||
+            normalizedField.contains("state") ||
+            normalizedField.contains("result") ||
+            normalizedField.contains("severity") {
+            return .status
+        }
+        if normalizedValue.hasSuffix("%"), Double(normalizedValue.dropLast()) != nil {
+            return .percent
+        }
+        if Double(normalizedValue) != nil {
+            return .count
+        }
+        if resource.actionURL != nil && normalizedField.contains("page") {
+            return .link
+        }
+        return .text
     }
 
     private func displayLabel(for field: String) -> String {
