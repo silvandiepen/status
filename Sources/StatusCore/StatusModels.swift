@@ -374,6 +374,7 @@ public struct IntegrationSummary: Identifiable, Codable, Equatable, Sendable {
     public var id: String
     public var name: String
     public var provider: String
+    public var providerName: String?
     public var state: String
     public var severity: Severity
     public var lastSyncDescription: String
@@ -384,6 +385,7 @@ public struct IntegrationSummary: Identifiable, Codable, Equatable, Sendable {
         id: String,
         name: String,
         provider: String,
+        providerName: String? = nil,
         state: String,
         severity: Severity,
         lastSyncDescription: String,
@@ -393,6 +395,7 @@ public struct IntegrationSummary: Identifiable, Codable, Equatable, Sendable {
         self.id = id
         self.name = name
         self.provider = provider
+        self.providerName = providerName
         self.state = state
         self.severity = severity
         self.lastSyncDescription = lastSyncDescription

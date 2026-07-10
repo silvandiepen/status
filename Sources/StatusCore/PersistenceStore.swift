@@ -1177,7 +1177,7 @@ public final class StatusPersistenceStore {
     public func integrationSummaries() throws -> [IntegrationSummary] {
         try database.query(
             """
-            SELECT a.id, a.plugin_id AS provider, a.display_name, a.status, a.last_error, a.last_refreshed_at, p.installed_version
+            SELECT a.id, a.plugin_id AS provider, a.display_name, a.status, a.last_error, a.last_refreshed_at, p.name AS provider_name, p.installed_version
             FROM accounts a
             LEFT JOIN plugins p ON p.id = a.plugin_id
             ORDER BY a.display_name ASC, a.id ASC
@@ -1735,6 +1735,7 @@ public final class StatusPersistenceStore {
             id: accountID,
             name: row.requiredText("display_name"),
             provider: provider,
+            providerName: row.optionalText("provider_name"),
             state: lastError?.isEmpty == false ? "Needs attention" : status.capitalized,
             severity: severity,
             lastSyncDescription: lastRefreshDescription(row.optionalText("last_refreshed_at")),
@@ -1752,6 +1753,7 @@ public final class StatusPersistenceStore {
             id: row.requiredText("id"),
             name: row.requiredText("name"),
             provider: row.requiredText("id"),
+            providerName: row.requiredText("name"),
             state: enabled ? "Setup needed" : "Disabled",
             severity: .notice,
             lastSyncDescription: "Never synced",

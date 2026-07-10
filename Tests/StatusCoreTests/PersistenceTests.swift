@@ -1068,6 +1068,7 @@ import Testing
             id: "acc_work",
             name: "Work GitHub",
             provider: "com.status.github",
+            providerName: "GitHub",
             state: "Connected",
             severity: .ok,
             lastSyncDescription: "Never synced",

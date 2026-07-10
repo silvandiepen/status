@@ -138,8 +138,8 @@ private struct AppSection: View {
             HStack(alignment: .top, spacing: 10) {
                 IntegrationIcon(provider: app.provider, iconAsset: app.iconAsset, size: 30)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(app.provider)
-                        .font(.caption2.monospaced())
+                    Text(providerLabel(for: app))
+                        .font(.caption2.weight(.medium))
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -204,6 +204,17 @@ private struct AppSection: View {
         case .ok:
             .green
         }
+    }
+
+    private func providerLabel(for app: IntegrationSummary) -> String {
+        if let providerName = app.providerName, providerName.isEmpty == false {
+            return providerName
+        }
+        return app.provider
+            .replacingOccurrences(of: "com.status.", with: "")
+            .split(separator: ".")
+            .map { $0.replacingOccurrences(of: "-", with: " ").capitalized }
+            .joined(separator: " ")
     }
 }
 
