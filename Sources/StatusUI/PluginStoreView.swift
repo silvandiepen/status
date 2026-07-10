@@ -1825,6 +1825,8 @@ public struct PluginStoreView: View {
                         catalog.availableUpdate(for: plugin).map { (plugin.id, $0) }
                     }),
                     configuredAccounts: configuredAccounts,
+                    selectedAccountIDs: selectedAccountIDs,
+                    installedPermissions: installedPermissions,
                     runtimeStatuses: runtimeStatuses,
                     canRun: canRun,
                     run: run,
@@ -2002,6 +2004,8 @@ private struct InstalledPluginSection: View {
     let plugins: [InstalledPlugin]
     let availableUpdates: [String: RegistryPluginSummary]
     let configuredAccounts: [String: [PluginAccountConfiguration]]
+    let selectedAccountIDs: [String: String]
+    let installedPermissions: [String: [InstalledPluginPermission]]
     let runtimeStatuses: [String: PluginRuntimeStatus]
     let canRun: (InstalledPlugin) -> Bool
     let run: (InstalledPlugin) -> Void
@@ -2027,6 +2031,7 @@ private struct InstalledPluginSection: View {
                             accounts: configuredAccounts[plugin.id, default: []],
                             runtimeStatus: runtimeStatuses[plugin.id],
                             canRun: canRun(plugin),
+                            runUnavailableReason: runUnavailableReason(for: plugin),
                             run: run,
                             isUpdating: installingPluginID == plugin.id,
                             update: { summary in install(summary) },
@@ -2040,6 +2045,57 @@ private struct InstalledPluginSection: View {
         }
     }
 
+    private func runUnavailableReason(for plugin: InstalledPlugin) -> String? {
+        guard canRun(plugin) else {
+            return nil
+        }
+        let accounts = configuredAccounts[plugin.id, default: []]
+        guard let selectedAccount = selectedAccount(for: plugin, accounts: accounts) else {
+            return "Save an app before running this plugin."
+        }
+        let missing = missingRuntimePermissions(
+            selectedAccount: selectedAccount,
+            permissions: installedPermissions[plugin.id, default: []]
+        )
+        guard missing.isEmpty == false else {
+            return nil
+        }
+        return "Grant \(permissionList(missing)) permission before running this app."
+    }
+
+    private func selectedAccount(for plugin: InstalledPlugin, accounts: [PluginAccountConfiguration]) -> PluginAccountConfiguration? {
+        if let selectedAccountID = selectedAccountIDs[plugin.id],
+           selectedAccountID.hasPrefix("__new__:") == false,
+           let account = accounts.first(where: { $0.id == selectedAccountID }) {
+            return account
+        }
+        return accounts.first
+    }
+
+    private func missingRuntimePermissions(
+        selectedAccount: PluginAccountConfiguration,
+        permissions: [InstalledPluginPermission]
+    ) -> [PluginPermission] {
+        let declared = Set(permissions.map(\.permission))
+        let granted = Set(permissions.filter(\.granted).map(\.permission))
+        var required: [PluginPermission] = []
+        if declared.contains(.network) {
+            required.append(.network)
+        }
+        if selectedAccount.credentialRef != nil, declared.contains(.keychain) {
+            required.append(.keychain)
+        }
+        if selectedAccount.credentialRef != nil,
+           declared.contains(.privateKey),
+           selectedAccount.authType == AuthKind.jwtAPIKey.rawValue || selectedAccount.authType == AuthKind.privateKeyJWT.rawValue {
+            required.append(.privateKey)
+        }
+        return required.filter { granted.contains($0) == false }
+    }
+
+    private func permissionList(_ permissions: [PluginPermission]) -> String {
+        permissions.map(\.label).joined(separator: ", ")
+    }
 }
 
 private struct AvailablePluginSection: View {
@@ -2077,6 +2133,7 @@ private struct InstalledPluginRow: View {
     let accounts: [PluginAccountConfiguration]
     let runtimeStatus: PluginRuntimeStatus?
     let canRun: Bool
+    let runUnavailableReason: String?
     let run: (InstalledPlugin) -> Void
     let isUpdating: Bool
     let update: (RegistryPluginSummary) -> Void
@@ -2131,6 +2188,7 @@ private struct InstalledPluginRow: View {
                             Label("Run", systemImage: "play")
                         }
                         .buttonStyle(.bordered)
+                        .disabled(runUnavailableReason != nil)
                     }
                     if let availableUpdate {
                         Button {
@@ -2158,6 +2216,13 @@ private struct InstalledPluginRow: View {
                     }
                     .buttonStyle(.bordered)
                     .disabled(isRemoving)
+                }
+                if let runUnavailableReason {
+                    Label(runUnavailableReason, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                        .multilineTextAlignment(.trailing)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
