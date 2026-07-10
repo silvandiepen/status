@@ -33,8 +33,8 @@
       "domains": [
         "api.github.com"
       ],
-      "sha256": "2d4b494c66826e89f9090c3b8d95ea203af93f54b76c20c3cd3cae4a2e89d5ed",
-      "signature": "YwTz6RzD75eX/y2ynbkf5wKbre38tNMR8I/pE/Esp+rqXKF4XZOCoQoNkB4KsFqoGTVhmA0M4M/Cp7NvdsmbAg==",
+      "sha256": "1ba60c87aed3957a37c38a9dea60eae61c9d5f4ee2faffd95a351514c4237c19",
+      "signature": "KFcz9YHEQny2nsOddynMQprrWfgq347BSNmqoSNcPu2sllBEjh6BjmWZOpNPcUTfS7yxo047gm1/Uo4+8GeEBA==",
       "signedBy": "status-foundry-dev",
       "releasedAt": "2026-07-07T12:00:00Z",
       "packageResourceName": "com.status.github-0.1.0.statusplugin.zip",

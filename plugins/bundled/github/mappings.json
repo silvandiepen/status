@@ -3,6 +3,7 @@
     {
       "type": "repository",
       "request": "list_repository_activity",
+      "source": "$[*]",
       "id": "$.repo.id",
       "name": "$.repo.name",
       "actionUrl": "https://github.com/{{name}}"

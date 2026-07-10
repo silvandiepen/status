@@ -212,8 +212,148 @@ import Testing
     #expect(output.metrics[0].metric.value == "1")
 }
 
+@Test func bundledPluginFixturesMapThroughNativeEngine() throws {
+    let capturedAt = Date(timeIntervalSince1970: 1_783_433_520)
+    let cases: [BundledFixtureMappingCase] = [
+        BundledFixtureMappingCase(
+            pluginID: "com.status.appstoreconnect",
+            requestID: "list_apps",
+            expectedResourceCount: 1
+        ),
+        BundledFixtureMappingCase(
+            pluginID: "com.status.appstoreconnect",
+            requestID: "list_app_store_versions",
+            expectedEventTypes: ["app.review.rejected", "app.version.ready_for_sale"]
+        ),
+        BundledFixtureMappingCase(
+            pluginID: "com.status.github",
+            requestID: "list_repository_activity",
+            expectedResourceCount: 1,
+            expectedEventTypes: ["github.pull_request.opened"]
+        ),
+        BundledFixtureMappingCase(
+            pluginID: "com.status.github",
+            requestID: "list_workflow_runs",
+            expectedEventTypes: ["github.workflow.failed"]
+        ),
+        BundledFixtureMappingCase(
+            pluginID: "com.status.gitlab",
+            requestID: "get_project",
+            expectedResourceCount: 1,
+            account: ["projectId": "278964"]
+        ),
+        BundledFixtureMappingCase(
+            pluginID: "com.status.gitlab",
+            requestID: "list_pipelines",
+            expectedEventTypes: ["gitlab.pipeline.failed"],
+            account: ["projectId": "278964"]
+        ),
+        BundledFixtureMappingCase(
+            pluginID: "com.status.gitlab",
+            requestID: "list_project_events",
+            expectedEventTypes: ["gitlab.merge_request.opened", "gitlab.issue.opened"],
+            account: ["projectId": "278964"]
+        ),
+        BundledFixtureMappingCase(
+            pluginID: "com.status.googleplay",
+            requestID: "list_reviews",
+            expectedResourceCount: 2,
+            expectedEventTypes: ["googleplay.review.received", "googleplay.review.received", "googleplay.review.needs_attention"],
+            expectedMetricCount: 2,
+            account: ["packageName": "com.example.app"]
+        ),
+        BundledFixtureMappingCase(
+            pluginID: "com.status.jira",
+            requestID: "search_project_issues",
+            expectedResourceCount: 2,
+            expectedEventTypes: ["jira.issue.open"],
+            account: ["site": "example.atlassian.net", "projectKey": "STATUS"]
+        ),
+        BundledFixtureMappingCase(
+            pluginID: "com.status.website",
+            requestID: "check_site",
+            expectedResourceCount: 1,
+            expectedEventTypes: ["website.down"],
+            account: ["host": "status.example.com"]
+        ),
+        BundledFixtureMappingCase(
+            pluginID: "com.status.youtube",
+            requestID: "list_my_channels",
+            expectedResourceCount: 1,
+            expectedEventTypes: ["youtube.channel.visibility_limited"],
+            expectedMetricCount: 3
+        ),
+        BundledFixtureMappingCase(
+            pluginID: "com.status.youtube",
+            requestID: "list_recent_uploads",
+            expectedResourceCount: 1,
+            expectedEventTypes: ["youtube.video.published"]
+        )
+    ]
+
+    for testCase in cases {
+        let pluginDirectory = bundledPluginDirectory(pluginID: testCase.pluginID)
+        let definition = try PluginPackageDefinition.decode(from: try PluginPackageBuilder.packageData(fromDirectory: pluginDirectory))
+        let fixtureData = try Data(contentsOf: pluginDirectory.appendingPathComponent("fixtures/\(testCase.requestID).json"))
+        let payload = try JSONDecoder().decode(MappingJSONValue.self, from: fixtureData)
+        let output = try PluginMappingExecutor.execute(
+            definition.mappings,
+            input: PluginMappingExecutionInput(
+                pluginID: testCase.pluginID,
+                accountID: testCase.accountID,
+                provider: testCase.pluginID,
+                requestID: testCase.requestID,
+                payload: payload,
+                capturedAt: capturedAt,
+                account: .object(testCase.account.mapValues(MappingJSONValue.string))
+            )
+        )
+
+        #expect(output.resources.count == testCase.expectedResourceCount, "\(testCase.pluginID) \(testCase.requestID) resource count")
+        #expect(output.events.map(\.type) == testCase.expectedEventTypes, "\(testCase.pluginID) \(testCase.requestID) event types")
+        #expect(output.metrics.count == testCase.expectedMetricCount, "\(testCase.pluginID) \(testCase.requestID) metric count")
+        #expect(output.warnings.isEmpty, "\(testCase.pluginID) \(testCase.requestID) warnings")
+    }
+}
+
 private func decodeBundledMappingJSON(_ string: String) throws -> MappingJSONValue {
     try JSONDecoder().decode(MappingJSONValue.self, from: Data(string.utf8))
+}
+
+private struct BundledFixtureMappingCase {
+    var pluginID: String
+    var requestID: String
+    var expectedResourceCount: Int
+    var expectedEventTypes: [String]
+    var expectedMetricCount: Int
+    var account: [String: String]
+
+    var accountID: String {
+        "acct_" + pluginID
+            .replacingOccurrences(of: "com.status.", with: "")
+            .replacingOccurrences(of: ".", with: "_")
+    }
+
+    init(
+        pluginID: String,
+        requestID: String,
+        expectedResourceCount: Int = 0,
+        expectedEventTypes: [String] = [],
+        expectedMetricCount: Int = 0,
+        account: [String: String] = [:]
+    ) {
+        self.pluginID = pluginID
+        self.requestID = requestID
+        self.expectedResourceCount = expectedResourceCount
+        self.expectedEventTypes = expectedEventTypes
+        self.expectedMetricCount = expectedMetricCount
+        self.account = account
+    }
+}
+
+private func bundledPluginDirectory(pluginID: String) -> URL {
+    let name = pluginID.replacingOccurrences(of: "com.status.", with: "")
+    return repositoryRoot().appendingPathComponent("plugins/bundled/\(name)", isDirectory: true)
 }
 
 private func temporaryBundledPluginDatabase() throws -> SQLiteDatabase {
@@ -223,4 +363,11 @@ private func temporaryBundledPluginDatabase() throws -> SQLiteDatabase {
     let database = try SQLiteDatabase(path: path)
     try StatusDatabaseMigrator.migrate(database)
     return database
+}
+
+private func repositoryRoot() -> URL {
+    URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
 }
