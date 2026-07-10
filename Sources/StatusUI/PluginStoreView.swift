@@ -970,6 +970,8 @@ private enum PluginRulePreviewError: Error, LocalizedError {
 
 public struct PluginStoreContainerView: View {
     @StateObject private var viewModel: PluginStoreViewModel
+    @StateObject private var notificationPreferencesViewModel: NotificationPreferencesViewModel
+    private let notificationPreferenceGroups: (InstalledPlugin, String?) -> [NotificationPreferencePluginGroup]
     private let openSettings: ((InstalledPlugin) -> Void)?
     private let onAppsChanged: (() -> Void)?
     private let installLocalPlugin: (() async throws -> String)?
@@ -983,12 +985,20 @@ public struct PluginStoreContainerView: View {
 
     public init(
         viewModel: @autoclosure @escaping () -> PluginStoreViewModel,
+        notificationPreferencesViewModel: @autoclosure @escaping () -> NotificationPreferencesViewModel = NotificationPreferencesViewModel(
+            loadPluginGroups: { [] },
+            loadPreferences: { [] },
+            setPreference: { _, _, _, _ in }
+        ),
+        notificationPreferenceGroups: @escaping (InstalledPlugin, String?) -> [NotificationPreferencePluginGroup] = { _, _ in [] },
         openSettings: ((InstalledPlugin) -> Void)? = nil,
         onAppsChanged: (() -> Void)? = nil,
         installLocalPlugin: (() async throws -> String)? = nil,
         previewPluginFixture: ((InstalledPlugin, String?) async throws -> String)? = nil
     ) {
         _viewModel = StateObject(wrappedValue: viewModel())
+        _notificationPreferencesViewModel = StateObject(wrappedValue: notificationPreferencesViewModel())
+        self.notificationPreferenceGroups = notificationPreferenceGroups
         self.openSettings = openSettings
         self.onAppsChanged = onAppsChanged
         self.installLocalPlugin = installLocalPlugin
@@ -1136,6 +1146,8 @@ public struct PluginStoreContainerView: View {
             previewResults: previewResults,
             previewErrors: previewErrors,
             previewPluginFixture: pluginFixturePreviewAction,
+            notificationPreferencesViewModel: notificationPreferencesViewModel,
+            notificationPreferenceGroups: notificationPreferenceGroups,
             previewRuleActions: { plugin, eventType, actions in
                 try await viewModel.previewProviderActionRequests(for: plugin, eventType: eventType, actions: actions)
             }
@@ -1153,9 +1165,11 @@ public struct PluginStoreContainerView: View {
         }
         .task {
             await viewModel.reload()
+            notificationPreferencesViewModel.reload()
         }
         .refreshable {
             await viewModel.reload()
+            notificationPreferencesViewModel.reload()
         }
         .onOpenURL { url in
             Task {
@@ -1704,6 +1718,8 @@ public struct PluginStoreView: View {
     private let previewResults: [String: String]
     private let previewErrors: [String: String]
     private let previewPluginFixture: ((InstalledPlugin, String?) -> Void)?
+    @ObservedObject private var notificationPreferencesViewModel: NotificationPreferencesViewModel
+    private let notificationPreferenceGroups: (InstalledPlugin, String?) -> [NotificationPreferencePluginGroup]
     private let previewRuleActions: (InstalledPlugin, String, [RuleActionDefinition]) async throws -> String
     @State private var pluginPendingRemoval: InstalledPlugin?
     @State private var presentedSettingsPlugin: InstalledPlugin?
@@ -1769,6 +1785,12 @@ public struct PluginStoreView: View {
         previewResults: [String: String] = [:],
         previewErrors: [String: String] = [:],
         previewPluginFixture: ((InstalledPlugin, String?) -> Void)? = nil,
+        notificationPreferencesViewModel: NotificationPreferencesViewModel = NotificationPreferencesViewModel(
+            loadPluginGroups: { [] },
+            loadPreferences: { [] },
+            setPreference: { _, _, _, _ in }
+        ),
+        notificationPreferenceGroups: @escaping (InstalledPlugin, String?) -> [NotificationPreferencePluginGroup] = { _, _ in [] },
         previewRuleActions: @escaping (InstalledPlugin, String, [RuleActionDefinition]) async throws -> String = { _, _, _ in "" }
     ) {
         self.catalog = catalog
@@ -1831,6 +1853,8 @@ public struct PluginStoreView: View {
         self.previewResults = previewResults
         self.previewErrors = previewErrors
         self.previewPluginFixture = previewPluginFixture
+        _notificationPreferencesViewModel = ObservedObject(wrappedValue: notificationPreferencesViewModel)
+        self.notificationPreferenceGroups = notificationPreferenceGroups
         self.previewRuleActions = previewRuleActions
     }
 
@@ -1936,12 +1960,8 @@ public struct PluginStoreView: View {
             savingRuleID: savingRuleID,
             selectedDashboardTileFields: dashboardTileFields[setupKey(pluginID: plugin.id, accountID: selectedAccountID), default: []],
             savingDashboardTileFieldKey: savingDashboardTileFieldKey,
-            notificationPreferencesViewModel: NotificationPreferencesViewModel(
-                loadPluginGroups: { [] },
-                loadPreferences: { [] },
-                setPreference: { _, _, _, _ in }
-            ),
-            notificationPreferenceGroups: [],
+            notificationPreferencesViewModel: notificationPreferencesViewModel,
+            notificationPreferenceGroups: notificationPreferenceGroups(plugin, selectedAccountID),
             oauthConnectionURL: oauthConnectionURLs[setupKey(pluginID: plugin.id, accountID: selectedAccountID)],
             oauthConnectionError: oauthConnectionErrors[setupKey(pluginID: plugin.id, accountID: selectedAccountID)],
             testingRequestKey: testingRequestKey,

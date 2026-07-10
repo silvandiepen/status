@@ -75,6 +75,10 @@ private struct IOSRootView: View {
             NavigationStack {
                 PluginStoreContainerView(
                     viewModel: makePluginStoreViewModel(platform: .iOS),
+                    notificationPreferencesViewModel: makeNotificationPreferencesViewModel(),
+                    notificationPreferenceGroups: { plugin, accountID in
+                        (try? notificationPreferenceGroups(plugin: plugin, accountID: accountID)) ?? []
+                    },
                     onAppsChanged: {
                         NotificationCenter.default.post(name: .statusConfiguredAppsDidChange, object: nil)
                     }
