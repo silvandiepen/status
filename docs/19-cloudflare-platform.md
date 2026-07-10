@@ -273,7 +273,9 @@ Revocations may target:
 - package hash;
 - signing key ID.
 
-The app should check revocations before install, before update, and periodically for installed plugins.
+The Worker filters revoked plugin IDs, versions, hashes, and signing key IDs out of installable listing and version endpoints. A direct request for a revoked version returns `404`.
+
+The app should still check revocations before install, before update, and periodically for installed plugins. Cloudflare filtering is a distribution guard; local verification remains the trust boundary.
 
 ## Domains
 

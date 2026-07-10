@@ -79,16 +79,24 @@ function contentTypeForPath(pathname) {
   return "application/octet-stream";
 }
 
-function pluginByID(pluginID) {
-  return registry.plugins.find((plugin) => plugin.id === pluginID);
+function registryData(env = {}) {
+  return env.REGISTRY_DATA ?? registry;
+}
+
+function revocationData(env = {}) {
+  return env.REVOCATIONS_DATA ?? revocations;
+}
+
+function pluginByID(pluginID, activeRegistry) {
+  return activeRegistry.plugins.find((plugin) => plugin.id === pluginID);
 }
 
 function versionByID(plugin, version) {
   return plugin.versions.find((candidate) => candidate.version === version);
 }
 
-function pluginSummary(plugin) {
-  const latestVersion = plugin.versions[0];
+function pluginSummary(plugin, versions) {
+  const latestVersion = versions[0];
   return {
     id: plugin.id,
     name: plugin.name,
@@ -104,7 +112,7 @@ function pluginSummary(plugin) {
   };
 }
 
-function compatibleVersions(plugin, searchParams) {
+function compatibleVersions(plugin, searchParams, activeRevocations) {
   const platform = searchParams.get("platform");
   const coreVersion = searchParams.get("coreVersion");
 
@@ -115,14 +123,15 @@ function compatibleVersions(plugin, searchParams) {
     if (coreVersion && compareVersions(coreVersion, version.minCoreVersion) < 0) {
       return false;
     }
-    return isVersionRevoked(plugin.id, version) === false;
+    return isVersionRevoked(plugin.id, version, activeRevocations) === false;
   });
 }
 
-function isVersionRevoked(pluginID, version) {
-  return revocations.revokedPlugins.includes(pluginID)
-    || revocations.revokedVersions.some((item) => item.pluginId === pluginID && item.version === version.version)
-    || revocations.revokedHashes.includes(version.sha256);
+function isVersionRevoked(pluginID, version, activeRevocations) {
+  return activeRevocations.revokedPlugins.includes(pluginID)
+    || activeRevocations.revokedVersions.some((item) => item.pluginId === pluginID && item.version === version.version)
+    || activeRevocations.revokedHashes.includes(version.sha256)
+    || (version.signedBy && activeRevocations.revokedSigningKeys.includes(version.signedBy));
 }
 
 function compareVersions(lhs, rhs) {
@@ -140,6 +149,8 @@ function compareVersions(lhs, rhs) {
 
 export async function route(request, env = {}) {
   const url = new URL(request.url);
+  const activeRegistry = registryData(env);
+  const activeRevocations = revocationData(env);
 
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -163,24 +174,25 @@ export async function route(request, env = {}) {
 
   if (url.pathname === "/v1/registry") {
     return json({
-      ...registry,
+      ...activeRegistry,
       generatedAt: new Date().toISOString()
     });
   }
 
   if (url.pathname === "/v1/revocations") {
     return json({
-      ...revocations,
+      ...activeRevocations,
       generatedAt: new Date().toISOString()
     });
   }
 
   if (url.pathname === "/v1/plugins") {
-    const plugins = registry.plugins
-      .filter((plugin) => compatibleVersions(plugin, url.searchParams).length > 0)
-      .map(pluginSummary);
+    const plugins = activeRegistry.plugins
+      .map((plugin) => [plugin, compatibleVersions(plugin, url.searchParams, activeRevocations)])
+      .filter(([, versions]) => versions.length > 0)
+      .map(([plugin, versions]) => pluginSummary(plugin, versions));
     return json({
-      schemaVersion: registry.schemaVersion,
+      schemaVersion: activeRegistry.schemaVersion,
       generatedAt: new Date().toISOString(),
       plugins
     });
@@ -188,21 +200,21 @@ export async function route(request, env = {}) {
 
   const versionsMatch = url.pathname.match(/^\/v1\/plugins\/([^/]+)\/versions$/);
   if (versionsMatch) {
-    const plugin = pluginByID(versionsMatch[1]);
+    const plugin = pluginByID(versionsMatch[1], activeRegistry);
     if (!plugin) {
       return notFound(url.pathname);
     }
     return json({
       pluginId: plugin.id,
-      versions: compatibleVersions(plugin, url.searchParams)
+      versions: compatibleVersions(plugin, url.searchParams, activeRevocations)
     });
   }
 
   const versionMatch = url.pathname.match(/^\/v1\/plugins\/([^/]+)\/versions\/([^/]+)$/);
   if (versionMatch) {
-    const plugin = pluginByID(versionMatch[1]);
+    const plugin = pluginByID(versionMatch[1], activeRegistry);
     const version = plugin ? versionByID(plugin, versionMatch[2]) : undefined;
-    if (!plugin || !version || isVersionRevoked(plugin.id, version)) {
+    if (!plugin || !version || isVersionRevoked(plugin.id, version, activeRevocations)) {
       return notFound(url.pathname);
     }
     return json({
@@ -213,13 +225,13 @@ export async function route(request, env = {}) {
 
   const pluginMatch = url.pathname.match(/^\/v1\/plugins\/([^/]+)$/);
   if (pluginMatch) {
-    const plugin = pluginByID(pluginMatch[1]);
+    const plugin = pluginByID(pluginMatch[1], activeRegistry);
     if (!plugin) {
       return notFound(url.pathname);
     }
     return json({
       ...plugin,
-      versions: compatibleVersions(plugin, url.searchParams)
+      versions: compatibleVersions(plugin, url.searchParams, activeRevocations)
     });
   }
 

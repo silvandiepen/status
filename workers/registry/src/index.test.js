@@ -7,6 +7,10 @@ async function get(path) {
   return route(new Request(`https://status-registry.hakobs.com${path}`));
 }
 
+async function getWithEnv(path, env) {
+  return route(new Request(`https://status-registry.hakobs.com${path}`), env);
+}
+
 test("health endpoint responds", async () => {
   const response = await get("/health");
   const body = await response.json();
@@ -94,6 +98,65 @@ test("compatibility filters remove unsupported versions", async () => {
 
   assert.equal(response.status, 200);
   assert.deepEqual(body.plugins, []);
+});
+
+test("revoked signing keys remove versions from installable registry responses", async () => {
+  const env = {
+    REGISTRY_DATA: {
+      schemaVersion: "1.0.0",
+      generatedAt: "2026-07-10T09:00:00Z",
+      plugins: [
+        {
+          id: "com.example.revoked",
+          name: "Revoked plugin",
+          summary: "Uses a revoked key.",
+          description: "This version must not be installable.",
+          category: "testing",
+          author: { name: "Status Foundry", publisherId: "status-foundry" },
+          trustLevel: "official",
+          permissions: ["network"],
+          domains: ["api.example.com"],
+          versions: [
+            {
+              version: "1.0.0",
+              minCoreVersion: "0.1.0",
+              platforms: ["macOS", "iOS"],
+              packageUrl: "https://status-registry.hakobs.com/plugins/com.example.revoked/1.0.0/package.zip",
+              manifestUrl: "https://status-registry.hakobs.com/plugins/com.example.revoked/1.0.0/manifest.json",
+              sha256: "abc123",
+              signature: "c2lnbmF0dXJl",
+              signedBy: "revoked-key",
+              releasedAt: "2026-07-10T09:00:00Z"
+            }
+          ]
+        }
+      ]
+    },
+    REVOCATIONS_DATA: {
+      schemaVersion: "1.0.0",
+      generatedAt: "2026-07-10T09:00:00Z",
+      revokedPlugins: [],
+      revokedVersions: [],
+      revokedHashes: [],
+      revokedSigningKeys: ["revoked-key"]
+    }
+  };
+
+  const list = await getWithEnv("/v1/plugins?platform=macOS&coreVersion=0.1.0", env);
+  const listBody = await list.json();
+  const versions = await getWithEnv("/v1/plugins/com.example.revoked/versions", env);
+  const versionsBody = await versions.json();
+  const detail = await getWithEnv("/v1/plugins/com.example.revoked", env);
+  const detailBody = await detail.json();
+  const version = await getWithEnv("/v1/plugins/com.example.revoked/versions/1.0.0", env);
+
+  assert.equal(list.status, 200);
+  assert.deepEqual(listBody.plugins, []);
+  assert.equal(versions.status, 200);
+  assert.deepEqual(versionsBody.versions, []);
+  assert.equal(detail.status, 200);
+  assert.deepEqual(detailBody.versions, []);
+  assert.equal(version.status, 404);
 });
 
 test("unknown routes return structured 404", async () => {
