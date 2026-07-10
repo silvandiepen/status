@@ -1072,6 +1072,7 @@ import Testing
             state: "Connected",
             severity: .ok,
             lastSyncDescription: "Never synced",
+            accentColor: "#F59E0B",
             tileItems: [
                 DashboardTileItem(
                     id: "openIssues",

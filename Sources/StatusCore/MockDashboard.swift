@@ -65,9 +65,9 @@ public enum MockDashboard {
                 Metric(id: "met_actions", resourceID: "res_status", label: "Actions run", value: "1", delta: "audited", severity: .ok)
             ],
             integrations: [
-                IntegrationSummary(id: "int_appstore", name: "App Store Connect", provider: "appstoreconnect", state: "Connected", severity: .warning, lastSyncDescription: "15 min ago"),
-                IntegrationSummary(id: "int_github", name: "GitHub", provider: "github", state: "Needs attention", severity: .critical, lastSyncDescription: "2 min ago"),
-                IntegrationSummary(id: "int_uptime", name: "Website uptime", provider: "website", state: "Okay", severity: .ok, lastSyncDescription: "1 min ago")
+                IntegrationSummary(id: "int_appstore", name: "App Store Connect", provider: "appstoreconnect", state: "Connected", severity: .warning, lastSyncDescription: "15 min ago", accentColor: "#2F80ED"),
+                IntegrationSummary(id: "int_github", name: "GitHub", provider: "github", state: "Needs attention", severity: .critical, lastSyncDescription: "2 min ago", accentColor: "#4B5563"),
+                IntegrationSummary(id: "int_uptime", name: "Website uptime", provider: "website", state: "Okay", severity: .ok, lastSyncDescription: "1 min ago", accentColor: "#16A34A")
             ],
             auditEntries: [
                 AuditEntry(

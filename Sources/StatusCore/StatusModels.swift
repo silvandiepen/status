@@ -378,6 +378,7 @@ public struct IntegrationSummary: Identifiable, Codable, Equatable, Sendable {
     public var state: String
     public var severity: Severity
     public var lastSyncDescription: String
+    public var accentColor: String?
     public var iconAsset: PackagedPluginIconAsset?
     public var tileItems: [DashboardTileItem]
 
@@ -389,6 +390,7 @@ public struct IntegrationSummary: Identifiable, Codable, Equatable, Sendable {
         state: String,
         severity: Severity,
         lastSyncDescription: String,
+        accentColor: String? = nil,
         iconAsset: PackagedPluginIconAsset? = nil,
         tileItems: [DashboardTileItem] = []
     ) {
@@ -399,6 +401,7 @@ public struct IntegrationSummary: Identifiable, Codable, Equatable, Sendable {
         self.state = state
         self.severity = severity
         self.lastSyncDescription = lastSyncDescription
+        self.accentColor = accentColor
         self.iconAsset = iconAsset
         self.tileItems = tileItems
     }

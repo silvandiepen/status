@@ -1177,7 +1177,7 @@ public final class StatusPersistenceStore {
     public func integrationSummaries() throws -> [IntegrationSummary] {
         try database.query(
             """
-            SELECT a.id, a.plugin_id AS provider, a.display_name, a.status, a.last_error, a.last_refreshed_at, p.name AS provider_name, p.installed_version
+            SELECT a.id, a.plugin_id AS provider, a.display_name, a.status, a.last_error, a.last_refreshed_at, p.name AS provider_name, p.accent_color, p.installed_version
             FROM accounts a
             LEFT JOIN plugins p ON p.id = a.plugin_id
             ORDER BY a.display_name ASC, a.id ASC
@@ -1739,6 +1739,7 @@ public final class StatusPersistenceStore {
             state: lastError?.isEmpty == false ? "Needs attention" : status.capitalized,
             severity: severity,
             lastSyncDescription: lastRefreshDescription(row.optionalText("last_refreshed_at")),
+            accentColor: row.optionalText("accent_color"),
             iconAsset: row.optionalText("installed_version").flatMap { installedPluginIconAsset(pluginID: provider, version: $0) },
             tileItems: dashboardTileItems(
                 accountID: accountID,
@@ -1757,6 +1758,7 @@ public final class StatusPersistenceStore {
             state: enabled ? "Setup needed" : "Disabled",
             severity: .notice,
             lastSyncDescription: "Never synced",
+            accentColor: row.optionalText("accent_color"),
             iconAsset: installedPluginIconAsset(pluginID: row.requiredText("id"), version: row.requiredText("installed_version"))
         )
     }

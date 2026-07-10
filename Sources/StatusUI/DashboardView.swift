@@ -134,9 +134,10 @@ private struct AppSection: View {
     private func appTile(for app: IntegrationSummary) -> some View {
         let primaryItem = app.tileItems.first
         let secondaryItems = Array(app.tileItems.dropFirst().prefix(4))
+        let accent = IntegrationVisual.visual(for: app.provider, accentColor: app.accentColor).color
         let tile = VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 10) {
-                IntegrationIcon(provider: app.provider, iconAsset: app.iconAsset, size: 30)
+                IntegrationIcon(provider: app.provider, iconAsset: app.iconAsset, accentColor: app.accentColor, size: 30)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(providerLabel(for: app))
                         .font(.caption2.weight(.medium))
@@ -187,7 +188,17 @@ private struct AppSection: View {
         }
         .frame(maxWidth: .infinity, minHeight: primaryItem == nil ? 150 : 210, alignment: .leading)
         .padding(14)
-        .background(Color.statusSurface)
+        .background {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.statusSurface)
+            RoundedRectangle(cornerRadius: 8)
+                .fill(accent.opacity(0.055))
+        }
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(accent.opacity(0.72))
+                .frame(height: 3)
+        }
         .clipShape(RoundedRectangle(cornerRadius: 8))
 
         if let openApp {
