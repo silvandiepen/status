@@ -615,6 +615,7 @@ private struct IOSPluginAppDetail: View {
     @State private var app: PluginAccountConfiguration?
     @State private var runtimeStatus: PluginRuntimeStatus?
     @State private var resources: [Resource] = []
+    @State private var missingRunPermissions: [PluginPermission] = []
     @State private var loadError: String?
     @State private var runResult: String?
     @State private var runError: String?
@@ -629,6 +630,7 @@ private struct IOSPluginAppDetail: View {
                     app: app,
                     runtimeStatus: runtimeStatus,
                     resources: resources,
+                    runUnavailableReason: runUnavailableReason,
                     openSettings: {
                         showsSettings = true
                     },
@@ -702,6 +704,9 @@ private struct IOSPluginAppDetail: View {
         guard let accountID, let app else {
             return nil
         }
+        guard missingRunPermissions.isEmpty else {
+            return nil
+        }
         return {
             Task {
                 await run(accountID: accountID, accountName: app.accountName)
@@ -709,20 +714,30 @@ private struct IOSPluginAppDetail: View {
         }
     }
 
+    private var runUnavailableReason: String? {
+        guard missingRunPermissions.isEmpty == false else {
+            return nil
+        }
+        return "Grant \(permissionList(missingRunPermissions)) permission in App Settings before running this app."
+    }
+
     private func load() {
         do {
             let store = try LocalStatusStore.openApplicationSupportStore()
             let loadedPlugin = try store.installedPlugin(id: pluginID)
+            let loadedApp = try accountID.flatMap { try store.accountConfiguration(accountID: $0) }
             plugin = loadedPlugin
-            app = try accountID.flatMap { try store.accountConfiguration(accountID: $0) }
+            app = loadedApp
             resources = try store.resources(pluginID: pluginID, accountID: accountID)
             runtimeStatus = try recentRuntimeStatus(store: store, pluginID: pluginID, accountID: accountID)
+            missingRunPermissions = try missingRuntimePermissions(store: store, plugin: loadedPlugin, app: loadedApp)
             loadError = loadedPlugin == nil ? "This plugin is not installed on this device." : nil
         } catch {
             plugin = nil
             app = nil
             resources = []
             runtimeStatus = nil
+            missingRunPermissions = []
             loadError = error.localizedDescription
         }
     }
@@ -770,6 +785,62 @@ private struct IOSPluginAppDetail: View {
             return "Job \(job.id) was cancelled from \(job.triggerID)."
         case .skipped:
             return "Job \(job.id) was skipped from \(job.triggerID)."
+        }
+    }
+
+    private func missingRuntimePermissions(
+        store: StatusPersistenceStore,
+        plugin: InstalledPlugin?,
+        app: PluginAccountConfiguration?
+    ) throws -> [PluginPermission] {
+        guard let plugin else {
+            return []
+        }
+        let permissionRows = try store.pluginPermissions(pluginID: plugin.id)
+        let declared = Set(permissionRows.map(\.permission))
+        let granted = Set(permissionRows.filter(\.granted).map(\.permission))
+        var required: [PluginPermission] = []
+        if declared.contains(.network) {
+            required.append(.network)
+        }
+        if app?.credentialRef != nil, declared.contains(.keychain) {
+            required.append(.keychain)
+        }
+        if let app,
+           app.credentialRef != nil,
+           declared.contains(.privateKey),
+           app.authType == AuthKind.jwtAPIKey.rawValue || app.authType == AuthKind.privateKeyJWT.rawValue {
+            required.append(.privateKey)
+        }
+        return required.filter { granted.contains($0) == false }
+    }
+
+    private func permissionList(_ permissions: [PluginPermission]) -> String {
+        permissions.map(permissionLabel).joined(separator: ", ")
+    }
+
+    private func permissionLabel(_ permission: PluginPermission) -> String {
+        switch permission {
+        case .network:
+            return "Network"
+        case .keychain:
+            return "Keychain"
+        case .oauth:
+            return "OAuth"
+        case .apiKey:
+            return "API key"
+        case .privateKey:
+            return "Private key"
+        case .backgroundRefresh:
+            return "Background refresh"
+        case .pushWebhook:
+            return "Push webhook"
+        case .userConfiguredDomains:
+            return "User-configured domains"
+        case .writeActions:
+            return "Write actions"
+        case .localNotificationSuggestion:
+            return "Notification suggestions"
         }
     }
 }

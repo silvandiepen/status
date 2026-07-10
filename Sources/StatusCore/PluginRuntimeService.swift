@@ -442,14 +442,6 @@ public final class PluginRuntimeService: ProviderActionExecutor, @unchecked Send
             let packagePath = installedVersion.packagePath else {
             throw PluginRuntimeServiceError.packageUnavailable(request.pluginID)
         }
-        try requireGrantedPermissionIfDeclared(
-            pluginID: request.pluginID,
-            manifest: installedVersion.manifest,
-            permission: .network
-        )
-
-        let packageData = try Data(contentsOf: URL(fileURLWithPath: packagePath))
-        let definition = try PluginPackageDefinition.decode(from: packageData)
 
         if upsertAccount {
             try store.upsertAccount(
@@ -475,6 +467,14 @@ public final class PluginRuntimeService: ProviderActionExecutor, @unchecked Send
         )
 
         do {
+            try requireGrantedPermissionIfDeclared(
+                pluginID: request.pluginID,
+                manifest: installedVersion.manifest,
+                permission: .network
+            )
+
+            let packageData = try Data(contentsOf: URL(fileURLWithPath: packagePath))
+            let definition = try PluginPackageDefinition.decode(from: packageData)
             let runner = PluginRequestJobRunner(
                 transport: transport,
                 committer: PluginMappingOutputCommitter(store: store)

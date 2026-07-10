@@ -1399,6 +1399,7 @@ public struct PluginAppDetailView: View {
     private let app: PluginAccountConfiguration?
     private let runtimeStatus: PluginRuntimeStatus?
     private let resources: [Resource]
+    private let runUnavailableReason: String?
     private let openSettings: (() -> Void)?
     private let run: (() -> Void)?
 
@@ -1407,6 +1408,7 @@ public struct PluginAppDetailView: View {
         app: PluginAccountConfiguration?,
         runtimeStatus: PluginRuntimeStatus?,
         resources: [Resource],
+        runUnavailableReason: String? = nil,
         openSettings: (() -> Void)? = nil,
         run: (() -> Void)? = nil
     ) {
@@ -1414,6 +1416,7 @@ public struct PluginAppDetailView: View {
         self.app = app
         self.runtimeStatus = runtimeStatus
         self.resources = resources
+        self.runUnavailableReason = runUnavailableReason
         self.openSettings = openSettings
         self.run = run
     }
@@ -1424,6 +1427,9 @@ public struct PluginAppDetailView: View {
                 header
                 if let runtimeStatus {
                     PluginRuntimeStatusView(status: runtimeStatus)
+                }
+                if let runUnavailableReason {
+                    RunUnavailableView(reason: runUnavailableReason)
                 }
                 if plugin.views.isEmpty {
                     PluginFallbackAppDataPanel(plugin: plugin, resources: resources)
@@ -1471,6 +1477,33 @@ public struct PluginAppDetailView: View {
                 }
             }
         }
+    }
+}
+
+private struct RunUnavailableView: View {
+    let reason: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .frame(width: 12)
+                .padding(.top, 3)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Refresh unavailable")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.orange)
+                Text(reason)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(Color.orange.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 

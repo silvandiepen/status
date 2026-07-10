@@ -302,6 +302,13 @@ import Testing
             )
         )
     }
+
+    let failedJob = try #require(try store.job(id: "job_com_status_website_check_site_acct_example_1783433520"))
+    #expect(failedJob.status == .failed)
+    #expect(failedJob.error == "Plugin com.status.website requires granted permission before it can run: network")
+    let audit = try #require(try store.auditEntries(limit: 1).first)
+    #expect(audit.jobID == failedJob.id)
+    #expect(audit.status == "failed")
 }
 
 @Test func pluginRuntimeServiceRunsNextQueuedConfiguredWebsiteJob() async throws {
