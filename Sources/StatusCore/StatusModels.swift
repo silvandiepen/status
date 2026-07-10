@@ -438,6 +438,7 @@ public enum DashboardTileItemKind: String, Codable, Equatable, Sendable {
     case percent
     case status
     case link
+    case placeholder
 }
 
 public struct DashboardSnapshot: Codable, Equatable, Sendable {

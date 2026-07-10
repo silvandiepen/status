@@ -234,10 +234,10 @@ private struct DashboardPrimaryTileItem: View {
                         .foregroundStyle(.tertiary)
                 }
             }
-            Text(item.value)
+                Text(item.value)
                 .font(primaryFont)
                 .foregroundStyle(primaryColor)
-                .lineLimit(item.kind == .text ? 2 : 1)
+                .lineLimit(item.kind == .text || item.kind == .placeholder ? 2 : 1)
                 .minimumScaleFactor(0.82)
                 .truncationMode(.tail)
         }
@@ -255,6 +255,8 @@ private struct DashboardPrimaryTileItem: View {
             .callout.weight(.semibold)
         case .link, .text:
             .callout.weight(.medium)
+        case .placeholder:
+            .callout.weight(.regular)
         }
     }
 
@@ -268,6 +270,8 @@ private struct DashboardPrimaryTileItem: View {
             .blue
         case .text:
             .secondary
+        case .placeholder:
+            Color.secondary.opacity(0.72)
         }
     }
 
@@ -299,7 +303,7 @@ private struct DashboardSecondaryTileItems: View {
                         .lineLimit(1)
                     Text(item.value)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(item.kind == .link ? .blue : .secondary)
+                        .foregroundStyle(secondaryColor(for: item))
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
                         .truncationMode(.tail)
@@ -309,6 +313,17 @@ private struct DashboardSecondaryTileItems: View {
                 .background(Color.primary.opacity(0.035))
                 .clipShape(RoundedRectangle(cornerRadius: 7))
             }
+        }
+    }
+
+    private func secondaryColor(for item: DashboardTileItem) -> Color {
+        switch item.kind {
+        case .link:
+            .blue
+        case .placeholder:
+            Color.secondary.opacity(0.72)
+        default:
+            .secondary
         }
     }
 }

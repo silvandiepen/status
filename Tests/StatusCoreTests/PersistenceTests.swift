@@ -1146,13 +1146,13 @@ import Testing
             id: "openIssues",
             label: "Open Issues",
             value: "Waiting for data",
-            kind: .text
+            kind: .placeholder
         ),
         DashboardTileItem(
             id: "lastCommit",
             label: "Last Commit",
             value: "Waiting for data",
-            kind: .text
+            kind: .placeholder
         )
     ])
 }

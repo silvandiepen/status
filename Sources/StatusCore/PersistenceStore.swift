@@ -1780,7 +1780,7 @@ public final class StatusPersistenceStore {
                     id: field,
                     label: displayLabel(for: field),
                     value: "Waiting for data",
-                    kind: .text
+                    kind: .placeholder
                 )
             }
             return DashboardTileItem(
