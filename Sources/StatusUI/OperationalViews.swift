@@ -8,15 +8,18 @@ public final class RulesViewModel: ObservableObject {
 
     private let loadRules: () throws -> [Rule]
     private let saveRule: (Rule) throws -> Void
+    private let deleteRule: (Rule) throws -> Void
 
     public init(
         initialRules: [Rule] = [],
         loadRules: @escaping () throws -> [Rule],
-        saveRule: @escaping (Rule) throws -> Void
+        saveRule: @escaping (Rule) throws -> Void,
+        deleteRule: @escaping (Rule) throws -> Void = { _ in }
     ) {
         self.rules = initialRules
         self.loadRules = loadRules
         self.saveRule = saveRule
+        self.deleteRule = deleteRule
     }
 
     public func reload() {
@@ -39,6 +42,67 @@ public final class RulesViewModel: ObservableObject {
             loadError = error.localizedDescription
         }
     }
+
+    public func saveCrossAppRule(
+        existingRuleID: String?,
+        name: String,
+        provider: String?,
+        eventType: String,
+        conditions: [RuleCondition],
+        actions: [RuleActionDefinition],
+        enabled: Bool
+    ) {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedEventType = eventType.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedProvider = provider?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedName.isEmpty == false else {
+            loadError = "Rule name is required."
+            return
+        }
+        guard trimmedEventType.isEmpty == false else {
+            loadError = "Event type is required."
+            return
+        }
+        guard actions.isEmpty == false else {
+            loadError = "Add at least one action."
+            return
+        }
+
+        let rule = Rule(
+            id: existingRuleID ?? Self.crossAppRuleID(name: trimmedName),
+            name: trimmedName,
+            enabled: enabled,
+            scope: .crossApp,
+            accountID: nil,
+            provider: trimmedProvider?.isEmpty == false ? trimmedProvider : nil,
+            eventType: trimmedEventType,
+            conditions: conditions,
+            actions: actions
+        )
+        do {
+            try saveRule(rule)
+            reload()
+        } catch {
+            loadError = error.localizedDescription
+        }
+    }
+
+    public func delete(_ rule: Rule) {
+        do {
+            try deleteRule(rule)
+            reload()
+        } catch {
+            loadError = error.localizedDescription
+        }
+    }
+
+    private static func crossAppRuleID(name: String) -> String {
+        let slug = name
+            .lowercased()
+            .replacingOccurrences(of: #"[^a-z0-9_]+"#, with: "_", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "_"))
+        return "rule_cross_app_\(slug.isEmpty ? UUID().uuidString.lowercased() : slug)"
+    }
 }
 
 public struct RulesContainerView: View {
@@ -53,6 +117,20 @@ public struct RulesContainerView: View {
             rules: viewModel.rules,
             setRuleEnabled: { rule, enabled in
                 viewModel.setEnabled(enabled, for: rule)
+            },
+            saveRule: { existingRuleID, name, provider, eventType, conditions, actions, enabled in
+                viewModel.saveCrossAppRule(
+                    existingRuleID: existingRuleID,
+                    name: name,
+                    provider: provider,
+                    eventType: eventType,
+                    conditions: conditions,
+                    actions: actions,
+                    enabled: enabled
+                )
+            },
+            deleteRule: { rule in
+                viewModel.delete(rule)
             }
         )
         .overlay(alignment: .bottom) {
@@ -265,40 +343,152 @@ private struct IconActionButton: View {
 public struct RulesListView: View {
     private let rules: [Rule]
     private let setRuleEnabled: ((Rule, Bool) -> Void)?
+    private let saveRule: ((String?, String, String?, String, [RuleCondition], [RuleActionDefinition], Bool) -> Void)?
+    private let deleteRule: ((Rule) -> Void)?
+    @State private var editingRuleID: String?
+    @State private var draftName = ""
+    @State private var draftProvider = ""
+    @State private var draftEventType = ""
+    @State private var draftEnabled = false
+    @State private var draftCondition = CrossAppRuleConditionDraft()
+    @State private var draftActions = [
+        CrossAppRuleActionDraft(action: "status.inbox.add"),
+        CrossAppRuleActionDraft(action: "notification.show", value: "{{event.title}}")
+    ]
 
-    public init(rules: [Rule], setRuleEnabled: ((Rule, Bool) -> Void)? = nil) {
+    public init(
+        rules: [Rule],
+        setRuleEnabled: ((Rule, Bool) -> Void)? = nil,
+        saveRule: ((String?, String, String?, String, [RuleCondition], [RuleActionDefinition], Bool) -> Void)? = nil,
+        deleteRule: ((Rule) -> Void)? = nil
+    ) {
         self.rules = rules
         self.setRuleEnabled = setRuleEnabled
+        self.saveRule = saveRule
+        self.deleteRule = deleteRule
     }
 
     public var body: some View {
         StatusListPage(title: "Cross-App Rules", subtitle: "\(rules.count) cross-app automation rule\(rules.count == 1 ? "" : "s").") {
-            if rules.isEmpty {
-                EmptyState(title: "No cross-app rules", detail: "App-specific rules live in each app's settings. Only rules linking multiple apps appear here.")
-            } else {
-                VStack(spacing: 10) {
-                    ForEach(rules) { rule in
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack(alignment: .firstTextBaseline) {
-                                Text(rule.name)
-                                    .font(.headline)
-                                Spacer(minLength: 12)
-                                RuleEnabledControl(rule: rule, setRuleEnabled: setRuleEnabled)
+            VStack(alignment: .leading, spacing: 14) {
+                if rules.isEmpty {
+                    EmptyState(title: "No cross-app rules", detail: "App-specific rules live in each app's settings. Only rules linking multiple apps appear here.")
+                } else {
+                    VStack(spacing: 10) {
+                        ForEach(rules) { rule in
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack(alignment: .firstTextBaseline) {
+                                    Text(rule.name)
+                                        .font(.headline)
+                                    Spacer(minLength: 12)
+                                    RuleEnabledControl(rule: rule, setRuleEnabled: setRuleEnabled)
+                                }
+                                Text(rule.eventType)
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(.secondary)
+                                RuleDetailLine(label: "Source", value: rule.provider ?? "Any app")
+                                RuleDetailLine(label: "Conditions", value: rule.conditions.map(conditionSummary).joined(separator: ", "))
+                                RuleDetailLine(label: "Actions", value: rule.actions.map(\.action).joined(separator: ", "))
+                                if saveRule != nil || deleteRule != nil {
+                                    HStack(spacing: 8) {
+                                        if saveRule != nil {
+                                            Button {
+                                                load(rule)
+                                            } label: {
+                                                Label("Edit", systemImage: "pencil")
+                                            }
+                                            .buttonStyle(.bordered)
+                                            .controlSize(.small)
+                                        }
+                                        if let deleteRule {
+                                            Button(role: .destructive) {
+                                                deleteRule(rule)
+                                                if editingRuleID == rule.id {
+                                                    resetDraft()
+                                                }
+                                            } label: {
+                                                Label("Delete", systemImage: "trash")
+                                            }
+                                            .buttonStyle(.bordered)
+                                            .controlSize(.small)
+                                        }
+                                    }
+                                }
                             }
-                            Text(rule.eventType)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
-                            RuleDetailLine(label: "Conditions", value: "\(rule.conditions.count)")
-                            RuleDetailLine(label: "Actions", value: rule.actions.map(\.action).joined(separator: ", "))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(14)
+                            .background(Color.statusSurface)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(14)
-                        .background(Color.statusSurface)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
+                }
+
+                if saveRule != nil {
+                    CrossAppRuleEditor(
+                        editingRuleID: editingRuleID,
+                        draftName: $draftName,
+                        draftProvider: $draftProvider,
+                        draftEventType: $draftEventType,
+                        draftEnabled: $draftEnabled,
+                        draftCondition: $draftCondition,
+                        draftActions: $draftActions,
+                        save: saveDraft,
+                        cancel: resetDraft
+                    )
                 }
             }
         }
+    }
+
+    private var draftActionsForSave: [RuleActionDefinition] {
+        draftActions.compactMap(\.ruleAction)
+    }
+
+    private var draftConditionsForSave: [RuleCondition] {
+        draftCondition.ruleCondition.map { [$0] } ?? []
+    }
+
+    private func saveDraft() {
+        saveRule?(
+            editingRuleID,
+            draftName,
+            draftProvider,
+            draftEventType,
+            draftConditionsForSave,
+            draftActionsForSave,
+            draftEnabled
+        )
+        resetDraft()
+    }
+
+    private func load(_ rule: Rule) {
+        editingRuleID = rule.id
+        draftName = rule.name
+        draftProvider = rule.provider ?? ""
+        draftEventType = rule.eventType
+        draftEnabled = rule.enabled
+        draftCondition = rule.conditions.first.map(CrossAppRuleConditionDraft.init) ?? CrossAppRuleConditionDraft()
+        draftActions = rule.actions.isEmpty ? [CrossAppRuleActionDraft()] : rule.actions.map(CrossAppRuleActionDraft.init)
+    }
+
+    private func resetDraft() {
+        editingRuleID = nil
+        draftName = ""
+        draftProvider = ""
+        draftEventType = ""
+        draftEnabled = false
+        draftCondition = CrossAppRuleConditionDraft()
+        draftActions = [
+            CrossAppRuleActionDraft(action: "status.inbox.add"),
+            CrossAppRuleActionDraft(action: "notification.show", value: "{{event.title}}")
+        ]
+    }
+
+    private func conditionSummary(_ condition: RuleCondition) -> String {
+        guard let value = condition.value else {
+            return "\(condition.field) \(condition.operation.rawValue)"
+        }
+        return "\(condition.field) \(condition.operation.rawValue) \(value.summary)"
     }
 }
 
@@ -327,6 +517,249 @@ private struct RuleEnabledControl: View {
                 .foregroundStyle(rule.enabled ? .green : .orange)
                 .background((rule.enabled ? Color.green : Color.orange).opacity(0.12))
                 .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+    }
+}
+
+private struct CrossAppRuleEditor: View {
+    let editingRuleID: String?
+    @Binding var draftName: String
+    @Binding var draftProvider: String
+    @Binding var draftEventType: String
+    @Binding var draftEnabled: Bool
+    @Binding var draftCondition: CrossAppRuleConditionDraft
+    @Binding var draftActions: [CrossAppRuleActionDraft]
+    let save: () -> Void
+    let cancel: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(editingRuleID == nil ? "New cross-app rule" : "Edit cross-app rule")
+                    .font(.headline)
+                Spacer(minLength: 12)
+                Toggle("Enabled", isOn: $draftEnabled)
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                TextField("Rule name", text: $draftName)
+                TextField("Source app/plugin id, optional", text: $draftProvider)
+                TextField("Event type, for example github.workflow.failed", text: $draftEventType)
+            }
+            .textFieldStyle(.roundedBorder)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Condition")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Picker("Field", selection: $draftCondition.field) {
+                        ForEach(CrossAppRuleConditionDraft.fields, id: \.self) { field in
+                            Text(field).tag(field)
+                        }
+                    }
+                    Picker("Operation", selection: $draftCondition.operation) {
+                        ForEach(CrossAppRuleConditionDraft.operators, id: \.self) { operation in
+                            Text(operation.rawValue).tag(operation)
+                        }
+                    }
+                    if draftCondition.requiresValue {
+                        TextField("Value", text: $draftCondition.value)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Actions")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 12)
+                    Button {
+                        draftActions.append(CrossAppRuleActionDraft())
+                    } label: {
+                        Label("Add action", systemImage: "plus.circle")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+                ForEach($draftActions) { $action in
+                    HStack(spacing: 8) {
+                        Picker("Action", selection: $action.action) {
+                            ForEach(CrossAppRuleActionDraft.actions, id: \.self) { actionID in
+                                Text(actionID).tag(actionID)
+                            }
+                        }
+                        if action.requiresValue {
+                            TextField(action.valuePlaceholder, text: $action.value)
+                                .textFieldStyle(.roundedBorder)
+                        }
+                        Button(role: .destructive) {
+                            draftActions.removeAll { $0.id == action.id }
+                        } label: {
+                            Image(systemName: "minus.circle")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .help("Remove action")
+                        .accessibilityLabel(Text("Remove action"))
+                    }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Audit preview")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text("When this event matches, Status records the triggering event, rule id, action names, result, and any error in the local audit log.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: 8) {
+                Button {
+                    save()
+                } label: {
+                    Label(editingRuleID == nil ? "Add Rule" : "Update Rule", systemImage: "checkmark.circle")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isSaveDisabled)
+
+                if editingRuleID != nil || draftName.isEmpty == false || draftEventType.isEmpty == false {
+                    Button("Cancel", action: cancel)
+                        .buttonStyle(.bordered)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color.statusSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var isSaveDisabled: Bool {
+        draftName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            draftEventType.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            draftActions.compactMap(\.ruleAction).isEmpty
+    }
+}
+
+private struct CrossAppRuleConditionDraft: Equatable {
+    var field = "severity"
+    var operation: RuleOperator = .matchesSeverity
+    var value = Severity.warning.rawValue
+
+    static let fields = ["severity", "provider", "resourceName", "title", "summary", "actionURL"]
+    static let operators: [RuleOperator] = [.matchesSeverity, .equals, .contains, .startsWith, .endsWith, .isNotEmpty]
+
+    init() {}
+
+    init(condition: RuleCondition) {
+        field = condition.field
+        operation = condition.operation
+        value = condition.value?.stringValue ?? ""
+    }
+
+    var requiresValue: Bool {
+        operation != .isEmpty && operation != .isNotEmpty
+    }
+
+    var ruleCondition: RuleCondition? {
+        let trimmedField = field.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedField.isEmpty == false else { return nil }
+        if requiresValue == false {
+            return RuleCondition(field: trimmedField, operation: operation)
+        }
+        guard trimmedValue.isEmpty == false else { return nil }
+        return RuleCondition(field: trimmedField, operation: operation, value: .string(trimmedValue))
+    }
+}
+
+private struct CrossAppRuleActionDraft: Identifiable, Equatable {
+    let id: UUID
+    var action: String
+    var value: String
+
+    static let actions = ["status.inbox.add", "notification.show", "status.open_url", "audit.note"]
+
+    init(id: UUID = UUID(), action: String = "notification.show", value: String = "{{event.title}}") {
+        self.id = id
+        self.action = action
+        self.value = value
+    }
+
+    init(action definition: RuleActionDefinition) {
+        id = UUID()
+        action = definition.action
+        value = definition.parameters["title"] ??
+            definition.parameters["url"] ??
+            definition.parameters["note"] ??
+            definition.parameters["body"] ??
+            ""
+    }
+
+    var requiresValue: Bool {
+        action != "status.inbox.add"
+    }
+
+    var valuePlaceholder: String {
+        switch action {
+        case "status.open_url":
+            return "{{event.actionUrl}}"
+        case "audit.note":
+            return "Note"
+        default:
+            return "{{event.title}}"
+        }
+    }
+
+    var ruleAction: RuleActionDefinition? {
+        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch action {
+        case "status.inbox.add":
+            return RuleActionDefinition(action: action)
+        case "notification.show":
+            return RuleActionDefinition(action: action, parameters: trimmedValue.isEmpty ? [:] : ["title": trimmedValue])
+        case "status.open_url":
+            guard trimmedValue.isEmpty == false else { return nil }
+            return RuleActionDefinition(action: action, parameters: ["url": trimmedValue])
+        case "audit.note":
+            return RuleActionDefinition(action: action, parameters: trimmedValue.isEmpty ? [:] : ["note": trimmedValue])
+        default:
+            return nil
+        }
+    }
+}
+
+private extension RuleValue {
+    var summary: String {
+        switch self {
+        case .string(let value):
+            value
+        case .number(let value):
+            value.formatted()
+        case .bool(let value):
+            value ? "true" : "false"
+        case .null:
+            "null"
+        }
+    }
+
+    var stringValue: String? {
+        switch self {
+        case .string(let value):
+            value
+        case .number(let value):
+            value.formatted()
+        case .bool(let value):
+            value ? "true" : "false"
+        case .null:
+            nil
         }
     }
 }

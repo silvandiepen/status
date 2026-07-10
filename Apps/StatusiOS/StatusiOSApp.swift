@@ -250,6 +250,8 @@ private struct IOSRootView: View {
             crossAppRule.scope = .crossApp
             crossAppRule.accountID = nil
             try LocalStatusStore.openApplicationSupportStore().upsertRule(crossAppRule, updatedAt: Date())
+        } deleteRule: { rule in
+            try LocalStatusStore.openApplicationSupportStore().deleteRule(id: rule.id)
         }
     }
 
