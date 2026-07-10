@@ -4067,9 +4067,14 @@ private struct PluginResourceFields: View {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(field.key.fieldLabel)
                             .foregroundStyle(.secondary)
-                        Text(field.value)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
+                        if let url = URL(string: field.value), url.scheme?.hasPrefix("http") == true {
+                            Link("Open", destination: url)
+                                .lineLimit(1)
+                        } else {
+                            Text(field.value)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
                     }
                     .font(.caption)
                 }
@@ -4078,12 +4083,34 @@ private struct PluginResourceFields: View {
     }
 
     private var resolvedFields: [(key: String, value: String)] {
+        PluginResourceFieldResolver.resolvedFields(for: view, resource: resource)
+    }
+}
+
+enum PluginResourceFieldResolver {
+    static func resolvedFields(for view: PackagedPluginView, resource: Resource) -> [(key: String, value: String)] {
         let keys = view.fields.isEmpty ? Array(resource.fields.keys).sorted() : view.fields
         return keys.compactMap { key in
-            guard let value = resource.fields[key], value.isEmpty == false else {
+            guard let value = fieldValue(for: key, resource: resource), value.isEmpty == false else {
                 return nil
             }
             return (key, value)
+        }
+    }
+
+    private static func fieldValue(for key: String, resource: Resource) -> String? {
+        if let value = resource.fields[key] {
+            return value
+        }
+        switch key {
+        case "name":
+            return resource.name
+        case "type", "resourceType":
+            return resource.type
+        case "actionUrl":
+            return resource.actionURL?.absoluteString
+        default:
+            return nil
         }
     }
 }
