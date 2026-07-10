@@ -19,9 +19,12 @@ const tileColor = computed(() => props.accentColor || 'var(--color-accent)')
 </script>
 
 <template>
-  <span :class="[bemm(), bemm('', size)]" :style="{ '--plugin-accent': tileColor }">
-    <span v-if="iconSvg" :class="bemm('svg')" v-html="iconSvg" />
-    <span v-else :class="bemm('tile')">
+  <span
+    :class="[bemm(), bemm('', size)]"
+    :style="{ '--plugin-accent': tileColor }"
+  >
+    <span v-if="iconSvg" :class="bemm('shape')" v-html="iconSvg" />
+    <span v-else :class="bemm('fallback')">
       {{ initial }}
     </span>
   </span>
@@ -35,6 +38,8 @@ const tileColor = computed(() => props.accentColor || 'var(--color-accent)')
   flex-shrink: 0;
   border-radius: var(--radius-md);
   overflow: hidden;
+  background: var(--plugin-accent);
+  color: #fff;
 
   &--sm {
     width: 32px;
@@ -51,10 +56,10 @@ const tileColor = computed(() => props.accentColor || 'var(--color-accent)')
     height: 64px;
   }
 
-  &__svg {
+  &__shape {
     display: flex;
-    width: 100%;
-    height: 100%;
+    width: 60%;
+    height: 60%;
 
     svg {
       width: 100%;
@@ -63,27 +68,25 @@ const tileColor = computed(() => props.accentColor || 'var(--color-accent)')
     }
   }
 
-  &__tile {
+  &__fallback {
     display: flex;
     align-items: center;
     justify-content: center;
     width: 100%;
     height: 100%;
-    background: var(--plugin-accent);
-    color: #fff;
     font-weight: var(--font-weight-bold);
     letter-spacing: -0.02em;
   }
 
-  &--sm &__tile {
+  &--sm &__fallback {
     font-size: var(--font-size-base);
   }
 
-  &--md &__tile {
+  &--md &__fallback {
     font-size: var(--font-size-xl);
   }
 
-  &--lg &__tile {
+  &--lg &__fallback {
     font-size: var(--font-size-xxl);
   }
 }
