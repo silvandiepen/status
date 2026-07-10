@@ -27,6 +27,7 @@ const allowedViewTypes = new Set([
   "metric_grid",
   "alert_list"
 ]);
+const officialIconRequiredPluginIDs = new Set(["com.status.github", "com.status.appstoreconnect"]);
 
 const crcTable = new Uint32Array(256);
 for (let index = 0; index < crcTable.length; index += 1) {
@@ -362,6 +363,32 @@ function validateViews(viewsFile, resourceTypes, sourceName) {
   }
 }
 
+async function validateIconAsset(pluginDirectory, manifest, sourceName) {
+  let iconData;
+  try {
+    iconData = await readFile(path.join(pluginDirectory, "icon.svg"), "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      if (officialIconRequiredPluginIDs.has(manifest.id)) {
+        fail(`${sourceName}: official plugin ${manifest.id} must include icon.svg`);
+      }
+      return;
+    }
+    throw error;
+  }
+
+  const trimmed = iconData.trim();
+  if (trimmed.startsWith("<svg") === false) {
+    fail(`${sourceName}: icon.svg must be an SVG document`);
+  }
+  if (Buffer.byteLength(iconData, "utf8") > 32 * 1024) {
+    fail(`${sourceName}: icon.svg must be 32 KiB or smaller`);
+  }
+  if (/<script[\s>]/i.test(iconData) || /\son[a-z]+\s*=/i.test(iconData) || /<foreignObject[\s>]/i.test(iconData)) {
+    fail(`${sourceName}: icon.svg must not contain script, event handlers, or foreignObject`);
+  }
+}
+
 function validateRulePresets(presetsFile, eventTypes, sourceName) {
   if (!presetsFile) {
     return;
@@ -501,10 +528,13 @@ export async function validatePluginPackage(pluginDirectory, manifest, sourceNam
   validateViews(viewsFile, resourceTypes, sourceName);
   validateActions(actionsFile, requestIDs, manifest, sourceName);
   validateRulePresets(presetsFile, eventTypes, sourceName);
+  await validateIconAsset(pluginDirectory, manifest, sourceName);
 }
 
 export async function pluginFiles(pluginDirectory) {
-  const names = (await readdir(pluginDirectory)).filter((name) => name.endsWith(".json")).sort();
+  const names = (await readdir(pluginDirectory))
+    .filter((name) => name.endsWith(".json") || name === "icon.svg")
+    .sort();
   return Promise.all(names.map(async (name) => ({
     name,
     data: await readFile(path.join(pluginDirectory, name))

@@ -1224,6 +1224,57 @@ import Testing
     #expect(try store.pluginPermissions(pluginID: manifest.id).first(where: { $0.permission == .network })?.grantedAt == nil)
 }
 
+@Test func installedPluginProjectsPackagedIconAsset() throws {
+    let database = try temporaryDatabase()
+    try StatusDatabaseMigrator.migrate(database)
+    let store = StatusPersistenceStore(database: database)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let manifest = PluginManifest(
+        id: "com.status.github",
+        name: "GitHub",
+        version: "0.1.0",
+        author: PluginAuthor(name: "Status Foundry", publisherId: "status-foundry"),
+        category: "developer",
+        description: "Read-only GitHub status events.",
+        minCoreVersion: "0.1.0",
+        platforms: [.macOS, .iOS],
+        permissions: [.network],
+        domains: ["api.github.com"]
+    )
+    let svg = """
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+      <rect width="16" height="16" fill="#111111"/>
+    </svg>
+    """
+    let packageData = try PluginPackageBuilder.packageData(files: [
+        PluginPackageFile(name: "icon.svg", data: Data(svg.utf8))
+    ])
+    let packageURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("status-icon-\(UUID().uuidString).statusplugin.zip")
+    try packageData.write(to: packageURL)
+    defer { try? FileManager.default.removeItem(at: packageURL) }
+
+    try store.installPlugin(
+        PluginInstallRecord(
+            manifest: manifest,
+            trustLevel: .official,
+            installPath: "/Application Support/Status/Plugins/com.status.github",
+            packagePath: packageURL.path,
+            verification: PluginPackageVerificationResult(
+                pluginID: manifest.id,
+                version: manifest.version,
+                sha256: PluginPackageVerifier.sha256Hex(packageData),
+                signedBy: "status-foundry-dev"
+            ),
+            signature: "dev-signature",
+            packageDefinition: try PluginPackageDefinition.decode(from: packageData),
+            installedAt: now
+        )
+    )
+
+    #expect(try store.installedPlugin(id: manifest.id)?.iconAsset == PackagedPluginIconAsset(path: "icon.svg", svgText: svg))
+}
+
 @Test func pluginRevocationMarksVersionDisablesPluginAndAudits() throws {
     let database = try temporaryDatabase()
     try StatusDatabaseMigrator.migrate(database)

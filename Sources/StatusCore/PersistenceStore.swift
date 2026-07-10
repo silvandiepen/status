@@ -1171,14 +1171,15 @@ public final class StatusPersistenceStore {
     public func integrationSummaries() throws -> [IntegrationSummary] {
         let accountSummaries = try database.query(
             """
-            SELECT id, plugin_id AS provider, display_name, status, last_error, last_refreshed_at
-            FROM accounts
-            ORDER BY display_name ASC, id ASC
+            SELECT a.id, a.plugin_id AS provider, a.display_name, a.status, a.last_error, a.last_refreshed_at, p.installed_version
+            FROM accounts a
+            LEFT JOIN plugins p ON p.id = a.plugin_id
+            ORDER BY a.display_name ASC, a.id ASC
             """
         ).map(integrationSummary(from:))
         let pluginSummaries = try database.query(
             """
-            SELECT id, name, enabled
+            SELECT id, name, enabled, installed_version
             FROM plugins
             WHERE NOT EXISTS (
               SELECT 1 FROM accounts WHERE accounts.plugin_id = plugins.id
@@ -1548,6 +1549,7 @@ public final class StatusPersistenceStore {
             description: row.requiredText("description"),
             category: row.requiredText("category"),
             iconPath: row.optionalText("icon_path"),
+            iconAsset: installedPluginIconAsset(pluginID: pluginID, version: installedVersion),
             accentColor: row.optionalText("accent_color"),
             trustLevel: PluginTrustLevel(rawValue: row.requiredText("trust_level")) ?? .localDev,
             installedVersion: installedVersion,
@@ -1564,6 +1566,10 @@ public final class StatusPersistenceStore {
 
     private func installedPluginSetup(pluginID: String, version: String) -> PackagedPluginSetup? {
         installedPluginDefinition(pluginID: pluginID, version: version)?.setup
+    }
+
+    private func installedPluginIconAsset(pluginID: String, version: String) -> PackagedPluginIconAsset? {
+        installedPluginDefinition(pluginID: pluginID, version: version)?.iconAsset
     }
 
     private func installedPluginAuth(pluginID: String, version: String) -> PackagedPluginAuth? {
@@ -1726,16 +1732,19 @@ public final class StatusPersistenceStore {
         } else {
             .notice
         }
+        let provider = try row.requiredText("provider")
+        let accountID = try row.requiredText("id")
         return try IntegrationSummary(
-            id: row.requiredText("id"),
+            id: accountID,
             name: row.requiredText("display_name"),
-            provider: row.requiredText("provider"),
+            provider: provider,
             state: lastError?.isEmpty == false ? "Needs attention" : status.capitalized,
             severity: severity,
             lastSyncDescription: lastRefreshDescription(row.optionalText("last_refreshed_at")),
+            iconAsset: row.optionalText("installed_version").flatMap { installedPluginIconAsset(pluginID: provider, version: $0) },
             tileItems: dashboardTileItems(
-                accountID: row.requiredText("id"),
-                pluginID: row.requiredText("provider")
+                accountID: accountID,
+                pluginID: provider
             )
         )
     }
@@ -1748,7 +1757,8 @@ public final class StatusPersistenceStore {
             provider: row.requiredText("id"),
             state: enabled ? "Setup needed" : "Disabled",
             severity: .notice,
-            lastSyncDescription: "Never synced"
+            lastSyncDescription: "Never synced",
+            iconAsset: installedPluginIconAsset(pluginID: row.requiredText("id"), version: row.requiredText("installed_version"))
         )
     }
 

@@ -19,7 +19,7 @@ views.schema.json          → views.json
 rules.presets.schema.json  → rules.presets.json
 ```
 
-Not every plugin needs every file. `manifest.json` is always required.
+Not every plugin needs every file. `manifest.json` is always required. `icon.svg` is an optional static package asset rather than a JSON Schema file; official GitHub and App Store Connect packages must include it, while third-party and local-dev packages can rely on the manifest SF Symbol fallback.
 
 ## Schema identifiers
 
@@ -87,5 +87,7 @@ JSON Schema validates each file in isolation. The loader must additionally verif
 - every `request` reference (triggers, actions, mappings) names a key in `requests.json`;
 - every event type in mappings and presets is declared in `events.json`;
 - every `resourceType` (events, views) matches a resource mapping type;
+- every `dashboardTile.primaryFields` and `dashboardTile.secondaryFields` entry names either a normalized resource field from `mappings.json` or the canonical `name`/`actionUrl` resource value;
+- `icon.svg`, when present, is a UTF-8 static SVG document with no scripts, event handlers, or `foreignObject`;
 - actions with `requiresWritePermission: true` have `write-actions` in the manifest permissions.
 - OAuth plugins have `oauth` and `keychain` manifest permissions plus provider/client metadata in `auth.json`.

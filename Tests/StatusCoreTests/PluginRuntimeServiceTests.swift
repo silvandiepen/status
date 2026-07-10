@@ -1054,6 +1054,31 @@ import Testing
     ))
 }
 
+@Test func pluginPackageDefinitionDecodesIconAsset() throws {
+    let svg = """
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+      <rect width="16" height="16" rx="3" fill="#111111"/>
+    </svg>
+    """
+    let packageData = runtimeStoredZip(files: [
+        ("icon.svg", Data(svg.utf8))
+    ])
+
+    let definition = try PluginPackageDefinition.decode(from: packageData)
+
+    #expect(definition.iconAsset == PackagedPluginIconAsset(path: "icon.svg", svgText: svg))
+}
+
+@Test func pluginPackageDefinitionRejectsActiveIconAsset() throws {
+    let packageData = runtimeStoredZip(files: [
+        ("icon.svg", Data(#"<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"></svg>"#.utf8))
+    ])
+
+    #expect(throws: PluginPackageDefinitionError.invalidIconAsset("icon.svg")) {
+        _ = try PluginPackageDefinition.decode(from: packageData)
+    }
+}
+
 @Test func pluginPackageDefinitionRejectsActionWithMissingRequest() throws {
     let packageData = runtimeStoredZip(files: [
         ("actions.json", Data("""

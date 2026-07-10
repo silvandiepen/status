@@ -1,5 +1,8 @@
 import StatusCore
 import SwiftUI
+#if canImport(WebKit)
+import WebKit
+#endif
 
 public enum StatusOAuthCallbackRouter {
     public static let notificationName = Notification.Name("StatusOAuthCallbackRouter.callbackURL")
@@ -1413,7 +1416,7 @@ public struct PluginAppDetailView: View {
 
     private var header: some View {
         HStack(alignment: .top, spacing: 14) {
-            IntegrationIcon(provider: plugin.id, icon: plugin.iconPath, accentColor: plugin.accentColor, size: 42)
+            IntegrationIcon(provider: plugin.id, icon: plugin.iconPath, iconAsset: plugin.iconAsset, accentColor: plugin.accentColor, size: 42)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 5) {
                 Text(app?.accountName ?? plugin.name)
@@ -1903,7 +1906,7 @@ private struct InstalledPluginRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            IntegrationIcon(provider: plugin.id, icon: plugin.iconPath, accentColor: plugin.accentColor, size: 32)
+            IntegrationIcon(provider: plugin.id, icon: plugin.iconPath, iconAsset: plugin.iconAsset, accentColor: plugin.accentColor, size: 32)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -2038,7 +2041,7 @@ private struct PluginSettingsPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
-                IntegrationIcon(provider: plugin.id, icon: plugin.iconPath, accentColor: plugin.accentColor, size: 32)
+                IntegrationIcon(provider: plugin.id, icon: plugin.iconPath, iconAsset: plugin.iconAsset, accentColor: plugin.accentColor, size: 32)
                     .padding(.top, 4)
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -4146,6 +4149,95 @@ public struct IntegrationVisual: Equatable {
     }
 }
 
+#if canImport(WebKit)
+private struct PackagedSVGIcon: View {
+    let asset: PackagedPluginIconAsset
+
+    var body: some View {
+        PackagedSVGWebView(svgText: asset.svgText)
+    }
+}
+
+#if os(macOS)
+private struct PackagedSVGWebView: NSViewRepresentable {
+    let svgText: String
+
+    @MainActor
+    func makeNSView(context: Context) -> WKWebView {
+        let view = macOSWebView()
+        view.setValue(false, forKey: "drawsBackground")
+        return view
+    }
+
+    @MainActor
+    func updateNSView(_ webView: WKWebView, context: Context) {
+        webView.loadHTMLString(html(svgText), baseURL: nil)
+    }
+}
+
+@MainActor
+private func macOSWebView() -> WKWebView {
+    let configuration = WKWebViewConfiguration()
+    configuration.suppressesIncrementalRendering = true
+    let view = WKWebView(frame: .zero, configuration: configuration)
+    view.setValue(false, forKey: "drawsBackground")
+    return view
+}
+#else
+private struct PackagedSVGWebView: UIViewRepresentable {
+    let svgText: String
+
+    @MainActor
+    func makeUIView(context: Context) -> WKWebView {
+        iOSWebView()
+    }
+
+    @MainActor
+    func updateUIView(_ webView: WKWebView, context: Context) {
+        webView.loadHTMLString(html(svgText), baseURL: nil)
+    }
+}
+
+@MainActor
+private func iOSWebView() -> WKWebView {
+    let configuration = WKWebViewConfiguration()
+    configuration.suppressesIncrementalRendering = true
+    let view = WKWebView(frame: .zero, configuration: configuration)
+    view.isOpaque = false
+    view.scrollView.isScrollEnabled = false
+    view.scrollView.backgroundColor = .clear
+    view.backgroundColor = .clear
+    view.isUserInteractionEnabled = false
+    return view
+}
+#endif
+
+private func html(_ svgText: String) -> String {
+    """
+    <!doctype html>
+    <html>
+    <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+    body { display: flex; align-items: center; justify-content: center; }
+    svg { display: block; max-width: 100%; max-height: 100%; }
+    </style>
+    </head>
+    <body>\(svgText)</body>
+    </html>
+    """
+}
+#else
+private struct PackagedSVGIcon: View {
+    let asset: PackagedPluginIconAsset
+
+    var body: some View {
+        Image(systemName: "puzzlepiece.extension")
+    }
+}
+#endif
+
 public enum IntegrationBrand: Equatable {
     case github
     case appStoreConnect
@@ -4153,10 +4245,18 @@ public enum IntegrationBrand: Equatable {
 
 public struct IntegrationIcon: View {
     private let visual: IntegrationVisual
+    private let iconAsset: PackagedPluginIconAsset?
     private let size: CGFloat
 
-    public init(provider: String, icon: String? = nil, accentColor: String? = nil, size: CGFloat = 28) {
+    public init(
+        provider: String,
+        icon: String? = nil,
+        iconAsset: PackagedPluginIconAsset? = nil,
+        accentColor: String? = nil,
+        size: CGFloat = 28
+    ) {
         self.visual = IntegrationVisual.visual(for: provider, icon: icon, accentColor: accentColor)
+        self.iconAsset = iconAsset
         self.size = size
     }
 
@@ -4170,19 +4270,24 @@ public struct IntegrationIcon: View {
 
     @ViewBuilder
     private var iconContent: some View {
-        switch visual.brand {
-        case .github:
-            GitHubBrandMark()
-                .foregroundStyle(Color.white)
-                .padding(size * 0.18)
-        case .appStoreConnect:
-            AppStoreConnectBrandMark()
-                .foregroundStyle(Color.white)
-                .padding(size * 0.17)
-        case nil:
-            Image(systemName: visual.systemImage)
-                .font(.system(size: max(12, size * 0.48), weight: .semibold))
-                .foregroundStyle(visual.color)
+        if let iconAsset {
+            PackagedSVGIcon(asset: iconAsset)
+                .padding(size * 0.16)
+        } else {
+            switch visual.brand {
+            case .github:
+                GitHubBrandMark()
+                    .foregroundStyle(Color.white)
+                    .padding(size * 0.18)
+            case .appStoreConnect:
+                AppStoreConnectBrandMark()
+                    .foregroundStyle(Color.white)
+                    .padding(size * 0.17)
+            case nil:
+                Image(systemName: visual.systemImage)
+                    .font(.system(size: max(12, size * 0.48), weight: .semibold))
+                    .foregroundStyle(visual.color)
+            }
         }
     }
 

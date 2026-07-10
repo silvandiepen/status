@@ -24,7 +24,9 @@ public enum PluginPackageBuilder {
             includingPropertiesForKeys: nil,
             options: [.skipsHiddenFiles, .skipsSubdirectoryDescendants]
         )
-            .filter { $0.pathExtension == "json" }
+            .filter { url in
+                url.pathExtension == "json" || url.lastPathComponent == "icon.svg"
+            }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
 
         guard fileURLs.isEmpty == false else {
@@ -43,7 +45,7 @@ public enum PluginPackageBuilder {
         var offset: UInt32 = 0
 
         for file in files.sorted(by: { $0.name < $1.name }) {
-            guard file.name.range(of: #"^[A-Za-z0-9._-]+\.json$"#, options: .regularExpression) != nil else {
+            guard file.name.range(of: #"^[A-Za-z0-9._-]+\.json$"#, options: .regularExpression) != nil || file.name == "icon.svg" else {
                 throw PluginPackageBuilderError.invalidFileName(file.name)
             }
             guard file.data.count <= Int(UInt32.max) else {

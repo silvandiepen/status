@@ -316,6 +316,7 @@ private struct MacRootView: View {
                                     IntegrationIcon(
                                         provider: app.pluginID,
                                         icon: app.iconPath,
+                                        iconAsset: app.iconAsset,
                                         accentColor: app.accentColor,
                                         size: 22
                                     )
@@ -453,6 +454,7 @@ private struct MacRootView: View {
                                 accountID: nil,
                                 name: plugin.name,
                                 iconPath: plugin.iconPath,
+                                iconAsset: plugin.iconAsset,
                                 accentColor: plugin.accentColor
                             )
                         ]
@@ -463,6 +465,7 @@ private struct MacRootView: View {
                             accountID: account.id,
                             name: account.accountName,
                             iconPath: plugin.iconPath,
+                            iconAsset: plugin.iconAsset,
                             accentColor: plugin.accentColor
                         )
                     }
@@ -486,6 +489,7 @@ private struct MacRootView: View {
                             IntegrationIcon(
                                 provider: app.pluginID,
                                 icon: app.iconPath,
+                                iconAsset: app.iconAsset,
                                 accentColor: app.accentColor,
                                 size: 28
                             )
@@ -1029,6 +1033,7 @@ private struct SidebarApp: Identifiable, Hashable {
     let accountID: String?
     let name: String
     let iconPath: String?
+    let iconAsset: PackagedPluginIconAsset?
     let accentColor: String?
 
     var id: String {

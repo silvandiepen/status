@@ -7,6 +7,7 @@ public struct InstalledPlugin: Codable, Equatable, Sendable, Identifiable {
     public var description: String
     public var category: String
     public var iconPath: String?
+    public var iconAsset: PackagedPluginIconAsset?
     public var accentColor: String?
     public var trustLevel: PluginTrustLevel
     public var installedVersion: String
@@ -26,6 +27,7 @@ public struct InstalledPlugin: Codable, Equatable, Sendable, Identifiable {
         description: String,
         category: String,
         iconPath: String? = nil,
+        iconAsset: PackagedPluginIconAsset? = nil,
         accentColor: String? = nil,
         trustLevel: PluginTrustLevel,
         installedVersion: String,
@@ -44,6 +46,7 @@ public struct InstalledPlugin: Codable, Equatable, Sendable, Identifiable {
         self.description = description
         self.category = category
         self.iconPath = iconPath
+        self.iconAsset = iconAsset
         self.accentColor = accentColor
         self.trustLevel = trustLevel
         self.installedVersion = installedVersion

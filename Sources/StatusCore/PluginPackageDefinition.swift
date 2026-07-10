@@ -3,6 +3,7 @@ import Foundation
 public struct PluginPackageDefinition: Equatable, Sendable {
     public var auth: PackagedPluginAuth?
     public var setup: PackagedPluginSetup?
+    public var iconAsset: PackagedPluginIconAsset?
     public var triggers: [PackagedPluginTrigger]
     public var requests: PackagedPluginRequests
     public var events: [EventTypeDeclaration]
@@ -15,6 +16,7 @@ public struct PluginPackageDefinition: Equatable, Sendable {
     public init(
         auth: PackagedPluginAuth? = nil,
         setup: PackagedPluginSetup? = nil,
+        iconAsset: PackagedPluginIconAsset? = nil,
         triggers: [PackagedPluginTrigger] = [],
         requests: PackagedPluginRequests = PackagedPluginRequests(),
         events: [EventTypeDeclaration] = [],
@@ -26,6 +28,7 @@ public struct PluginPackageDefinition: Equatable, Sendable {
     ) {
         self.auth = auth
         self.setup = setup
+        self.iconAsset = iconAsset
         self.triggers = triggers
         self.requests = requests
         self.events = events
@@ -46,6 +49,10 @@ public struct PluginPackageDefinition: Equatable, Sendable {
 
         let setup = try archive.file(named: "setup.schema.json").map { data in
             try decoder.decode(PackagedPluginSetup.self, from: data)
+        }
+
+        let iconAsset = try archive.file(named: "icon.svg").map { data in
+            try PackagedPluginIconAsset(path: "icon.svg", data: data)
         }
 
         let triggers = try archive.file(named: "triggers.json").map { data in
@@ -80,7 +87,7 @@ public struct PluginPackageDefinition: Equatable, Sendable {
 
         try validateActionRequests(actions, requests: requests)
 
-        return PluginPackageDefinition(auth: auth, setup: setup, triggers: triggers, requests: requests, events: events, actions: actions, mappings: mappings, views: views, dashboardTile: dashboardTile, rulePresets: presets)
+        return PluginPackageDefinition(auth: auth, setup: setup, iconAsset: iconAsset, triggers: triggers, requests: requests, events: events, actions: actions, mappings: mappings, views: views, dashboardTile: dashboardTile, rulePresets: presets)
     }
 
     private static func validateActionRequests(_ actions: [PackagedPluginAction], requests: PackagedPluginRequests) throws {
@@ -88,6 +95,33 @@ public struct PluginPackageDefinition: Equatable, Sendable {
         for action in actions where requestIDs.contains(action.request) == false {
             throw PluginPackageDefinitionError.missingActionRequest(actionID: action.id, requestID: action.request)
         }
+    }
+}
+
+public struct PackagedPluginIconAsset: Codable, Equatable, Hashable, Sendable {
+    public var path: String
+    public var svgText: String
+
+    public init(path: String, svgText: String) {
+        self.path = path
+        self.svgText = svgText
+    }
+
+    public init(path: String, data: Data) throws {
+        guard data.count <= 32 * 1024,
+              let svgText = String(data: data, encoding: .utf8) else {
+            throw PluginPackageDefinitionError.invalidIconAsset(path)
+        }
+
+        let trimmed = svgText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("<svg"),
+              svgText.range(of: #"<script[\s>]"#, options: [.regularExpression, .caseInsensitive]) == nil,
+              svgText.range(of: #"\son[a-z][a-z0-9_-]*\s*="#, options: [.regularExpression, .caseInsensitive]) == nil,
+              svgText.range(of: #"<foreignObject[\s>]"#, options: [.regularExpression, .caseInsensitive]) == nil else {
+            throw PluginPackageDefinitionError.invalidIconAsset(path)
+        }
+        self.path = path
+        self.svgText = svgText
     }
 }
 
@@ -1184,6 +1218,7 @@ public enum PluginPackageDefinitionError: Error, Equatable, LocalizedError, Send
     case unsupportedCompression
     case truncatedZipEntry
     case invalidZipEntryName
+    case invalidIconAsset(String)
     case missingActionRequest(actionID: String, requestID: String)
 
     public var errorDescription: String? {
@@ -1196,6 +1231,8 @@ public enum PluginPackageDefinitionError: Error, Equatable, LocalizedError, Send
             "Plugin package archive is truncated."
         case .invalidZipEntryName:
             "Plugin package contains an invalid file name."
+        case .invalidIconAsset(let path):
+            "Plugin package icon asset must be a UTF-8 SVG file: \(path)"
         case .missingActionRequest(let actionID, let requestID):
             "Plugin action \(actionID) references missing request \(requestID)."
         }

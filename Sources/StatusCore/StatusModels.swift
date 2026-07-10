@@ -377,6 +377,7 @@ public struct IntegrationSummary: Identifiable, Codable, Equatable, Sendable {
     public var state: String
     public var severity: Severity
     public var lastSyncDescription: String
+    public var iconAsset: PackagedPluginIconAsset?
     public var tileItems: [DashboardTileItem]
 
     public init(
@@ -386,6 +387,7 @@ public struct IntegrationSummary: Identifiable, Codable, Equatable, Sendable {
         state: String,
         severity: Severity,
         lastSyncDescription: String,
+        iconAsset: PackagedPluginIconAsset? = nil,
         tileItems: [DashboardTileItem] = []
     ) {
         self.id = id
@@ -394,6 +396,7 @@ public struct IntegrationSummary: Identifiable, Codable, Equatable, Sendable {
         self.state = state
         self.severity = severity
         self.lastSyncDescription = lastSyncDescription
+        self.iconAsset = iconAsset
         self.tileItems = tileItems
     }
 }
