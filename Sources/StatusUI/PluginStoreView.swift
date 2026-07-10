@@ -4058,8 +4058,12 @@ private struct PluginResourceListView: View {
                         }
                         Spacer(minLength: 12)
                         if let actionURL = resource.actionURL {
-                            Link("Open", destination: actionURL)
-                                .font(.caption.weight(.semibold))
+                            Link(destination: actionURL) {
+                                Image(systemName: "arrow.up.right")
+                            }
+                            .buttonStyle(.bordered)
+                            .help("Open source")
+                            .accessibilityLabel(Text("Open \(resource.name)"))
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -4082,8 +4086,10 @@ private struct PluginResourceDetailView: View {
                 .font(.callout.weight(.semibold))
             PluginResourceFields(view: view, resource: resource)
             if let actionURL = resource.actionURL {
-                Link("Open source", destination: actionURL)
-                    .font(.caption.weight(.semibold))
+                Link(destination: actionURL) {
+                    Label("Open source", systemImage: "arrow.up.right")
+                }
+                .font(.caption.weight(.semibold))
             }
         }
     }
@@ -4173,21 +4179,9 @@ private struct PluginResourceFields: View {
     var body: some View {
         let fields = resolvedFields
         if fields.isEmpty == false {
-            VStack(alignment: .leading, spacing: 3) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 8)], spacing: 6) {
                 ForEach(fields, id: \.key) { field in
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(field.key.fieldLabel)
-                            .foregroundStyle(.secondary)
-                        if let url = URL(string: field.value), url.scheme?.hasPrefix("http") == true {
-                            Link("Open", destination: url)
-                                .lineLimit(1)
-                        } else {
-                            Text(field.value)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                        }
-                    }
-                    .font(.caption)
+                    ResourceFieldValue(field: field.key, value: field.value)
                 }
             }
         }
