@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { appendFile, readFile } from 'node:fs/promises';
+import { appendFile, readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateLocalPluginDirectory } from './lib/plugin-package-validator.mjs';
@@ -138,6 +138,52 @@ function fixtureFiles(changedFiles, pluginPath) {
     .sort((left, right) => left.localeCompare(right));
 }
 
+async function allFixtureFiles(pluginPath) {
+  const fixturesRoot = path.join(repoRoot, pluginPath, 'fixtures');
+  const files = [];
+
+  async function visit(directory) {
+    let entries;
+    try {
+      entries = await readdir(directory, { withFileTypes: true });
+    } catch (error) {
+      if (error?.code === 'ENOENT') {
+        return;
+      }
+      throw error;
+    }
+
+    for (const entry of entries) {
+      const fullPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        await visit(fullPath);
+      } else if (entry.isFile() && entry.name.endsWith('.json')) {
+        files.push(path.relative(path.join(repoRoot, pluginPath), fullPath));
+      }
+    }
+  }
+
+  await visit(fixturesRoot);
+  return files.sort((left, right) => left.localeCompare(right));
+}
+
+async function validateFixtureJSON(pluginPath, fixturePaths, sourceName) {
+  for (const fixturePath of fixturePaths) {
+    try {
+      JSON.parse(await readFile(path.join(repoRoot, pluginPath, fixturePath), 'utf8'));
+    } catch (error) {
+      throw new Error(`${sourceName}: fixture ${fixturePath} must be valid JSON (${error.message})`);
+    }
+  }
+}
+
+function changedPluginRelativeFiles(changedFiles, pluginPath) {
+  return changedFiles
+    .filter((file) => file.startsWith(`${pluginPath}/`))
+    .map((file) => path.relative(pluginPath, file))
+    .sort((left, right) => left.localeCompare(right));
+}
+
 function reportDiffLine(label, previous, current) {
   const { added, removed } = diffValues(previous, current);
   return `- ${label}: ${formatList(sorted(current))} (added: ${formatList(added)}; removed: ${formatList(removed)})`;
@@ -145,6 +191,7 @@ function reportDiffLine(label, previous, current) {
 
 async function buildReviewReport({ directory, base, changedFiles, result }) {
   const pluginPath = relativePluginPath(directory);
+  const sourceName = path.relative(repoRoot, directory);
   const previousManifest = readJSONFromGit(base, `${pluginPath}/manifest.json`);
   const registry = await readOptionalJSON(path.join(directory, 'registry.json'));
   const actionsFile = await readOptionalJSON(path.join(directory, 'actions.json'));
@@ -152,13 +199,19 @@ async function buildReviewReport({ directory, base, changedFiles, result }) {
   const mappingsFile = await readOptionalJSON(path.join(directory, 'mappings.json'));
   const triggersFile = await readOptionalJSON(path.join(directory, 'triggers.json'));
   const viewsFile = await readOptionalJSON(path.join(directory, 'views.json'));
-  const fixtures = fixtureFiles(changedFiles, pluginPath);
+  const changedFixtures = fixtureFiles(changedFiles, pluginPath);
+  const fixturePaths = await allFixtureFiles(pluginPath);
+  await validateFixtureJSON(pluginPath, fixturePaths, sourceName);
+  const relativeChangedFiles = changedPluginRelativeFiles(changedFiles, pluginPath);
   const writeActions = writeActionIDs(actionsFile);
   const permissionDiff = diffValues(previousManifest?.permissions, result.manifest.permissions);
   const domainDiff = diffValues(previousManifest?.domains, result.manifest.domains);
+  const hasMappings = (mappingsFile?.resources?.length ?? 0) + (mappingsFile?.events?.length ?? 0) + (mappingsFile?.metrics?.length ?? 0) > 0;
+  const mappingsChanged = relativeChangedFiles.includes('mappings.json');
+  const pluginIsNew = !previousManifest;
 
   const reviewFlags = [];
-  if (!previousManifest) {
+  if (pluginIsNew) {
     reviewFlags.push('new plugin package');
   }
   if (permissionDiff.added.length > 0) {
@@ -170,8 +223,14 @@ async function buildReviewReport({ directory, base, changedFiles, result }) {
   if (writeActions.length > 0) {
     reviewFlags.push(`declares write actions: ${writeActions.join(', ')}`);
   }
-  if ((mappingsFile?.resources?.length ?? 0) + (mappingsFile?.events?.length ?? 0) + (mappingsFile?.metrics?.length ?? 0) > 0 && fixtures.length === 0) {
-    reviewFlags.push('no changed fixture files detected in this PR range');
+  if (hasMappings && (pluginIsNew || mappingsChanged) && changedFixtures.length === 0) {
+    throw new Error(`${sourceName}: mapping changes must include changed JSON fixture evidence under fixtures/`);
+  }
+  if (hasMappings && fixturePaths.length === 0) {
+    reviewFlags.push('mapped plugin has no fixture files yet');
+  }
+  if (mappingsChanged) {
+    reviewFlags.push(`mapping file changed with fixtures: ${changedFixtures.map((file) => path.relative(pluginPath, file)).join(', ')}`);
   }
 
   return [
@@ -189,7 +248,8 @@ async function buildReviewReport({ directory, base, changedFiles, result }) {
     `- Views: ${formatList(viewIDs(viewsFile))}`,
     `- Actions: ${formatList(actionIDs(actionsFile))}`,
     `- Write actions: ${formatList(writeActions)}`,
-    `- Changed fixtures: ${formatList(fixtures.map((file) => path.relative(pluginPath, file)))}`,
+    `- Fixtures: ${formatList(fixturePaths)}`,
+    `- Changed fixtures: ${formatList(changedFixtures.map((file) => path.relative(pluginPath, file)))}`,
     `- Review flags: ${formatList(reviewFlags)}`,
   ].join('\n');
 }

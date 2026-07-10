@@ -209,6 +209,8 @@ Aligned with WP-8.8. When a third-party plugin arrives as a pull request, CI run
 
 A submission without fixtures for its mappings is rejected by CI. Validation never publishes anything; signing and R2 upload remain a separate maintainer-triggered release flow per `docs/19-cloudflare-platform.md`. The repository starter plugin at `plugins/examples/mock-operations` is validated by `npm run plugins:check` and can be checked directly with `npm run plugins:validate-local -- plugins/examples/mock-operations`, so third-party authors always have a current package template to copy. Its fixtures are also exercised by native StatusCore tests to prove the package decodes and maps through the app engine.
 
+`npm run plugins:validate-pr` is the review gate for changed plugin folders. It validates every touched plugin directory, parses all JSON fixtures under `fixtures/`, prints the deterministic package checksum, and writes a reviewer summary with permissions, domains, events, resources, triggers, views, actions, write actions, fixture files, and changed fixture files. If a mapped plugin is new or `mappings.json` changes, the same PR must also change fixture evidence under `fixtures/`; otherwise CI fails before review. Existing bundled plugins without fixture coverage are reported as review flags until their next mapping change forces fixture evidence.
+
 ## CI definition
 
 On every pull request:

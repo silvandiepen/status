@@ -110,11 +110,12 @@ When a pull request changes files under `plugins/`, `schemas/plugin/`, or `statu
 - validates the standalone template when relevant (`npm run plugin-example:check`);
 - re-validates only the plugin directories touched in the PR (`npm run plugins:validate-pr`);
 - prints each deterministic package SHA-256;
-- writes a plugin review summary with the trust level, permission diff, domain diff, events, resources, triggers, views, actions, write actions, and changed fixture files.
+- writes a plugin review summary with the trust level, permission diff, domain diff, events, resources, triggers, views, actions, write actions, fixture files, and changed fixture files;
+- rejects new mapped plugins or `mappings.json` changes unless the same PR changes fixture evidence under `fixtures/`.
 
 If you change a bundled plugin, also run `npm run plugins:build` and commit the generated registry artifacts. CI fails when those artifacts are out of date.
 
-The PR validation report is review evidence, not automatic approval. Maintainers still check whether newly requested permissions and domains are necessary, whether write actions are justified, whether fixture changes cover the changed mappings, and whether the README explains setup and boundaries clearly.
+The PR validation report is review evidence, not automatic approval. Maintainers still check whether newly requested permissions and domains are necessary, whether write actions are justified, whether fixture changes actually exercise the changed mappings, and whether the README explains setup and boundaries clearly.
 
 ## Adapt the template
 
@@ -155,6 +156,7 @@ A plugin pull request should include:
 
 - a complete declarative package with no arbitrary code;
 - fixtures for every mapping you expect CI to exercise;
+- changed fixture files whenever you add a mapped plugin or change `mappings.json`;
 - `npm run plugins:validate-local -- <your-plugin-folder>` output or evidence that `npm run plugins:check` passes;
 - a clean `npm run plugins:validate-pr` report when the branch is compared to `main`;
 - declared domains and permissions that match real requests;
