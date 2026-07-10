@@ -2648,6 +2648,7 @@ private struct CustomAppRulesPanel: View {
     ]
     @State private var requestPreviewResult: String?
     @State private var requestPreviewError: String?
+    @State private var requestPreviewSignature: String?
     @State private var isPreviewingRequest = false
 
     var body: some View {
@@ -2749,6 +2750,7 @@ private struct CustomAppRulesPanel: View {
                             isPreviewing: isPreviewingRequest,
                             result: requestPreviewResult,
                             error: requestPreviewError,
+                            requiresCurrentPreview: requestPreviewIsCurrent == false,
                             preview: runRequestPreview
                         )
                     }
@@ -2778,7 +2780,12 @@ private struct CustomAppRulesPanel: View {
                             }
                         }
                         .buttonStyle(.bordered)
-                        .disabled(isDraftValid == false || savingRuleID != nil || (requiresWritePermission && hasWritePermission == false))
+                        .disabled(
+                            isDraftValid == false ||
+                                savingRuleID != nil ||
+                                (requiresWritePermission && hasWritePermission == false) ||
+                                (requiresProviderActionPreview && requestPreviewIsCurrent == false)
+                        )
                     }
                 }
                 .padding(10)
@@ -2822,6 +2829,35 @@ private struct CustomAppRulesPanel: View {
         }
     }
 
+    private var requiresProviderActionPreview: Bool {
+        canPreviewProviderActions
+    }
+
+    private var requestPreviewIsCurrent: Bool {
+        requestPreviewSignature == currentRequestPreviewSignature
+    }
+
+    private var currentRequestPreviewSignature: String {
+        let actionSignature = draftRuleActions
+            .filter { action in
+                actionSafetyLevel(for: action) == .reviewRequired &&
+                    actionDefinition(for: action.action) != nil
+            }
+            .map { action in
+                let parameterSignature = action.parameters
+                    .sorted { lhs, rhs in lhs.key < rhs.key }
+                    .map { "\($0.key)=\($0.value)" }
+                    .joined(separator: "&")
+                return "\(action.action){\(parameterSignature)}"
+            }
+            .joined(separator: "|")
+        return [
+            selectedAccountID ?? "",
+            draftEventType.trimmingCharacters(in: .whitespacesAndNewlines),
+            actionSignature
+        ].joined(separator: "::")
+    }
+
     private var hasWritePermission: Bool {
         permissions.contains { $0.permission == .writeActions && $0.granted }
     }
@@ -2856,6 +2892,7 @@ private struct CustomAppRulesPanel: View {
         draftActions = rule.actions.isEmpty ? [CustomRuleActionDraft()] : rule.actions.map(CustomRuleActionDraft.init)
         requestPreviewResult = nil
         requestPreviewError = nil
+        requestPreviewSignature = nil
     }
 
     private func resetDraft() {
@@ -2869,6 +2906,7 @@ private struct CustomAppRulesPanel: View {
         ]
         requestPreviewResult = nil
         requestPreviewError = nil
+        requestPreviewSignature = nil
     }
 
     private func runRequestPreview() {
@@ -2876,13 +2914,16 @@ private struct CustomAppRulesPanel: View {
         isPreviewingRequest = true
         requestPreviewResult = nil
         requestPreviewError = nil
+        requestPreviewSignature = nil
         let eventType = draftEventType
         let actions = draftRuleActions
+        let signature = currentRequestPreviewSignature
 
         Task { @MainActor in
             defer { isPreviewingRequest = false }
             do {
                 requestPreviewResult = try await previewRuleActions(eventType, actions)
+                requestPreviewSignature = signature
             } catch {
                 requestPreviewError = error.localizedDescription
             }
@@ -2905,6 +2946,7 @@ private struct ProviderActionRequestPreviewPanel: View {
     let isPreviewing: Bool
     let result: String?
     let error: String?
+    let requiresCurrentPreview: Bool
     let preview: () -> Void
 
     var body: some View {
@@ -2926,6 +2968,12 @@ private struct ProviderActionRequestPreviewPanel: View {
                 }
                 .buttonStyle(.bordered)
                 .disabled(isPreviewing)
+            }
+            if requiresCurrentPreview {
+                Text("Preview the current provider request before saving this rule.")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if let result, result.isEmpty == false {
                 Text(result)
