@@ -83,7 +83,7 @@ public enum PluginSetupConfiguration {
             .nonEmpty ?? displayName(for: plugin, values: normalized)
         try service.saveAccountConfiguration(
             PluginAccountConfiguration(
-                id: accountID ?? self.accountID(pluginID: plugin.id, displayName: displayName),
+                id: try resolvedAccountID(pluginID: plugin.id, displayName: displayName, requestedAccountID: accountID, store: service.store),
                 pluginID: plugin.id,
                 accountName: displayName,
                 variables: normalized,
@@ -121,7 +121,7 @@ public enum PluginSetupConfiguration {
             .nonEmpty ?? displayName(for: plugin, values: normalized)
         try service.saveAccountConfiguration(
             PluginAccountConfiguration(
-                id: accountID ?? self.accountID(pluginID: plugin.id, displayName: displayName),
+                id: try resolvedAccountID(pluginID: plugin.id, displayName: displayName, requestedAccountID: accountID, store: service.store),
                 pluginID: plugin.id,
                 accountName: displayName,
                 variables: normalized,
@@ -154,6 +154,29 @@ public enum PluginSetupConfiguration {
             .replacingOccurrences(of: #"[^a-z0-9]+"#, with: "_", options: .regularExpression)
             .trimmingCharacters(in: CharacterSet(charactersIn: "_"))
         return "acct_\(sanitized)"
+    }
+
+    private static func resolvedAccountID(
+        pluginID: String,
+        displayName: String,
+        requestedAccountID: String?,
+        store: StatusPersistenceStore
+    ) throws -> String {
+        if let requestedAccountID {
+            return requestedAccountID
+        }
+        let baseID = accountID(pluginID: pluginID, displayName: displayName)
+        guard try store.accountConfiguration(accountID: baseID) != nil else {
+            return baseID
+        }
+        var suffix = 2
+        while true {
+            let candidate = "\(baseID)_\(suffix)"
+            if try store.accountConfiguration(accountID: candidate) == nil {
+                return candidate
+            }
+            suffix += 1
+        }
     }
 
     private static func normalizedSetupValues(

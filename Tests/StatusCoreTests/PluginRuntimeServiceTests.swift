@@ -1348,6 +1348,71 @@ import Testing
     ])
 }
 
+@Test func genericPluginSetupCreatesSeparateAppsForDuplicateDisplayNames() throws {
+    let database = try temporaryRuntimeDatabase()
+    try insertRuntimePluginFixture(database, pluginID: "com.status.github")
+    let store = StatusPersistenceStore(database: database)
+    let service = PluginRuntimeService(store: store, credentialStore: nil)
+    let credentials = InMemoryCredentialStore()
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let plugin = InstalledPlugin(
+        id: "com.status.github",
+        name: "GitHub",
+        author: "Status Foundry",
+        description: "Read-only repository checks.",
+        category: "developer",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/plugin",
+        auth: PackagedPluginAuth(
+            type: .bearerToken,
+            fields: [
+                PackagedPluginSetupField(
+                    id: "token",
+                    label: "Personal access token",
+                    type: .secret,
+                    required: true
+                )
+            ]
+        ),
+        setup: PackagedPluginSetup(
+            title: "Repository",
+            fields: [
+                PackagedPluginSetupField(id: "owner", label: "Owner", type: .text, required: true),
+                PackagedPluginSetupField(id: "repo", label: "Repository", type: .text, required: true)
+            ]
+        ),
+        installedAt: now,
+        updatedAt: now
+    )
+
+    _ = try PluginSetupConfiguration.saveValues(
+        ["token": "token-one", "owner": "statusfoundry", "repo": "status"],
+        for: plugin,
+        service: service,
+        credentialStore: credentials,
+        displayNameOverride: "Work",
+        now: now
+    )
+    _ = try PluginSetupConfiguration.saveValues(
+        ["token": "token-two", "owner": "statusfoundry", "repo": "registry"],
+        for: plugin,
+        service: service,
+        credentialStore: credentials,
+        displayNameOverride: "Work",
+        now: now.addingTimeInterval(60)
+    )
+
+    let accounts = try store.accountConfigurations(pluginID: "com.status.github")
+    #expect(accounts.map(\.id).sorted() == [
+        "acct_com_status_github_work",
+        "acct_com_status_github_work_2"
+    ])
+    #expect(accounts.map(\.accountName) == ["Work", "Work"])
+    #expect(try store.accountConfiguration(accountID: "acct_com_status_github_work")?.variables["repo"] == "status")
+    #expect(try store.accountConfiguration(accountID: "acct_com_status_github_work_2")?.variables["repo"] == "registry")
+}
+
 @Test func genericPluginSetupStoresAPIKeyCredentialBundleInCredentialStore() throws {
     let database = try temporaryRuntimeDatabase()
     try insertRuntimePluginFixture(database, pluginID: "com.status.weather")
