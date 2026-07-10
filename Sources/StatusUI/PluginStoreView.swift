@@ -721,10 +721,18 @@ public final class PluginStoreViewModel: ObservableObject {
             let accountID = persistedAccountID(from: accountID(fromSetupKey: match.key))
             let accountName = accountDisplayNames[match.key]
             let values = setupValues[match.key, default: defaultSetupValues(for: plugin)]
-            setupResults[match.key] = try await completeOAuthConnection(plugin, accountID, accountName, values, match.value, callbackURL)
+            let previousAccountIDs = Set(configuredAccounts[plugin.id, default: []].map(\.id))
+            let result = try await completeOAuthConnection(plugin, accountID, accountName, values, match.value, callbackURL)
             oauthConnectionRequests[match.key] = nil
             oauthConnectionURLs[match.key] = nil
             await reload()
+            if accountID == nil,
+               let savedAccount = newlySavedAccount(for: plugin, previousAccountIDs: previousAccountIDs, displayName: accountName) {
+                selectAccount(savedAccount.id, for: plugin)
+                setupResults[setupKey(pluginID: plugin.id, accountID: savedAccount.id)] = result
+            } else {
+                setupResults[match.key] = result
+            }
         } catch {
             oauthConnectionErrors[match.key] = error.localizedDescription
             setupErrors[match.key] = error.localizedDescription

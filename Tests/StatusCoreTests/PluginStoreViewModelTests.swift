@@ -1097,6 +1097,84 @@ import Testing
 }
 
 @MainActor
+@Test func pluginStoreViewModelSelectsSavedAppAfterOAuthSetup() async throws {
+    let plugin = InstalledPlugin(
+        id: "com.status.oauthgithub",
+        name: "OAuth GitHub",
+        author: "Status Foundry",
+        description: "OAuth GitHub checks.",
+        category: "development",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/com.status.oauthgithub",
+        auth: PackagedPluginAuth(
+            type: .oauth2,
+            provider: "github",
+            applicationId: "status-foundry.github",
+            oauth2: PackagedPluginOAuth2(
+                authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
+                tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
+                redirectURI: "status://oauth/github",
+                scopes: ["repo"]
+            )
+        ),
+        setup: PackagedPluginSetup(title: "Repository", fields: [
+            PackagedPluginSetupField(id: "owner", label: "Owner", type: .text, required: true),
+            PackagedPluginSetupField(id: "repo", label: "Repository", type: .text, required: true)
+        ]),
+        installedAt: Date(timeIntervalSince1970: 1_783_433_520),
+        updatedAt: Date(timeIntervalSince1970: 1_783_433_520)
+    )
+    var accounts: [PluginAccountConfiguration] = []
+    let viewModel = PluginStoreViewModel(
+        loadInstalled: { [plugin] },
+        loadAvailable: { [] },
+        installPlugin: { _ in },
+        loadPermissions: { _ in grantedOAuthPermissions(pluginID: plugin.id) },
+        canConfigurePlugin: { _ in true },
+        loadAccounts: { _ in accounts },
+        completeOAuthConnection: { plugin, accountID, displayName, values, _, _ in
+            #expect(accountID == nil)
+            #expect(displayName == "Status Repo")
+            #expect(values == ["owner": "statusfoundry", "repo": "status"])
+            accounts = [
+                PluginAccountConfiguration(
+                    id: "acc_status_repo",
+                    pluginID: plugin.id,
+                    accountName: displayName ?? plugin.name,
+                    variables: values
+                )
+            ]
+            return "Saved Status Repo."
+        }
+    )
+
+    await viewModel.reload()
+    viewModel.updateSetupValue(plugin, fieldID: "owner", value: "statusfoundry")
+    viewModel.updateSetupValue(plugin, fieldID: "repo", value: "status")
+    viewModel.updateAccountDisplayName(plugin, value: "Status Repo")
+    viewModel.beginOAuthConnection(plugin)
+
+    let selectedAccountID = viewModel.selectedAccountIDs[plugin.id]
+    let draftKey = "\(plugin.id):\(selectedAccountID ?? "__new__:")"
+    let authorizationURL = try #require(viewModel.oauthConnectionURLs[draftKey])
+    let state = try #require(URLComponents(url: authorizationURL, resolvingAgainstBaseURL: false)?
+        .queryItems?
+        .first { $0.name == "state" }?
+        .value)
+    let callbackURL = try #require(URL(string: "status://oauth/github?code=code-456&state=\(state)"))
+
+    await viewModel.completeOAuthConnection(callbackURL: callbackURL)
+
+    let persistedKey = "\(plugin.id):acc_status_repo"
+    #expect(viewModel.selectedAccountIDs[plugin.id] == "acc_status_repo")
+    #expect(viewModel.setupResults[persistedKey] == "Saved Status Repo.")
+    #expect(viewModel.setupResults[draftKey] == nil)
+    #expect(viewModel.oauthConnectionURLs[draftKey] == nil)
+    #expect(viewModel.accountDisplayNames[persistedKey] == "Status Repo")
+}
+
+@MainActor
 @Test func pluginStoreViewModelIgnoresBroadcastOAuthCallbackWithoutPendingConnection() async throws {
     let viewModel = PluginStoreViewModel(
         loadInstalled: { [] },
