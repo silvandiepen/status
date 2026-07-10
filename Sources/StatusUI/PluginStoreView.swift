@@ -1616,18 +1616,7 @@ private struct PluginResourceSummaryRow: View {
                 if visibleFields.isEmpty == false {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 8)], spacing: 6) {
                         ForEach(visibleFields, id: \.key) { field in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(field.key)
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
-                                    .lineLimit(1)
-                                Text(field.value)
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            ResourceFieldValue(field: field.key, value: field.value)
                         }
                     }
                 }
@@ -1654,6 +1643,77 @@ private struct PluginResourceSummaryRow: View {
             .sorted { lhs, rhs in lhs.key.localizedCaseInsensitiveCompare(rhs.key) == .orderedAscending }
             .prefix(6)
             .map { (key: $0.key, value: $0.value) }
+    }
+}
+
+private struct ResourceFieldValue: View {
+    let field: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(displayLabel(for: field))
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
+            if let url = URL(string: value), url.scheme?.hasPrefix("http") == true {
+                Link(destination: url) {
+                    HStack(spacing: 4) {
+                        Text(url.host() ?? value)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption2.weight(.semibold))
+                    }
+                }
+                .font(.caption.weight(.semibold))
+            } else {
+                Text(value)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(valueColor)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var valueColor: Color {
+        let normalizedField = field.lowercased()
+        let normalizedValue = value.lowercased()
+        guard normalizedField.contains("status") ||
+            normalizedField.contains("state") ||
+            normalizedField.contains("result") ||
+            normalizedField.contains("severity") else {
+            return .secondary
+        }
+        if normalizedValue.contains("fail") ||
+            normalizedValue.contains("reject") ||
+            normalizedValue.contains("critical") ||
+            normalizedValue.contains("down") {
+            return .red
+        }
+        if normalizedValue.contains("review") ||
+            normalizedValue.contains("pending") ||
+            normalizedValue.contains("warning") ||
+            normalizedValue.contains("slow") {
+            return .orange
+        }
+        if normalizedValue.contains("ok") ||
+            normalizedValue.contains("success") ||
+            normalizedValue.contains("ready") ||
+            normalizedValue.contains("up") {
+            return .green
+        }
+        return .secondary
+    }
+
+    private func displayLabel(for field: String) -> String {
+        let spaced = field
+            .replacingOccurrences(of: #"([a-z0-9])([A-Z])"#, with: "$1 $2", options: .regularExpression)
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+        return spaced.prefix(1).uppercased() + String(spaced.dropFirst())
     }
 }
 
