@@ -1,0 +1,44 @@
+{
+  "issues": [
+    {
+      "id": "10001",
+      "key": "STATUS-123",
+      "fields": {
+        "summary": "Investigate failed release workflow",
+        "updated": "2026-07-10T08:15:00.000+0000",
+        "status": {
+          "name": "In Progress",
+          "statusCategory": {
+            "key": "indeterminate"
+          }
+        },
+        "assignee": {
+          "displayName": "Example Assignee"
+        },
+        "priority": {
+          "name": "High"
+        }
+      }
+    },
+    {
+      "id": "10002",
+      "key": "STATUS-124",
+      "fields": {
+        "summary": "Document release checklist",
+        "updated": "2026-07-09T16:30:00.000+0000",
+        "status": {
+          "name": "Done",
+          "statusCategory": {
+            "key": "done"
+          }
+        },
+        "assignee": {
+          "displayName": "Example Assignee"
+        },
+        "priority": {
+          "name": "Medium"
+        }
+      }
+    }
+  ]
+}

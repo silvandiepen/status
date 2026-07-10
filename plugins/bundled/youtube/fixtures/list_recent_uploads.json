@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "id": {
+        "videoId": "dQw4w9WgXcQ"
+      },
+      "snippet": {
+        "channelId": "UCEXAMPLECHANNEL",
+        "channelTitle": "Example Channel",
+        "title": "Example launch update",
+        "description": "Sanitized video fixture.",
+        "publishedAt": "2026-07-10T08:20:00Z"
+      }
+    }
+  ]
+}

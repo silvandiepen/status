@@ -1,0 +1,9 @@
+[
+  {
+    "id": 13579,
+    "status": "failed",
+    "ref": "main",
+    "updated_at": "2026-07-10T08:10:00Z",
+    "web_url": "https://gitlab.com/example-group/example-project/-/pipelines/13579"
+  }
+]

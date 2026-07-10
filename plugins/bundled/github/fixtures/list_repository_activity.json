@@ -1,0 +1,20 @@
+[
+  {
+    "id": "event-1",
+    "type": "PullRequestEvent",
+    "created_at": "2026-07-10T08:00:00Z",
+    "repo": {
+      "id": 123456,
+      "name": "example-org/example-repo"
+    },
+    "actor": {
+      "login": "example-user"
+    },
+    "payload": {
+      "action": "opened",
+      "pull_request": {
+        "html_url": "https://github.com/example-org/example-repo/pull/42"
+      }
+    }
+  }
+]

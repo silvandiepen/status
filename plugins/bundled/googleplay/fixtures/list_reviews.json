@@ -1,0 +1,38 @@
+{
+  "reviews": [
+    {
+      "reviewId": "review-1",
+      "comments": [
+        {
+          "userComment": {
+            "text": "The latest release crashes on launch.",
+            "starRating": 1,
+            "reviewerLanguage": "en",
+            "appVersionName": "1.2.0",
+            "androidOsVersion": 35,
+            "lastModified": {
+              "seconds": "1783671000"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "reviewId": "review-2",
+      "comments": [
+        {
+          "userComment": {
+            "text": "The update fixed my issue.",
+            "starRating": 5,
+            "reviewerLanguage": "en",
+            "appVersionName": "1.2.1",
+            "androidOsVersion": 35,
+            "lastModified": {
+              "seconds": "1783674600"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

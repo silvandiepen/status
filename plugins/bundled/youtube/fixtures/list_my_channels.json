@@ -1,0 +1,25 @@
+{
+  "items": [
+    {
+      "id": "UCEXAMPLECHANNEL",
+      "snippet": {
+        "title": "Example Channel",
+        "description": "Sanitized channel fixture.",
+        "country": "US"
+      },
+      "statistics": {
+        "subscriberCount": "12345",
+        "viewCount": "678901",
+        "videoCount": "42"
+      },
+      "status": {
+        "privacyStatus": "unlisted"
+      },
+      "contentDetails": {
+        "relatedPlaylists": {
+          "uploads": "UUEXAMPLEUPLOADS"
+        }
+      }
+    }
+  ]
+}

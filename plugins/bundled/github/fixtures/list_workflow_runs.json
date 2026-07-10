@@ -1,0 +1,17 @@
+{
+  "total_count": 1,
+  "workflow_runs": [
+    {
+      "id": 987654321,
+      "name": "CI",
+      "head_branch": "main",
+      "conclusion": "failure",
+      "updated_at": "2026-07-10T08:05:00Z",
+      "html_url": "https://github.com/example-org/example-repo/actions/runs/987654321",
+      "repository": {
+        "id": 123456,
+        "full_name": "example-org/example-repo"
+      }
+    }
+  ]
+}

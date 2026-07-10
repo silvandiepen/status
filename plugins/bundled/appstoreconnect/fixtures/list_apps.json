@@ -1,0 +1,16 @@
+{
+  "data": [
+    {
+      "id": "1234567890",
+      "type": "apps",
+      "attributes": {
+        "name": "Example App",
+        "bundleId": "com.example.app",
+        "sku": "EXAMPLE_APP"
+      }
+    }
+  ],
+  "links": {
+    "self": "https://api.appstoreconnect.apple.com/v1/apps"
+  }
+}

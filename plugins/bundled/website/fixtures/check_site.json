@@ -1,0 +1,7 @@
+{
+  "host": "status.example.com",
+  "statusCode": 503,
+  "reachable": true,
+  "previousHealthy": true,
+  "responseTimeMs": 1250
+}

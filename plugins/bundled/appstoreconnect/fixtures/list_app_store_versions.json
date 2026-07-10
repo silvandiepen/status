@@ -1,0 +1,36 @@
+{
+  "data": [
+    {
+      "id": "version-1",
+      "type": "appStoreVersions",
+      "attributes": {
+        "versionString": "1.2.0",
+        "appStoreState": "REJECTED"
+      },
+      "relationships": {
+        "app": {
+          "data": {
+            "id": "1234567890",
+            "type": "apps"
+          }
+        }
+      }
+    },
+    {
+      "id": "version-2",
+      "type": "appStoreVersions",
+      "attributes": {
+        "versionString": "1.1.0",
+        "appStoreState": "READY_FOR_SALE"
+      },
+      "relationships": {
+        "app": {
+          "data": {
+            "id": "1234567890",
+            "type": "apps"
+          }
+        }
+      }
+    }
+  ]
+}
