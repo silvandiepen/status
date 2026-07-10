@@ -2554,12 +2554,19 @@ private struct AppRulePresetToggle: View {
     let savingRuleID: String?
     let actionSafetyLevel: (RuleActionDefinition) -> ActionSafetyLevel
     let update: (Bool) -> Void
+    @State private var confirmsReviewRequiredRule = false
 
     var body: some View {
         Toggle(
             isOn: Binding(
                 get: { appRule?.enabled == true },
-                set: { update($0) }
+                set: { enabled in
+                    if enabled, requiresWritePermission {
+                        confirmsReviewRequiredRule = true
+                    } else {
+                        update(enabled)
+                    }
+                }
             )
         ) {
             VStack(alignment: .leading, spacing: 3) {
@@ -2583,6 +2590,18 @@ private struct AppRulePresetToggle: View {
             }
         }
         .disabled(selectedAccountID == nil || savingRuleID == expectedRuleID || (appRule?.enabled != true && requiresWritePermission && hasWritePermission == false))
+        .confirmationDialog(
+            "Enable write-action rule?",
+            isPresented: $confirmsReviewRequiredRule,
+            titleVisibility: .visible
+        ) {
+            Button("Enable \(preset.name)") {
+                update(true)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(reviewConfirmationText)
+        }
     }
 
     private var detail: String {
@@ -2593,6 +2612,17 @@ private struct AppRulePresetToggle: View {
 
     private var requiresWritePermission: Bool {
         preset.actions.contains { actionSafetyLevel($0) == .reviewRequired }
+    }
+
+    private var reviewRequiredActionNames: String {
+        preset.actions
+            .filter { actionSafetyLevel($0) == .reviewRequired }
+            .map(\.action)
+            .joined(separator: ", ")
+    }
+
+    private var reviewConfirmationText: String {
+        "This app has Write actions permission. When \(preset.name) matches \(preset.eventType), Status may run \(reviewRequiredActionNames). Every action run will create an audit entry with the triggering event, rule, action, result, and error if it fails."
     }
 }
 
