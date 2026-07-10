@@ -277,6 +277,55 @@ import Testing
 }
 
 @MainActor
+@Test func pluginStoreViewModelSelectsSavedAppAfterNewSetup() async throws {
+    let plugin = InstalledPlugin(
+        id: "com.status.github",
+        name: "GitHub",
+        author: "Status Foundry",
+        description: "GitHub repository checks.",
+        category: "development",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/com.status.github",
+        installedAt: Date(timeIntervalSince1970: 1_783_433_520),
+        updatedAt: Date(timeIntervalSince1970: 1_783_433_520)
+    )
+    var accounts: [PluginAccountConfiguration] = []
+    var savedAccountID: String?
+    let viewModel = PluginStoreViewModel(
+        loadInstalled: { [plugin] },
+        loadAvailable: { [] },
+        installPlugin: { _ in },
+        canConfigurePlugin: { _ in true },
+        loadAccounts: { _ in accounts },
+        saveConfigurationValues: { plugin, accountID, displayName, values in
+            #expect(accountID == nil)
+            #expect(values.isEmpty)
+            let account = PluginAccountConfiguration(
+                id: "acc_status_foundry",
+                pluginID: plugin.id,
+                accountName: displayName ?? plugin.name,
+                variables: [:]
+            )
+            savedAccountID = account.id
+            accounts = [account]
+            return "Saved \(account.accountName)."
+        }
+    )
+
+    await viewModel.reload()
+    viewModel.updateAccountDisplayName(plugin, value: "Status Foundry GitHub")
+    await viewModel.saveSetup(plugin)
+
+    let persistedKey = "\(plugin.id):acc_status_foundry"
+    #expect(savedAccountID == "acc_status_foundry")
+    #expect(viewModel.selectedAccountIDs[plugin.id] == "acc_status_foundry")
+    #expect(viewModel.setupResults[persistedKey] == "Saved Status Foundry GitHub.")
+    #expect(viewModel.setupResults["\(plugin.id):__new__:\(plugin.id)"] == nil)
+    #expect(viewModel.accountDisplayNames[persistedKey] == "Status Foundry GitHub")
+}
+
+@MainActor
 @Test func pluginStoreViewModelRemovesSelectedConfiguredApp() async throws {
     let plugin = InstalledPlugin(
         id: "com.status.github",

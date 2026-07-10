@@ -605,14 +605,22 @@ public final class PluginStoreViewModel: ObservableObject {
         let key = setupKey(pluginID: plugin.id, accountID: selectedAccountID)
         let values = setupValues[key, default: defaultSetupValues(for: plugin)]
         let accountName = accountDisplayNames[key]
+        let previousAccountIDs = Set(configuredAccounts[plugin.id, default: []].map(\.id))
         savingSetupPluginID = plugin.id
         setupResults[key] = nil
         setupErrors[key] = nil
         defer { savingSetupPluginID = nil }
 
         do {
-            setupResults[key] = try await saveConfigurationValues(plugin, persistedAccountID(from: selectedAccountID), accountName, values)
+            let result = try await saveConfigurationValues(plugin, persistedAccountID(from: selectedAccountID), accountName, values)
             await reload()
+            if persistedAccountID(from: selectedAccountID) == nil,
+               let savedAccount = newlySavedAccount(for: plugin, previousAccountIDs: previousAccountIDs, displayName: accountName) {
+                selectAccount(savedAccount.id, for: plugin)
+                setupResults[setupKey(pluginID: plugin.id, accountID: savedAccount.id)] = result
+            } else {
+                setupResults[key] = result
+            }
         } catch {
             setupErrors[key] = error.localizedDescription
         }
@@ -783,6 +791,24 @@ public final class PluginStoreViewModel: ObservableObject {
                 accountDisplayNames[key] = accounts.first { $0.id == selectedID }?.accountName ?? ""
             }
         }
+    }
+
+    private func newlySavedAccount(
+        for plugin: InstalledPlugin,
+        previousAccountIDs: Set<String>,
+        displayName: String?
+    ) -> PluginAccountConfiguration? {
+        let accounts = configuredAccounts[plugin.id, default: []]
+        let newAccounts = accounts.filter { previousAccountIDs.contains($0.id) == false }
+        guard newAccounts.isEmpty == false else {
+            return nil
+        }
+        let trimmedDisplayName = displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if trimmedDisplayName.isEmpty == false,
+           let matchingAccount = newAccounts.first(where: { $0.accountName == trimmedDisplayName }) {
+            return matchingAccount
+        }
+        return newAccounts.first
     }
 
     private func refreshSetupValues(for plugins: [InstalledPlugin]) {
