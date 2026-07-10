@@ -505,7 +505,7 @@ private struct MacRootView: View {
                         openApp: { app in
                             selection = .app(
                                 pluginID: app.provider,
-                                accountID: app.id == app.provider ? nil : app.id
+                                accountID: app.id
                             )
                         }
                     )

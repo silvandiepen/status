@@ -28,7 +28,7 @@ private struct IOSRootView: View {
                         overviewPath.append(
                             IOSAppRoute(
                                 pluginID: app.provider,
-                                accountID: app.id == app.provider ? nil : app.id
+                                accountID: app.id
                             )
                         )
                     }
