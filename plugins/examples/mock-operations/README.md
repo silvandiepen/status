@@ -42,7 +42,7 @@ Example setup fields for a fictional service:
 
 ## Actions
 
-Includes example write-action declarations for author education. Actions require explicit `write-actions` permission and user approval in Status.
+Includes `mock.postWebhook` as an example reviewed write-action declaration for author education. Actions require explicit `write-actions` permission and user approval in Status.
 
 ## Permissions and domains
 

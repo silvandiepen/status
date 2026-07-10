@@ -339,27 +339,67 @@
       "sourcePath": "plugins/bundled/googleplay/README.md",
       "sourceUrl": "https://github.com/statusfoundry/status/blob/main/plugins/bundled/googleplay/README.md",
       "websitePath": "/plugins/com.status.googleplay/",
-      "readmeTitle": "Google Play Plugin",
-      "readmeHtml": "<p>The Google Play plugin is an official Status plugin for Android apps published through Google Play Console.</p>\n<p>It is read-only in Status v1. It does not reply to reviews, edit store listings, submit releases, change tracks, or modify billing state.</p>\n<h2 id=\"what-it-shows\" class=\"nizel-docs-heading\">What It Shows</h2>\n<ul>\n<li>recent Google Play reviews for a configured package name;</li>\n<li>review star ratings and reviewer language;</li>\n<li>app version and Android version fields when Google returns them;</li>\n<li>low-rating review events that can be routed to notifications or the Status inbox.</li>\n</ul>\n<h2 id=\"authentication\" class=\"nizel-docs-heading\">Authentication</h2>\n<p>This plugin uses Google OAuth 2 with PKCE. Status opens the Google authorization page, receives the <code class=\"nizel-code\">status://oauth/googleplay</code> callback, stores the token set in Keychain, and injects request authorization headers at runtime.</p>\n<p>The OAuth account must have access to the target app in Google Play Console.</p>\n<h2 id=\"setup\" class=\"nizel-docs-heading\">Setup</h2>\n<ol>\n<li>Install the Google Play plugin.</li>\n<li>Grant Network, Keychain, OAuth, and Background Refresh permissions.</li>\n<li>Connect a Google account through OAuth.</li>\n<li>Enter the Android package name, for example <code class=\"nizel-code\">com.example.app</code>.</li>\n<li>Save the app.</li>\n<li>Run a manual refresh or let the scheduled review check run.</li>\n</ol>\n<h2 id=\"boundaries\" class=\"nizel-docs-heading\">Boundaries</h2>\n<p>Status is not a replacement for Google Play Console. This plugin surfaces operational signals that are useful in a personal status dashboard and links back to the source system for deeper work.</p>\n<p>Official Status plugins should:</p>\n<ul>\n<li>use declarative requests and mappings only;</li>\n<li>keep write actions out of v1 unless the action is explicit, reversible, and audited;</li>\n<li>store tokens only through Status Keychain references;</li>\n<li>emit normalized resources, events, and metrics;</li>\n<li>document setup requirements and source-system permissions.</li>\n</ul>",
+      "readmeTitle": "Google Play",
+      "readmeHtml": "<p>Read-only Google Play Console status for Android app reviews, ratings, and release-facing signals.</p>\n<h2 id=\"why-install-this-plugin\" class=\"nizel-docs-heading\">Why install this plugin</h2>\n<p>Install Google Play when you publish Android apps and want review attention signals in Status without checking Play Console all day. Status turns new reviews, low ratings, and app-level review trends into native events, dashboard tiles, app detail views, and notification rules.</p>\n<h2 id=\"what-you-configure\" class=\"nizel-docs-heading\">What you configure</h2>\n<p>Create one configured app per Android package you want to watch:</p>\n<ul>\n<li><strong>Package name</strong> - Android application ID such as <code class=\"nizel-code\">com.example.app</code></li>\n</ul>\n<p>Auth uses Google OAuth 2 with PKCE. Status owns the browser authorization flow, stores the token set in Keychain, and only calls declared Google API hosts for the configured package.</p>\n<h2 id=\"what-it-exposes\" class=\"nizel-docs-heading\">What it exposes</h2>\n<h3 id=\"resources\">Resources</h3>\n<ul>\n<li><strong>review</strong> - Google Play user review records with rating, language, author, and review text context</li>\n</ul>\n<h3 id=\"events\">Events</h3>\n<table><thead><tr><th>Event</th><th>Meaning</th><th>Default notification</th></tr></thead><tbody><tr><td><code class=\"nizel-code\">googleplay.review.received</code></td><td>A user review was returned for the configured app</td><td>Digest</td></tr><tr><td><code class=\"nizel-code\">googleplay.review.needs_attention</code></td><td>A low-rating review needs attention</td><td>Dashboard only</td></tr></tbody></table>\n<h3 id=\"views\">Views</h3>\n<ul>\n<li><strong>Review overview</strong> - rating and review counts for the configured app</li>\n<li><strong>Reviews</strong> - recent review list with rating and text context</li>\n<li><strong>Attention</strong> - low-rating reviews surfaced as app-owned alerts</li>\n</ul>\n<h3 id=\"checks\">Checks</h3>\n<ul>\n<li><strong>Check reviews</strong> - cron schedule for review polling</li>\n<li><strong>Refresh reviews</strong> - manual refresh on demand</li>\n</ul>\n<h2 id=\"suggested-automations\" class=\"nizel-docs-heading\">Suggested automations</h2>\n<p>Suggested rules install disabled. Enable presets if you want low-rating reviews added to the Status inbox or included in local notifications.</p>\n<h2 id=\"actions\" class=\"nizel-docs-heading\">Actions</h2>\n<p>Read-only in v1. Status does not reply to reviews, change release status, edit listings, or modify Play Console data.</p>\n<h2 id=\"permissions-and-domains\" class=\"nizel-docs-heading\">Permissions and domains</h2>\n<ul>\n<li><code class=\"nizel-code\">network</code> - call Google OAuth and Android Publisher HTTPS APIs</li>\n<li><code class=\"nizel-code\">keychain</code> - store OAuth token references securely</li>\n<li><code class=\"nizel-code\">oauth</code> - connect the configured app through Google OAuth 2 with PKCE</li>\n<li><code class=\"nizel-code\">background-refresh</code> - run scheduled review checks</li>\n<li><strong>Domains:</strong> <code class=\"nizel-code\">accounts.google.com</code>, <code class=\"nizel-code\">oauth2.googleapis.com</code>, <code class=\"nizel-code\">androidpublisher.googleapis.com</code></li>\n</ul>\n<h2 id=\"what-it-does-not-do\" class=\"nizel-docs-heading\">What it does not do</h2>\n<ul>\n<li>Does not replace Google Play Console for release management</li>\n<li>Does not reply to reviews or change app metadata</li>\n<li>Does not submit builds, manage tracks, or alter rollout state</li>\n<li>Does not request undeclared Google API hosts</li>\n</ul>\n<h2 id=\"setup\" class=\"nizel-docs-heading\">Setup</h2>\n<ol>\n<li>Install <strong>Google Play</strong> from the Status plugin store.</li>\n<li>Create a configured app and enter the Android package name.</li>\n<li>Connect with Google OAuth using an account that can read the app in Play Console.</li>\n<li>Grant network, keychain, OAuth, and background refresh permissions.</li>\n<li>Run <strong>Refresh reviews</strong>, then enable <strong>Check reviews</strong> if you want scheduled polling.</li>\n</ol>",
       "readmeToc": [
         {
-          "id": "what-it-shows",
-          "text": "What It Shows",
+          "id": "why-install-this-plugin",
+          "text": "Why install this plugin",
           "depth": 2
         },
         {
-          "id": "authentication",
-          "text": "Authentication",
+          "id": "what-you-configure",
+          "text": "What you configure",
+          "depth": 2
+        },
+        {
+          "id": "what-it-exposes",
+          "text": "What it exposes",
+          "depth": 2
+        },
+        {
+          "id": "resources",
+          "text": "Resources",
+          "depth": 3
+        },
+        {
+          "id": "events",
+          "text": "Events",
+          "depth": 3
+        },
+        {
+          "id": "views",
+          "text": "Views",
+          "depth": 3
+        },
+        {
+          "id": "checks",
+          "text": "Checks",
+          "depth": 3
+        },
+        {
+          "id": "suggested-automations",
+          "text": "Suggested automations",
+          "depth": 2
+        },
+        {
+          "id": "actions",
+          "text": "Actions",
+          "depth": 2
+        },
+        {
+          "id": "permissions-and-domains",
+          "text": "Permissions and domains",
+          "depth": 2
+        },
+        {
+          "id": "what-it-does-not-do",
+          "text": "What it does not do",
           "depth": 2
         },
         {
           "id": "setup",
           "text": "Setup",
-          "depth": 2
-        },
-        {
-          "id": "boundaries",
-          "text": "Boundaries",
           "depth": 2
         }
       ],
@@ -501,7 +541,7 @@
       "sourceUrl": "https://github.com/statusfoundry/status/blob/main/plugins/examples/mock-operations/README.md",
       "websitePath": "/plugins/com.status.example.mockops/",
       "readmeTitle": "Mock Operations",
-      "readmeHtml": "<p>Example declarative plugin package for operational status data.</p>\n<h2 id=\"why-install-this-plugin\" class=\"nizel-docs-heading\">Why install this plugin</h2>\n<p>Install Mock Operations only for <strong>development and authoring</strong> — not for production monitoring. It demonstrates every v1 package file so plugin authors can validate schemas, preview fixture mappings in Developer Mode, and copy the structure for a real provider integration.</p>\n<h2 id=\"what-you-configure\" class=\"nizel-docs-heading\">What you configure</h2>\n<p>Example setup fields for a fictional service:</p>\n<ul>\n<li>Native setup schema with provider configuration placeholders</li>\n<li>Recorded fixtures instead of live API dependencies during tests</li>\n</ul>\n<h2 id=\"what-it-exposes\" class=\"nizel-docs-heading\">What it exposes</h2>\n<h3 id=\"resources\">Resources</h3>\n<ul>\n<li><strong>service</strong> — example operational service records from fixture data</li>\n</ul>\n<h3 id=\"events\">Events</h3>\n<table><thead><tr><th>Event</th><th>Meaning</th><th>Default notification</th></tr></thead><tbody><tr><td><code class=\"nizel-code\">mock.service.degraded</code></td><td>Example service entered a degraded state</td><td>Dashboard only</td></tr><tr><td><code class=\"nizel-code\">mock.service.recovered</code></td><td>Example service recovered</td><td>Digest</td></tr><tr><td><code class=\"nizel-code\">mock.error_rate.high</code></td><td>Example error rate crossed a threshold</td><td>Dashboard only</td></tr></tbody></table>\n<h3 id=\"views\">Views</h3>\n<ul>\n<li>Overview cards, resource lists, timelines, and alert list descriptors declared in <code class=\"nizel-code\">views.json</code></li>\n</ul>\n<h3 id=\"checks\">Checks</h3>\n<ul>\n<li>Manual and cron triggers declared in <code class=\"nizel-code\">triggers.json</code> for fixture-driven refresh flows</li>\n</ul>\n<h2 id=\"suggested-automations\" class=\"nizel-docs-heading\">Suggested automations</h2>\n<ul>\n<li>Example presets in <code class=\"nizel-code\">rules.presets.json</code> install disabled</li>\n<li>Demonstrates inbox and notification actions without enabling them by default</li>\n</ul>\n<h2 id=\"actions\" class=\"nizel-docs-heading\">Actions</h2>\n<p>Includes example write-action declarations for author education. Actions require explicit <code class=\"nizel-code\">write-actions</code> permission and user approval in Status.</p>\n<h2 id=\"permissions-and-domains\" class=\"nizel-docs-heading\">Permissions and domains</h2>\n<ul>\n<li><code class=\"nizel-code\">network</code> — example HTTPS requests to <code class=\"nizel-code\">example.com</code></li>\n<li><code class=\"nizel-code\">background-refresh</code> — example scheduled triggers</li>\n<li><code class=\"nizel-code\">local-notification-suggestion</code> — example notification presets</li>\n<li><code class=\"nizel-code\">write-actions</code> — example controlled write declarations</li>\n<li><strong>Domains:</strong> <code class=\"nizel-code\">example.com</code></li>\n</ul>\n<h2 id=\"what-it-does-not-do\" class=\"nizel-docs-heading\">What it does not do</h2>\n<ul>\n<li>Does not connect to a real production API in the template form</li>\n<li>Is not published to the registry as a trusted integration</li>\n<li>Must be adapted before use with a real provider</li>\n</ul>\n<h2 id=\"setup\" class=\"nizel-docs-heading\">Setup</h2>\n<h3 id=\"validate-in-the-monorepo\">Validate in the monorepo</h3>\n<pre class=\"shiki\" tabindex=\"0\"><code><span class=\"line\"><span>npm</span><span> run</span><span> plugins:validate-local</span><span> --</span><span> plugins/examples/mock-operations</span></span>\n<span class=\"line\"></span></code></pre>\n<h3 id=\"test-in-the-app\">Test in the app</h3>\n<ol>\n<li>Build and open StatusMac.</li>\n<li>Enable Developer Mode.</li>\n<li>Use <strong>Install Local</strong> and select this folder.</li>\n<li>Configure the plugin and run a manual trigger.</li>\n<li>Use <strong>Preview Fixture</strong> to inspect mapped output.</li>\n</ol>\n<h3 id=\"fork-friendly-template\">Fork-friendly template</h3>\n<p>A standalone copy lives at <code class=\"nizel-code\">status-plugin-example/</code> in the Status repository. Regenerate it with <code class=\"nizel-code\">npm run plugin-example:sync</code>.</p>\n<h2 id=\"submit-for-review\" class=\"nizel-docs-heading\">Submit for review</h2>\n<p>v1 has no public upload form. Open a pull request with fixtures and validation evidence when adapting this template for a real provider.</p>",
+      "readmeHtml": "<p>Example declarative plugin package for operational status data.</p>\n<h2 id=\"why-install-this-plugin\" class=\"nizel-docs-heading\">Why install this plugin</h2>\n<p>Install Mock Operations only for <strong>development and authoring</strong> — not for production monitoring. It demonstrates every v1 package file so plugin authors can validate schemas, preview fixture mappings in Developer Mode, and copy the structure for a real provider integration.</p>\n<h2 id=\"what-you-configure\" class=\"nizel-docs-heading\">What you configure</h2>\n<p>Example setup fields for a fictional service:</p>\n<ul>\n<li>Native setup schema with provider configuration placeholders</li>\n<li>Recorded fixtures instead of live API dependencies during tests</li>\n</ul>\n<h2 id=\"what-it-exposes\" class=\"nizel-docs-heading\">What it exposes</h2>\n<h3 id=\"resources\">Resources</h3>\n<ul>\n<li><strong>service</strong> — example operational service records from fixture data</li>\n</ul>\n<h3 id=\"events\">Events</h3>\n<table><thead><tr><th>Event</th><th>Meaning</th><th>Default notification</th></tr></thead><tbody><tr><td><code class=\"nizel-code\">mock.service.degraded</code></td><td>Example service entered a degraded state</td><td>Dashboard only</td></tr><tr><td><code class=\"nizel-code\">mock.service.recovered</code></td><td>Example service recovered</td><td>Digest</td></tr><tr><td><code class=\"nizel-code\">mock.error_rate.high</code></td><td>Example error rate crossed a threshold</td><td>Dashboard only</td></tr></tbody></table>\n<h3 id=\"views\">Views</h3>\n<ul>\n<li>Overview cards, resource lists, timelines, and alert list descriptors declared in <code class=\"nizel-code\">views.json</code></li>\n</ul>\n<h3 id=\"checks\">Checks</h3>\n<ul>\n<li>Manual and cron triggers declared in <code class=\"nizel-code\">triggers.json</code> for fixture-driven refresh flows</li>\n</ul>\n<h2 id=\"suggested-automations\" class=\"nizel-docs-heading\">Suggested automations</h2>\n<ul>\n<li>Example presets in <code class=\"nizel-code\">rules.presets.json</code> install disabled</li>\n<li>Demonstrates inbox and notification actions without enabling them by default</li>\n</ul>\n<h2 id=\"actions\" class=\"nizel-docs-heading\">Actions</h2>\n<p>Includes <code class=\"nizel-code\">mock.postWebhook</code> as an example reviewed write-action declaration for author education. Actions require explicit <code class=\"nizel-code\">write-actions</code> permission and user approval in Status.</p>\n<h2 id=\"permissions-and-domains\" class=\"nizel-docs-heading\">Permissions and domains</h2>\n<ul>\n<li><code class=\"nizel-code\">network</code> — example HTTPS requests to <code class=\"nizel-code\">example.com</code></li>\n<li><code class=\"nizel-code\">background-refresh</code> — example scheduled triggers</li>\n<li><code class=\"nizel-code\">local-notification-suggestion</code> — example notification presets</li>\n<li><code class=\"nizel-code\">write-actions</code> — example controlled write declarations</li>\n<li><strong>Domains:</strong> <code class=\"nizel-code\">example.com</code></li>\n</ul>\n<h2 id=\"what-it-does-not-do\" class=\"nizel-docs-heading\">What it does not do</h2>\n<ul>\n<li>Does not connect to a real production API in the template form</li>\n<li>Is not published to the registry as a trusted integration</li>\n<li>Must be adapted before use with a real provider</li>\n</ul>\n<h2 id=\"setup\" class=\"nizel-docs-heading\">Setup</h2>\n<h3 id=\"validate-in-the-monorepo\">Validate in the monorepo</h3>\n<pre class=\"shiki\" tabindex=\"0\"><code><span class=\"line\"><span>npm</span><span> run</span><span> plugins:validate-local</span><span> --</span><span> plugins/examples/mock-operations</span></span>\n<span class=\"line\"></span></code></pre>\n<h3 id=\"test-in-the-app\">Test in the app</h3>\n<ol>\n<li>Build and open StatusMac.</li>\n<li>Enable Developer Mode.</li>\n<li>Use <strong>Install Local</strong> and select this folder.</li>\n<li>Configure the plugin and run a manual trigger.</li>\n<li>Use <strong>Preview Fixture</strong> to inspect mapped output.</li>\n</ol>\n<h3 id=\"fork-friendly-template\">Fork-friendly template</h3>\n<p>A standalone copy lives at <code class=\"nizel-code\">status-plugin-example/</code> in the Status repository. Regenerate it with <code class=\"nizel-code\">npm run plugin-example:sync</code>.</p>\n<h2 id=\"submit-for-review\" class=\"nizel-docs-heading\">Submit for review</h2>\n<p>v1 has no public upload form. Open a pull request with fixtures and validation evidence when adapting this template for a real provider.</p>",
       "readmeToc": [
         {
           "id": "why-install-this-plugin",
@@ -722,7 +762,7 @@
       "sourceUrl": "https://github.com/statusfoundry/status/blob/main/plugins/bundled/youtube/README.md",
       "websitePath": "/plugins/com.status.youtube/",
       "readmeTitle": "YouTube",
-      "readmeHtml": "<h2 id=\"why-install-this-plugin\" class=\"nizel-docs-heading\">Why install this plugin</h2>\n<p>Install YouTube when you want Status to keep a calm, read-only view of creator account health across your channels. It is designed for quick operational awareness: latest uploads, basic channel statistics, visibility state, and direct links back to YouTube Studio.</p>\n<p>Status does not replace YouTube Studio. The plugin only normalizes the small set of signals that help you notice what changed and where to act next.</p>\n<h2 id=\"what-status-shows\" class=\"nizel-docs-heading\">What Status shows</h2>\n<ul>\n<li>Connected channels and their current public/private visibility state.</li>\n<li>Subscriber, view, and video counts reported by the YouTube Data API.</li>\n<li>Recently published uploads for the connected Google account.</li>\n<li>Links back to YouTube Studio and the public video page.</li>\n<li>Dashboard and inbox signals when a channel is not public.</li>\n</ul>\n<h2 id=\"authentication\" class=\"nizel-docs-heading\">Authentication</h2>\n<p>This plugin uses Google OAuth 2 with PKCE. Status opens the provider authorization page, receives the <code class=\"nizel-code\">status://oauth/youtube</code> callback, stores the token set in Keychain, and injects request authorization headers at runtime.</p>\n<p>Required scope:</p>\n<pre class=\"shiki\" tabindex=\"0\"><code><span class=\"line\"><span>https://www.googleapis.com/auth/youtube.readonly</span></span>\n<span class=\"line\"><span></span></span></code></pre>\n<h2 id=\"setup\" class=\"nizel-docs-heading\">Setup</h2>\n<ol>\n<li>Install <strong>YouTube</strong> from the Status plugin catalog.</li>\n<li>Grant Network, Keychain, OAuth, and Background Refresh permissions.</li>\n<li>Open app settings and choose <strong>Connect YouTube</strong>.</li>\n<li>Sign in with the Google account that can view the channel.</li>\n<li>Save the app with a clear name, for example <code class=\"nizel-code\">Hakobs YouTube</code>.</li>\n</ol>\n<h2 id=\"boundaries\" class=\"nizel-docs-heading\">Boundaries</h2>\n<p>Read-only in v1. The plugin does not upload videos, edit metadata, delete comments, change visibility, manage monetization, or send messages.</p>",
+      "readmeHtml": "<p>Read-only YouTube channel status for creator accounts, latest uploads, subscriber counts, and channel-level signals.</p>\n<h2 id=\"why-install-this-plugin\" class=\"nizel-docs-heading\">Why install this plugin</h2>\n<p>Install YouTube when you manage creator channels and want a compact operational view of recent uploads, channel visibility, subscriber counts, and basic performance signals. Status is not trying to replace YouTube Studio; it gives you the quick &quot;what changed and where do I click next&quot; view.</p>\n<h2 id=\"what-you-configure\" class=\"nizel-docs-heading\">What you configure</h2>\n<p>Create one configured app per YouTube creator account or channel group you want to watch:</p>\n<ul>\n<li><strong>Channel filter</strong> - optional channel identifier or handle to narrow the visible channel set</li>\n</ul>\n<p>Auth uses Google OAuth 2 with PKCE. Status owns authorization, token refresh, and Keychain-backed token storage. The plugin reads channel and upload data through declared YouTube Data API hosts only.</p>\n<h2 id=\"what-it-exposes\" class=\"nizel-docs-heading\">What it exposes</h2>\n<h3 id=\"resources\">Resources</h3>\n<ul>\n<li><strong>channel</strong> - creator channel records with title, visibility, subscriber count, and upload playlist context</li>\n<li><strong>video</strong> - recent uploads with title, publish time, thumbnail, and direct YouTube links</li>\n</ul>\n<h3 id=\"events\">Events</h3>\n<table><thead><tr><th>Event</th><th>Meaning</th><th>Default notification</th></tr></thead><tbody><tr><td><code class=\"nizel-code\">youtube.video.published</code></td><td>A video appeared in the connected creator account's recent uploads</td><td>Digest</td></tr><tr><td><code class=\"nizel-code\">youtube.channel.visibility_limited</code></td><td>A connected YouTube channel is not currently public</td><td>Dashboard only</td></tr></tbody></table>\n<h3 id=\"views\">Views</h3>\n<ul>\n<li><strong>Channels</strong> - channel list with visibility and subscriber summary</li>\n<li><strong>Recent uploads</strong> - timeline of recently published videos</li>\n<li><strong>Creator metrics</strong> - compact metric grid for subscriber and upload counts</li>\n</ul>\n<h3 id=\"checks\">Checks</h3>\n<ul>\n<li><strong>Check channels</strong> - cron schedule for channel and visibility polling</li>\n<li><strong>Refresh uploads</strong> - manual refresh of recent uploads</li>\n</ul>\n<h2 id=\"suggested-automations\" class=\"nizel-docs-heading\">Suggested automations</h2>\n<p>Suggested rules install disabled. Enable presets if you want limited channel visibility or fresh uploads to appear in the Status inbox or digest.</p>\n<h2 id=\"actions\" class=\"nizel-docs-heading\">Actions</h2>\n<p>Read-only in v1. Status does not publish, edit, delete, schedule, monetize, or moderate YouTube content.</p>\n<h2 id=\"permissions-and-domains\" class=\"nizel-docs-heading\">Permissions and domains</h2>\n<ul>\n<li><code class=\"nizel-code\">network</code> - call Google OAuth and YouTube Data HTTPS APIs</li>\n<li><code class=\"nizel-code\">keychain</code> - store OAuth token references securely</li>\n<li><code class=\"nizel-code\">oauth</code> - connect the configured creator account through Google OAuth 2 with PKCE</li>\n<li><code class=\"nizel-code\">background-refresh</code> - run scheduled channel checks</li>\n<li><strong>Domains:</strong> <code class=\"nizel-code\">accounts.google.com</code>, <code class=\"nizel-code\">oauth2.googleapis.com</code>, <code class=\"nizel-code\">www.googleapis.com</code></li>\n</ul>\n<h2 id=\"what-it-does-not-do\" class=\"nizel-docs-heading\">What it does not do</h2>\n<ul>\n<li>Does not replace YouTube Studio analytics, comments, copyright, or monetization tools</li>\n<li>Does not publish videos or edit channel metadata</li>\n<li>Does not moderate comments or manage community settings</li>\n<li>Does not request undeclared Google API hosts</li>\n</ul>\n<h2 id=\"setup\" class=\"nizel-docs-heading\">Setup</h2>\n<ol>\n<li>Install <strong>YouTube</strong> from the Status plugin store.</li>\n<li>Create a configured app and optionally enter a channel filter.</li>\n<li>Connect with Google OAuth using the creator account you want to watch.</li>\n<li>Grant network, keychain, OAuth, and background refresh permissions.</li>\n<li>Run <strong>Refresh uploads</strong>, then enable <strong>Check channels</strong> if you want scheduled polling.</li>\n</ol>",
       "readmeToc": [
         {
           "id": "why-install-this-plugin",
@@ -730,23 +770,58 @@
           "depth": 2
         },
         {
-          "id": "what-status-shows",
-          "text": "What Status shows",
+          "id": "what-you-configure",
+          "text": "What you configure",
           "depth": 2
         },
         {
-          "id": "authentication",
-          "text": "Authentication",
+          "id": "what-it-exposes",
+          "text": "What it exposes",
+          "depth": 2
+        },
+        {
+          "id": "resources",
+          "text": "Resources",
+          "depth": 3
+        },
+        {
+          "id": "events",
+          "text": "Events",
+          "depth": 3
+        },
+        {
+          "id": "views",
+          "text": "Views",
+          "depth": 3
+        },
+        {
+          "id": "checks",
+          "text": "Checks",
+          "depth": 3
+        },
+        {
+          "id": "suggested-automations",
+          "text": "Suggested automations",
+          "depth": 2
+        },
+        {
+          "id": "actions",
+          "text": "Actions",
+          "depth": 2
+        },
+        {
+          "id": "permissions-and-domains",
+          "text": "Permissions and domains",
+          "depth": 2
+        },
+        {
+          "id": "what-it-does-not-do",
+          "text": "What it does not do",
           "depth": 2
         },
         {
           "id": "setup",
           "text": "Setup",
-          "depth": 2
-        },
-        {
-          "id": "boundaries",
-          "text": "Boundaries",
           "depth": 2
         }
       ],

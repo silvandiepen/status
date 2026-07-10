@@ -304,6 +304,15 @@ Fully parallel once Milestone 3 is done; each is a self-contained package under 
 
 ### WP-4.5 Official plugin documentation template — Product Agent + Plugin Agent
 
+Status: Implemented for the v1 source-published documentation path. Every
+bundled and example plugin ships a `README.md` using the official template,
+the website generator renders those source READMEs into plugin detail pages,
+publisher pages link back to package authorship metadata, and the docs check
+fails if a plugin README omits required operational sections or fails to name
+declared permissions, domains, event types, or action IDs. This gives plugin
+agents a concrete source contract without adding public upload or plugin-owned
+UI.
+
 Create the source documentation template every official plugin must ship: purpose, boundaries, setup prerequisites, credential steps, permissions/domains, resources, events, metrics, actions, dashboard tile options, app detail views, app-scoped rules/notifications, troubleshooting, and fixtures. Wire the website/docs generator to render plugin docs from plugin source metadata without hand-copying.
 
 Depends: WP-3.7.
