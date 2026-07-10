@@ -1233,18 +1233,28 @@ public struct PluginSettingsContainerView: View {
     private let pluginID: String
     private let initialAccountID: String?
     private let onAppsChanged: (() -> Void)?
+    @StateObject private var notificationPreferencesViewModel: NotificationPreferencesViewModel
+    private let notificationPreferenceGroups: (InstalledPlugin, String?) -> [NotificationPreferencePluginGroup]
     @State private var appliedInitialAccountSelection = false
 
     public init(
         viewModel: @autoclosure @escaping () -> PluginStoreViewModel,
         pluginID: String,
         initialAccountID: String? = nil,
-        onAppsChanged: (() -> Void)? = nil
+        onAppsChanged: (() -> Void)? = nil,
+        notificationPreferencesViewModel: @autoclosure @escaping () -> NotificationPreferencesViewModel = NotificationPreferencesViewModel(
+            loadPluginGroups: { [] },
+            loadPreferences: { [] },
+            setPreference: { _, _, _, _ in }
+        ),
+        notificationPreferenceGroups: @escaping (InstalledPlugin, String?) -> [NotificationPreferencePluginGroup] = { _, _ in [] }
     ) {
         _viewModel = StateObject(wrappedValue: viewModel())
         self.pluginID = pluginID
         self.initialAccountID = initialAccountID
         self.onAppsChanged = onAppsChanged
+        _notificationPreferencesViewModel = StateObject(wrappedValue: notificationPreferencesViewModel())
+        self.notificationPreferenceGroups = notificationPreferenceGroups
     }
 
     public var body: some View {
@@ -1276,10 +1286,12 @@ public struct PluginSettingsContainerView: View {
         }
         .task {
             await viewModel.reload()
+            notificationPreferencesViewModel.reload()
             applyInitialAccountSelectionIfNeeded()
         }
         .refreshable {
             await viewModel.reload()
+            notificationPreferencesViewModel.reload()
             applyInitialAccountSelectionIfNeeded()
         }
         .onOpenURL { url in
@@ -1337,6 +1349,8 @@ public struct PluginSettingsContainerView: View {
             savingRuleID: viewModel.savingRuleID,
             selectedDashboardTileFields: viewModel.dashboardTileFields[key, default: []],
             savingDashboardTileFieldKey: viewModel.savingDashboardTileFieldKey,
+            notificationPreferencesViewModel: notificationPreferencesViewModel,
+            notificationPreferenceGroups: notificationPreferenceGroups(plugin, selectedAccountID),
             oauthConnectionURL: viewModel.oauthConnectionURLs[key],
             oauthConnectionError: viewModel.oauthConnectionErrors[key],
             testingRequestKey: viewModel.testingRequestKey,
@@ -1922,6 +1936,12 @@ public struct PluginStoreView: View {
             savingRuleID: savingRuleID,
             selectedDashboardTileFields: dashboardTileFields[setupKey(pluginID: plugin.id, accountID: selectedAccountID), default: []],
             savingDashboardTileFieldKey: savingDashboardTileFieldKey,
+            notificationPreferencesViewModel: NotificationPreferencesViewModel(
+                loadPluginGroups: { [] },
+                loadPreferences: { [] },
+                setPreference: { _, _, _, _ in }
+            ),
+            notificationPreferenceGroups: [],
             oauthConnectionURL: oauthConnectionURLs[setupKey(pluginID: plugin.id, accountID: selectedAccountID)],
             oauthConnectionError: oauthConnectionErrors[setupKey(pluginID: plugin.id, accountID: selectedAccountID)],
             testingRequestKey: testingRequestKey,
@@ -2277,6 +2297,8 @@ private struct PluginSettingsPanel: View {
     let savingRuleID: String?
     let selectedDashboardTileFields: [String]
     let savingDashboardTileFieldKey: String?
+    @ObservedObject var notificationPreferencesViewModel: NotificationPreferencesViewModel
+    let notificationPreferenceGroups: [NotificationPreferencePluginGroup]
     let oauthConnectionURL: URL?
     let oauthConnectionError: String?
     let testingRequestKey: String?
@@ -2462,6 +2484,15 @@ private struct PluginSettingsPanel: View {
                             setDashboardTileField(plugin, field, enabled)
                         }
                     )
+                    if selectedPersistedAccountID != nil {
+                        NotificationPreferencesPanel(
+                            viewModel: notificationPreferencesViewModel,
+                            groups: notificationPreferenceGroups,
+                            title: "Notifications",
+                            detail: "Choose how this app handles plugin-declared events. Event overrides stay scoped to this app.",
+                            emptyTitle: "This plugin does not declare notification-worthy events yet."
+                        )
+                    }
                     AppRulePresetsPanel(
                         plugin: plugin,
                         selectedAccountID: selectedPersistedAccountID,

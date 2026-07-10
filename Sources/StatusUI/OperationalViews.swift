@@ -1137,15 +1137,34 @@ public struct StatusSettingsView: View {
     }
 }
 
-private struct NotificationPreferencesPanel: View {
-    @ObservedObject var viewModel: NotificationPreferencesViewModel
+public struct NotificationPreferencesPanel: View {
+    @ObservedObject private var viewModel: NotificationPreferencesViewModel
+    private let groups: [NotificationPreferencePluginGroup]?
+    private let title: String
+    private let detail: String
+    private let emptyTitle: String
 
-    var body: some View {
+    public init(
+        viewModel: NotificationPreferencesViewModel,
+        groups: [NotificationPreferencePluginGroup]? = nil,
+        title: String = "Notifications",
+        detail: String = "App defaults and event overrides. Plugins suggest defaults; Status applies these choices before platform delivery.",
+        emptyTitle: String = "No installed plugins expose notification-worthy events yet."
+    ) {
+        self.viewModel = viewModel
+        self.groups = groups
+        self.title = title
+        self.detail = detail
+        self.emptyTitle = emptyTitle
+    }
+
+    public var body: some View {
+        let visibleGroups = groups ?? viewModel.pluginGroups
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Notifications")
+                Text(title)
                     .font(.headline)
-                Text("App defaults and event overrides. Plugins suggest defaults; Status applies these choices before platform delivery.")
+                Text(detail)
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1157,13 +1176,13 @@ private struct NotificationPreferencesPanel: View {
                     .foregroundStyle(.red)
             }
 
-            if viewModel.pluginGroups.isEmpty {
-                Text("No installed plugins expose notification-worthy events yet.")
+            if visibleGroups.isEmpty {
+                Text(emptyTitle)
                     .font(.callout)
                     .foregroundStyle(.secondary)
             } else {
                 VStack(spacing: 10) {
-                    ForEach(viewModel.pluginGroups) { group in
+                    ForEach(visibleGroups) { group in
                         NotificationPreferencePluginCard(group: group, viewModel: viewModel)
                     }
                 }

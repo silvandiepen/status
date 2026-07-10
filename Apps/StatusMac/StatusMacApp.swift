@@ -39,6 +39,10 @@ private struct MacPluginSettingsWindow: View {
             initialAccountID: route.accountID,
             onAppsChanged: {
                 NotificationCenter.default.post(name: .statusConfiguredAppsDidChange, object: nil)
+            },
+            notificationPreferencesViewModel: makeNotificationPreferencesViewModel(),
+            notificationPreferenceGroups: { plugin, accountID in
+                (try? notificationPreferenceGroups(plugin: plugin, accountID: accountID)) ?? []
             }
         )
         .frame(minWidth: 640, minHeight: 520)
@@ -318,6 +322,118 @@ private struct MacPluginSettingsRoute: Equatable {
     var rawValue: String {
         "\(pluginID)|\(accountID ?? "")"
     }
+}
+
+@MainActor
+private func makeNotificationPreferencesViewModel() -> NotificationPreferencesViewModel {
+    NotificationPreferencesViewModel {
+        try notificationPreferenceGroups(plugin: nil, accountID: nil)
+    } loadPreferences: {
+        try LocalStatusStore.openApplicationSupportStore().notificationPreferences()
+    } setPreference: { pluginID, accountID, eventType, mode in
+        try setNotificationPreference(pluginID: pluginID, accountID: accountID, eventType: eventType, mode: mode)
+    }
+}
+
+private func notificationPreferenceGroups(plugin: InstalledPlugin?, accountID: String?) throws -> [NotificationPreferencePluginGroup] {
+    try bootstrapBundledPluginsForNotificationPreferences()
+    let store = try LocalStatusStore.openApplicationSupportStore()
+    let plugins = try plugin.map { [$0] } ?? store.installedPlugins()
+    return try plugins.flatMap { plugin in
+        let definition = try store.installedPluginDefinition(pluginID: plugin.id)
+        let events = notificationPreferenceEvents(from: definition)
+        if let accountID {
+            let account = try store.accountConfiguration(accountID: accountID)
+            return [
+                NotificationPreferencePluginGroup(
+                    id: accountID,
+                    pluginID: plugin.id,
+                    accountID: accountID,
+                    name: account?.accountName ?? plugin.name,
+                    events: events
+                )
+            ]
+        }
+        let accounts = try store.accountConfigurations(pluginID: plugin.id)
+        if accounts.isEmpty {
+            return [
+                NotificationPreferencePluginGroup(id: plugin.id, pluginID: plugin.id, name: plugin.name, events: events)
+            ]
+        }
+        return accounts.map { account in
+            NotificationPreferencePluginGroup(
+                id: account.id,
+                pluginID: plugin.id,
+                accountID: account.id,
+                name: account.accountName,
+                events: events
+            )
+        }
+    }
+}
+
+private func notificationPreferenceEvents(from definition: PluginPackageDefinition?) -> [NotificationPreferenceEventRow] {
+    (definition?.events ?? [])
+        .sorted { lhs, rhs in lhs.label.localizedCaseInsensitiveCompare(rhs.label) == .orderedAscending }
+        .map { event in
+            NotificationPreferenceEventRow(
+                type: event.type,
+                label: event.label,
+                defaultMode: event.notificationDefault
+            )
+        }
+}
+
+private func setNotificationPreference(pluginID: String, accountID: String?, eventType: String?, mode: NotificationMode?) throws {
+    let store = try LocalStatusStore.openApplicationSupportStore()
+    let scope: NotificationPreferenceScope = if eventType != nil {
+        .event
+    } else if accountID != nil {
+        .app
+    } else {
+        .plugin
+    }
+    if let mode {
+        try store.upsertNotificationPreference(
+            NotificationPreference(
+                id: notificationPreferenceID(pluginID: pluginID, accountID: accountID, eventType: eventType),
+                scope: scope,
+                pluginID: pluginID,
+                accountID: accountID,
+                eventType: eventType,
+                mode: mode,
+                createdAt: Date(),
+                updatedAt: Date()
+            )
+        )
+    } else {
+        try store.deleteNotificationPreference(pluginID: pluginID, scope: scope, eventType: eventType, accountID: accountID)
+    }
+}
+
+private func notificationPreferenceID(pluginID: String, accountID: String?, eventType: String?) -> String {
+    let suffix = ([pluginID, accountID, eventType].compactMap { $0 }.joined(separator: "_"))
+        .replacingOccurrences(of: #"[^a-zA-Z0-9_]+"#, with: "_", options: .regularExpression)
+        .lowercased()
+    return "ntp_\(suffix)"
+}
+
+private func bootstrapBundledPluginsForNotificationPreferences() throws {
+    let store = try LocalStatusStore.openApplicationSupportStore()
+    guard try store.syncState(ownerType: "app", ownerID: "bundled-plugins") != "installed" else {
+        return
+    }
+    let databaseURL = try LocalStatusStore.applicationSupportDatabaseURL()
+    let directory = databaseURL.deletingLastPathComponent().appendingPathComponent("Plugins", isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let installer = BundledPluginInstaller(store: store, installRoot: directory)
+    try installer.installAll()
+    try store.upsertSyncState(
+        ownerType: "app",
+        ownerID: "bundled-plugins",
+        cursor: "installed",
+        updatedAt: Date()
+    )
 }
 
 private struct MacRootView: View {
