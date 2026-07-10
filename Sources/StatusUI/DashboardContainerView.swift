@@ -58,6 +58,12 @@ public struct DashboardContainerView: View {
             .task(id: reloadToken) {
                 viewModel.reload()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .statusConfiguredAppsDidChange)) { _ in
+                viewModel.reload()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .statusAppDataDidChange)) { _ in
+                viewModel.reload()
+            }
             .refreshable {
                 viewModel.reload()
             }

@@ -5,10 +5,6 @@ import SwiftUI
 import UniformTypeIdentifiers
 @preconcurrency import UserNotifications
 
-private extension Notification.Name {
-    static let statusConfiguredAppsDidChange = Notification.Name("statusConfiguredAppsDidChange")
-}
-
 @main
 struct StatusMacApp: App {
     var body: some Scene {
@@ -437,11 +433,13 @@ private struct MacRootView: View {
                             )
                         },
                         runPlugin: { pluginID, accountID, accountName in
-                            try await runConfiguredPluginCheck(
+                            let result = try await runConfiguredPluginCheck(
                                 pluginID: pluginID,
                                 accountID: accountID,
                                 accountName: accountName
                             )
+                            NotificationCenter.default.post(name: .statusAppDataDidChange, object: nil)
+                            return result
                         }
                     )
                 }

@@ -1069,6 +1069,7 @@ public struct PluginStoreContainerView: View {
             run: { plugin in
                 Task {
                     await viewModel.run(plugin)
+                    NotificationCenter.default.post(name: .statusAppDataDidChange, object: nil)
                 }
             },
             install: { plugin in
@@ -1158,13 +1159,17 @@ public struct PluginStoreContainerView: View {
         }
         .onOpenURL { url in
             Task {
-                await viewModel.handleOAuthCallbackIfPending(callbackURL: url)
+                if await viewModel.handleOAuthCallbackIfPending(callbackURL: url) {
+                    onAppsChanged?()
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: StatusOAuthCallbackRouter.notificationName)) { notification in
             guard let url = notification.object as? URL else { return }
             Task {
-                await viewModel.handleOAuthCallbackIfPending(callbackURL: url)
+                if await viewModel.handleOAuthCallbackIfPending(callbackURL: url) {
+                    onAppsChanged?()
+                }
             }
         }
     }
@@ -1279,13 +1284,17 @@ public struct PluginSettingsContainerView: View {
         }
         .onOpenURL { url in
             Task {
-                await viewModel.handleOAuthCallbackIfPending(callbackURL: url)
+                if await viewModel.handleOAuthCallbackIfPending(callbackURL: url) {
+                    onAppsChanged?()
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: StatusOAuthCallbackRouter.notificationName)) { notification in
             guard let url = notification.object as? URL else { return }
             Task {
-                await viewModel.handleOAuthCallbackIfPending(callbackURL: url)
+                if await viewModel.handleOAuthCallbackIfPending(callbackURL: url) {
+                    onAppsChanged?()
+                }
             }
         }
     }
@@ -1368,7 +1377,10 @@ public struct PluginSettingsContainerView: View {
             runResult: viewModel.runResults[key],
             runError: viewModel.runErrors[key],
             run: { plugin in
-                Task { await viewModel.run(plugin) }
+                Task {
+                    await viewModel.run(plugin)
+                    NotificationCenter.default.post(name: .statusAppDataDidChange, object: nil)
+                }
             },
             isPreviewing: false,
             previewResult: nil,

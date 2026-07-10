@@ -42,11 +42,13 @@ private struct IOSRootView: View {
                                 makePluginStoreViewModel(platform: .iOS)
                             },
                             runPlugin: { pluginID, accountID, accountName in
-                                try await runConfiguredPluginCheck(
+                                let result = try await runConfiguredPluginCheck(
                                     pluginID: pluginID,
                                     accountID: accountID,
                                     accountName: accountName
                                 )
+                                NotificationCenter.default.post(name: .statusAppDataDidChange, object: nil)
+                                return result
                             }
                         )
                         .navigationTitle("App")
@@ -65,7 +67,12 @@ private struct IOSRootView: View {
             }
 
             NavigationStack {
-                PluginStoreContainerView(viewModel: makePluginStoreViewModel(platform: .iOS))
+                PluginStoreContainerView(
+                    viewModel: makePluginStoreViewModel(platform: .iOS),
+                    onAppsChanged: {
+                        NotificationCenter.default.post(name: .statusConfiguredAppsDidChange, object: nil)
+                    }
+                )
                     .navigationTitle("Plugins")
             }
             .tabItem {
@@ -649,6 +656,9 @@ private struct IOSPluginAppDetail: View {
         .task(id: "\(pluginID):\(accountID ?? "__setup__")") {
             load()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .statusConfiguredAppsDidChange)) { _ in
+            load()
+        }
         .refreshable {
             load()
         }
@@ -657,7 +667,10 @@ private struct IOSPluginAppDetail: View {
                 PluginSettingsContainerView(
                     viewModel: settingsViewModel(),
                     pluginID: pluginID,
-                    initialAccountID: accountID
+                    initialAccountID: accountID,
+                    onAppsChanged: {
+                        NotificationCenter.default.post(name: .statusConfiguredAppsDidChange, object: nil)
+                    }
                 )
                 .navigationTitle("App Settings")
                 #if os(iOS)
