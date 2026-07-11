@@ -8,7 +8,7 @@ import UniformTypeIdentifiers
 @main
 struct StatusMacApp: App {
     var body: some Scene {
-        WindowGroup {
+        WindowGroup("Status", id: "main") {
             MacRootView()
                 .frame(minWidth: 980, minHeight: 680)
                 .background(Color(nsColor: .windowBackgroundColor))
@@ -16,6 +16,11 @@ struct StatusMacApp: App {
                 .onOpenURL { url in
                     StatusOAuthCallbackRouter.publish(url)
                 }
+        }
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                NewStatusWindowCommand()
+            }
         }
 
         WindowGroup("App Settings", id: "integration-settings", for: String.self) { $settingsRoute in
@@ -26,6 +31,17 @@ struct StatusMacApp: App {
                     }
             }
         }
+    }
+}
+
+private struct NewStatusWindowCommand: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("New") {
+            openWindow(id: "main")
+        }
+        .keyboardShortcut("n", modifiers: .command)
     }
 }
 
