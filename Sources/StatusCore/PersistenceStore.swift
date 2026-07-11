@@ -1896,6 +1896,7 @@ public final class StatusPersistenceStore {
 
     private func dashboardHeadline(statusItems: [StatusItem], integrations: [IntegrationSummary]) -> String {
         let criticalCount = statusItems.filter { $0.severity == .critical }.count
+            + integrations.filter { $0.severity == .critical }.count
         if criticalCount == 1 {
             return "1 critical item"
         }
@@ -1903,11 +1904,19 @@ public final class StatusPersistenceStore {
             return "\(criticalCount) critical items"
         }
 
-        let attentionCount = statusItems.filter { $0.severity >= .warning }.count
+        let statusAttentionCount = statusItems.filter { $0.severity >= .warning }.count
+        let appAttentionCount = integrations.filter { $0.severity >= .warning }.count
+        let attentionCount = statusAttentionCount + appAttentionCount
         if attentionCount == 1 {
+            if statusAttentionCount == 0, appAttentionCount == 1 {
+                return "1 app needs attention"
+            }
             return "1 item needs attention"
         }
         if attentionCount > 1 {
+            if statusAttentionCount == 0 {
+                return "\(appAttentionCount) apps need attention"
+            }
             return "\(attentionCount) items need attention"
         }
         if integrations.isEmpty {
@@ -1930,11 +1939,20 @@ public final class StatusPersistenceStore {
         let openCount = statusItems.count
         let integrationCount = integrations.count
         let eventCount = recentEvents.count
-        if openCount == 0 {
+        let appAttentionCount = integrations.filter { $0.severity >= .warning }.count
+        if openCount == 0, appAttentionCount == 0 {
             return "\(integrationCount) \(plural("app", count: integrationCount)) tracked, \(eventCount) \(plural("recent event", count: eventCount)), no open attention items."
+        }
+        if openCount == 0 {
+            let verb = appAttentionCount == 1 ? "needs" : "need"
+            return "\(appAttentionCount) \(plural("app", count: appAttentionCount)) \(verb) attention across \(integrationCount) \(plural("app", count: integrationCount)). \(eventCount) \(plural("recent event", count: eventCount)) recorded."
         }
 
         let newest = statusItems.map(\.updatedAt).max() ?? now
+        if appAttentionCount > 0 {
+            let verb = appAttentionCount == 1 ? "needs" : "need"
+            return "\(openCount) open attention \(plural("item", count: openCount)) and \(appAttentionCount) \(plural("app", count: appAttentionCount)) \(verb) attention across \(integrationCount) \(plural("app", count: integrationCount)). Newest update: \(lastRefreshDescription(ISO8601.string(from: newest)))."
+        }
         return "\(openCount) open attention \(plural("item", count: openCount)) across \(integrationCount) \(plural("app", count: integrationCount)). Newest update: \(lastRefreshDescription(ISO8601.string(from: newest)))."
     }
 

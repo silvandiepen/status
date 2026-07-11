@@ -957,14 +957,22 @@ import Testing
         updatedAt: now
     )
 
-    var app = try #require(try store.dashboardSnapshot(now: now).integrations.first)
+    var snapshot = try store.dashboardSnapshot(now: now)
+    #expect(snapshot.headline == "1 app needs attention")
+    #expect(snapshot.summary == "1 app needs attention across 1 app. 0 recent events recorded.")
+
+    var app = try #require(snapshot.integrations.first)
     #expect(app.name == "Status Website")
     #expect(app.state == "Needs permissions")
     #expect(app.severity == .warning)
 
     try store.setPluginPermission(pluginID: manifest.id, permission: .userConfiguredDomains, granted: true, grantedAt: now)
 
-    app = try #require(try store.dashboardSnapshot(now: now).integrations.first)
+    snapshot = try store.dashboardSnapshot(now: now)
+    #expect(snapshot.headline == "Everything tracked is okay")
+    #expect(snapshot.summary == "1 app tracked, 0 recent events, no open attention items.")
+
+    app = try #require(snapshot.integrations.first)
     #expect(app.state == "Connected")
     #expect(app.severity == .ok)
 }
