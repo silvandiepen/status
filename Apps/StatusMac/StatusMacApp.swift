@@ -468,7 +468,9 @@ private struct MacRootView: View {
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(sidebarApps) { app in
-                            NavigationLink(value: MacSection.app(pluginID: app.pluginID, accountID: app.accountID)) {
+                            Button {
+                                selection = app.section
+                            } label: {
                                 Label {
                                     Text(app.name)
                                         .lineLimit(1)
@@ -481,7 +483,16 @@ private struct MacRootView: View {
                                         size: 22
                                     )
                                 }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.vertical, 6)
+                                .contentShape(Rectangle())
                             }
+                            .buttonStyle(.plain)
+                            .contentShape(Rectangle())
+                            .tag(app.section)
+                            .listRowBackground(selection == app.section ? Color.accentColor.opacity(0.16) : Color.clear)
+                            .accessibilityLabel(Text("Open \(app.name)"))
+                            .accessibilityAddTraits(selection == app.section ? [.isSelected] : [])
                         }
                     }
                 }
@@ -517,10 +528,7 @@ private struct MacRootView: View {
                         viewModel: makeDashboardViewModel(),
                         reloadToken: dashboardReloadToken,
                         openApp: { app in
-                            selection = .app(
-                                pluginID: app.provider,
-                                accountID: app.id
-                            )
+                            selection = MacSection.app(pluginID: app.provider, accountID: app.id)
                         }
                     )
                 }
@@ -1270,6 +1278,10 @@ private struct SidebarApp: Identifiable, Hashable {
 
     var id: String {
         "\(pluginID):\(accountID ?? "__setup__")"
+    }
+
+    var section: MacSection {
+        .app(pluginID: pluginID, accountID: accountID)
     }
 }
 
