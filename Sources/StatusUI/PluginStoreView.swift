@@ -1764,11 +1764,7 @@ private struct ResourceFieldValue: View {
     }
 
     private func displayLabel(for field: String) -> String {
-        let spaced = field
-            .replacingOccurrences(of: #"([a-z0-9])([A-Z])"#, with: "$1 $2", options: .regularExpression)
-            .replacingOccurrences(of: "_", with: " ")
-            .replacingOccurrences(of: "-", with: " ")
-        return spaced.prefix(1).uppercased() + String(spaced.dropFirst())
+        StatusFieldLabelFormatter.label(for: field)
     }
 }
 
@@ -3089,11 +3085,7 @@ private struct DashboardTileFieldsPanel: View {
     }
 
     private func displayLabel(for field: String) -> String {
-        let spaced = field
-            .replacingOccurrences(of: #"([a-z0-9])([A-Z])"#, with: "$1 $2", options: .regularExpression)
-            .replacingOccurrences(of: "_", with: " ")
-            .replacingOccurrences(of: "-", with: " ")
-        return spaced.prefix(1).uppercased() + String(spaced.dropFirst())
+        StatusFieldLabelFormatter.label(for: field)
     }
 }
 
