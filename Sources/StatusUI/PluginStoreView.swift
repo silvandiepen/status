@@ -1388,6 +1388,10 @@ public struct PluginSettingsContainerView: View {
     private func settingsPanel(for plugin: InstalledPlugin) -> some View {
         let selectedAccountID = viewModel.selectedAccountIDs[plugin.id]
         let key = "\(plugin.id):\(selectedAccountID ?? "__new__:")"
+        let selectedResources = PluginSettingsResourceScope.resources(
+            viewModel.pluginResources[plugin.id, default: []],
+            selectedAccountID: selectedAccountID
+        )
         PluginSettingsPanel(
             plugin: plugin,
             canConfigure: viewModel.canConfigure(plugin),
@@ -1404,7 +1408,7 @@ public struct PluginSettingsContainerView: View {
             triggers: viewModel.installedTriggers[plugin.id, default: []],
             savingTriggerID: viewModel.savingTriggerID,
             runtimeStatus: viewModel.runtimeStatuses[plugin.id],
-            resources: viewModel.pluginResources[plugin.id, default: []],
+            resources: selectedResources,
             rulePresets: viewModel.rulePresets[plugin.id, default: []],
             appRules: viewModel.appRules[plugin.id, default: []],
             actions: viewModel.pluginActions[plugin.id, default: []],
