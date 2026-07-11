@@ -143,6 +143,43 @@ import Testing
     #expect(summary.secondary == "Selected for refresh: Personal GitHub")
 }
 
+@Test func pluginAppAuditTrailKeepsEntriesForRecentAppJobs() {
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let recentJobs = [
+        JobRecord(
+            id: "job_recent",
+            pluginID: "com.status.website",
+            triggerID: "manual",
+            accountID: "acc_status",
+            status: .success,
+            queuedAt: now
+        )
+    ]
+    let matchingAudit = AuditEntry(
+        id: "aud_job_recent_success",
+        title: "Job completed",
+        detail: "Website refresh completed.",
+        timestamp: now,
+        status: "success",
+        jobID: "job_recent"
+    )
+    let otherAudit = AuditEntry(
+        id: "aud_job_other_success",
+        title: "Job completed",
+        detail: "Other app refresh completed.",
+        timestamp: now,
+        status: "success",
+        jobID: "job_other"
+    )
+
+    let trail = PluginAppAuditTrail(
+        auditEntries: [matchingAudit, otherAudit],
+        recentJobs: recentJobs
+    )
+
+    #expect(trail.entries == [matchingAudit])
+}
+
 @Test func pluginStoreCatalogDetectsAvailableUpdates() throws {
     let installed = InstalledPlugin(
         id: "com.status.github",

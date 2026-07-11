@@ -1518,6 +1518,7 @@ public struct PluginAppDetailView: View {
     private let app: PluginAccountConfiguration?
     private let runtimeStatus: PluginRuntimeStatus?
     private let resources: [Resource]
+    private let auditEntries: [AuditEntry]
     private let runUnavailableReason: String?
     private let openSettings: (() -> Void)?
     private let run: (() -> Void)?
@@ -1527,6 +1528,7 @@ public struct PluginAppDetailView: View {
         app: PluginAccountConfiguration?,
         runtimeStatus: PluginRuntimeStatus?,
         resources: [Resource],
+        auditEntries: [AuditEntry] = [],
         runUnavailableReason: String? = nil,
         openSettings: (() -> Void)? = nil,
         run: (() -> Void)? = nil
@@ -1535,6 +1537,7 @@ public struct PluginAppDetailView: View {
         self.app = app
         self.runtimeStatus = runtimeStatus
         self.resources = resources
+        self.auditEntries = auditEntries
         self.runUnavailableReason = runUnavailableReason
         self.openSettings = openSettings
         self.run = run
@@ -1559,6 +1562,7 @@ public struct PluginAppDetailView: View {
                 } else {
                     PluginDeclaredViewsPanel(plugin: plugin, resources: resources)
                 }
+                PluginAppAuditPanel(entries: auditEntries)
             }
             .padding(24)
             .frame(maxWidth: 920, alignment: .leading)
@@ -1602,6 +1606,112 @@ public struct PluginAppDetailView: View {
                 }
             }
         }
+    }
+}
+
+public struct PluginAppAuditTrail: Equatable {
+    public var entries: [AuditEntry]
+
+    public init(auditEntries: [AuditEntry], recentJobs: [JobRecord], limit: Int = 5) {
+        let jobIDs = Set(recentJobs.map(\.id))
+        self.entries = Array(
+            auditEntries
+                .filter { entry in
+                    guard let jobID = entry.jobID else { return false }
+                    return jobIDs.contains(jobID)
+                }
+                .prefix(limit)
+        )
+    }
+}
+
+private struct PluginAppAuditPanel: View {
+    let entries: [AuditEntry]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Recent audit")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            if entries.isEmpty {
+                EmptyPluginState(
+                    title: "No audit entries for this app yet",
+                    detail: "Refreshes and automation decisions for this app will appear here after they run."
+                )
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(entries.prefix(5)) { entry in
+                        PluginAppAuditRow(entry: entry)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct PluginAppAuditRow: View {
+    let entry: AuditEntry
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(entry.title)
+                    .font(.callout.weight(.semibold))
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Text(entry.status)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(statusColor)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(statusColor.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                Text(entry.timestamp, style: .relative)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Text(entry.detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            if provenanceReferences.isEmpty == false {
+                HStack(spacing: 8) {
+                    ForEach(provenanceReferences, id: \.self) { reference in
+                        Text(reference)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color.statusSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var statusColor: Color {
+        switch entry.status {
+        case "success":
+            .green
+        case "failed", "denied":
+            .red
+        case "suppressed", "skipped", "unsupported":
+            .orange
+        default:
+            .secondary
+        }
+    }
+
+    private var provenanceReferences: [String] {
+        [
+            entry.jobID.map { "job \($0)" },
+            entry.eventID.map { "event \($0)" },
+            entry.actionRunID.map { "action \($0)" }
+        ].compactMap { $0 }
     }
 }
 

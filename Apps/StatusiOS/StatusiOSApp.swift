@@ -684,6 +684,7 @@ private struct IOSPluginAppDetail: View {
     @State private var app: PluginAccountConfiguration?
     @State private var runtimeStatus: PluginRuntimeStatus?
     @State private var resources: [Resource] = []
+    @State private var auditEntries: [AuditEntry] = []
     @State private var missingRunPermissions: [PluginPermission] = []
     @State private var loadError: String?
     @State private var runResult: String?
@@ -701,6 +702,7 @@ private struct IOSPluginAppDetail: View {
                     app: app,
                     runtimeStatus: runtimeStatus,
                     resources: resources,
+                    auditEntries: auditEntries,
                     runUnavailableReason: runUnavailableReason,
                     openSettings: {
                         showsSettings = true
@@ -810,10 +812,15 @@ private struct IOSPluginAppDetail: View {
             let store = try LocalStatusStore.openApplicationSupportStore()
             let loadedPlugin = try store.installedPlugin(id: pluginID)
             let loadedApp = try accountID.flatMap { try store.accountConfiguration(accountID: $0) }
+            let recentJobs = try store.recentJobs(pluginID: pluginID, accountID: accountID, limit: 5)
             plugin = loadedPlugin
             app = loadedApp
             resources = try store.resources(pluginID: pluginID, accountID: accountID)
-            runtimeStatus = try recentRuntimeStatus(store: store, pluginID: pluginID, accountID: accountID)
+            runtimeStatus = recentRuntimeStatus(from: recentJobs.first)
+            auditEntries = PluginAppAuditTrail(
+                auditEntries: try store.auditEntries(limit: 100),
+                recentJobs: recentJobs
+            ).entries
             missingRunPermissions = try missingRuntimePermissions(store: store, plugin: loadedPlugin, app: loadedApp)
             if loadedPlugin == nil {
                 loadError = "This plugin is not installed on this device."
@@ -827,6 +834,7 @@ private struct IOSPluginAppDetail: View {
             app = nil
             resources = []
             runtimeStatus = nil
+            auditEntries = []
             missingRunPermissions = []
             loadError = error.localizedDescription
         }
@@ -845,8 +853,8 @@ private struct IOSPluginAppDetail: View {
         isRunning = false
     }
 
-    private func recentRuntimeStatus(store: StatusPersistenceStore, pluginID: String, accountID: String?) throws -> PluginRuntimeStatus? {
-        guard let job = try store.recentJobs(pluginID: pluginID, accountID: accountID, limit: 1).first else {
+    private func recentRuntimeStatus(from job: JobRecord?) -> PluginRuntimeStatus? {
+        guard let job else {
             return nil
         }
         return PluginRuntimeStatus(
