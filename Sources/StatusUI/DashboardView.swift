@@ -14,7 +14,11 @@ public struct DashboardView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 DashboardHeader(snapshot: snapshot)
-                AttentionSection(items: snapshot.statusItems)
+                AttentionSection(
+                    items: snapshot.statusItems,
+                    apps: snapshot.integrations,
+                    openApp: openApp
+                )
                 MetricGrid(metrics: snapshot.metrics)
                 AppSection(apps: snapshot.integrations, openApp: openApp)
                 EventSection(events: snapshot.recentEvents)
@@ -46,16 +50,25 @@ private struct DashboardHeader: View {
 
 private struct AttentionSection: View {
     let items: [StatusItem]
+    let apps: [IntegrationSummary]
+    let openApp: ((IntegrationSummary) -> Void)?
+
+    private var attentionApps: [IntegrationSummary] {
+        apps.filter { $0.severity >= .warning }
+    }
 
     var body: some View {
         SectionBlock(title: "Needs attention") {
-            if items.isEmpty {
+            if items.isEmpty, attentionApps.isEmpty {
                 DashboardEmptyRow(
                     title: "No open attention items",
                     detail: "Status will show important changes here when connected apps report something that needs action."
                 )
             } else {
                 VStack(spacing: 10) {
+                    ForEach(attentionApps) { app in
+                        attentionAppRow(app)
+                    }
                     ForEach(items) { item in
                         HStack(alignment: .top, spacing: 12) {
                             SeverityDot(severity: item.severity)
@@ -79,6 +92,73 @@ private struct AttentionSection: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func attentionAppRow(_ app: IntegrationSummary) -> some View {
+        let row = HStack(alignment: .top, spacing: 12) {
+            IntegrationIcon(provider: app.provider, iconAsset: app.iconAsset, accentColor: app.accentColor, size: 28)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(app.name)
+                    .font(.headline)
+                Text("\(app.state) - \(providerLabel(for: app))")
+                    .font(.callout)
+                    .foregroundStyle(statusColor(for: app.severity))
+                Text(app.lastSyncDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 12)
+            if openApp != nil {
+                HStack(spacing: 5) {
+                    Text("Open app")
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                }
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(16)
+        .background(Color.statusSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+
+        if let openApp {
+            Button {
+                openApp(app)
+            } label: {
+                row
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Open \(app.name)"))
+        } else {
+            row
+        }
+    }
+
+    private func statusColor(for severity: Severity) -> Color {
+        switch severity {
+        case .critical:
+            .red
+        case .warning:
+            .orange
+        case .notice:
+            .blue
+        case .ok:
+            .green
+        }
+    }
+
+    private func providerLabel(for app: IntegrationSummary) -> String {
+        if let providerName = app.providerName, providerName.isEmpty == false {
+            return providerName
+        }
+        return app.provider
+            .replacingOccurrences(of: "com.status.", with: "")
+            .split(separator: ".")
+            .map { $0.replacingOccurrences(of: "-", with: " ").capitalized }
+            .joined(separator: " ")
     }
 }
 
