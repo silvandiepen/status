@@ -393,6 +393,11 @@ public final class PluginRuntimeService: ProviderActionExecutor, @unchecked Send
             manifest: installedVersion.manifest,
             permission: .network
         )
+        try requireGrantedPermissionIfDeclared(
+            pluginID: pluginID,
+            manifest: installedVersion.manifest,
+            permission: .userConfiguredDomains
+        )
 
         let definition = try PluginPackageDefinition.decode(from: Data(contentsOf: URL(fileURLWithPath: packagePath)))
         guard let requestDefinition = definition.requests.requests[requestID] else {
@@ -471,6 +476,11 @@ public final class PluginRuntimeService: ProviderActionExecutor, @unchecked Send
                 pluginID: request.pluginID,
                 manifest: installedVersion.manifest,
                 permission: .network
+            )
+            try requireGrantedPermissionIfDeclared(
+                pluginID: request.pluginID,
+                manifest: installedVersion.manifest,
+                permission: .userConfiguredDomains
             )
 
             let packageData = try Data(contentsOf: URL(fileURLWithPath: packagePath))

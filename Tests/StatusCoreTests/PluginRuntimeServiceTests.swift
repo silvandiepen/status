@@ -311,6 +311,84 @@ import Testing
     #expect(audit.status == "failed")
 }
 
+@Test func pluginRuntimeServiceRequiresGrantedUserConfiguredDomainsPermission() async throws {
+    let database = try temporaryRuntimeDatabase()
+    let store = StatusPersistenceStore(database: database)
+    let now = Date(timeIntervalSince1970: 1_783_433_520)
+    let packageURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("status-runtime-\(UUID().uuidString).statusplugin.zip")
+    let packageData = runtimeStoredZip(files: [
+        ("requests.json", Data("""
+        {
+          "requests": {
+            "check_site": {
+              "method": "GET",
+              "url": "https://{{host}}"
+            }
+          }
+        }
+        """.utf8)),
+        ("mappings.json", Data("""
+        {
+          "resources": [],
+          "events": []
+        }
+        """.utf8))
+    ])
+    try packageData.write(to: packageURL)
+    let manifest = PluginManifest(
+        id: "com.status.website",
+        name: "Website Uptime",
+        version: "0.1.0",
+        author: PluginAuthor(name: "Status Foundry", publisherId: "status-foundry"),
+        category: "ops",
+        description: "Check websites.",
+        minCoreVersion: "0.1.0",
+        platforms: [.macOS, .iOS],
+        permissions: [.network, .userConfiguredDomains],
+        domains: []
+    )
+    try store.installPlugin(
+        PluginInstallRecord(
+            manifest: manifest,
+            trustLevel: .official,
+            installPath: packageURL.deletingLastPathComponent().path,
+            packagePath: packageURL.path,
+            verification: PluginPackageVerificationResult(
+                pluginID: manifest.id,
+                version: manifest.version,
+                sha256: PluginPackageVerifier.sha256Hex(packageData),
+                signedBy: "status-foundry-dev"
+            ),
+            signature: "dev-signature",
+            packageDefinition: try PluginPackageDefinition.decode(from: packageData),
+            installedAt: now
+        )
+    )
+    try grantRuntimePermissions([.network], pluginID: manifest.id, store: store, at: now)
+    let service = PluginRuntimeService(store: store)
+
+    await #expect(throws: PluginRuntimeServiceError.missingPermission(pluginID: manifest.id, permission: .userConfiguredDomains)) {
+        _ = try await service.runInstalledPluginRequest(
+            PluginRuntimeRequest(
+                pluginID: manifest.id,
+                requestID: "check_site",
+                accountID: "acct_example",
+                accountName: "Example",
+                variables: ["host": "example.com"],
+                now: now
+            )
+        )
+    }
+
+    let failedJob = try #require(try store.job(id: "job_com_status_website_check_site_acct_example_1783433520"))
+    #expect(failedJob.status == .failed)
+    #expect(failedJob.error == "Plugin com.status.website requires granted permission before it can run: user-configured-domains")
+    let audit = try #require(try store.auditEntries(limit: 1).first)
+    #expect(audit.jobID == failedJob.id)
+    #expect(audit.status == "failed")
+}
+
 @Test func pluginRuntimeServiceRunsNextQueuedConfiguredWebsiteJob() async throws {
     let database = try temporaryRuntimeDatabase()
     let store = StatusPersistenceStore(database: database)

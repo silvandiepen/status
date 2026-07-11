@@ -2260,6 +2260,9 @@ private struct InstalledPluginSection: View {
         if declared.contains(.network) {
             required.append(.network)
         }
+        if declared.contains(.userConfiguredDomains) {
+            required.append(.userConfiguredDomains)
+        }
         if selectedAccount.credentialRef != nil, declared.contains(.keychain) {
             required.append(.keychain)
         }
@@ -2837,6 +2840,9 @@ private struct PluginSettingsPanel: View {
         var required: [PluginPermission] = []
         if declared.contains(.network) {
             required.append(.network)
+        }
+        if declared.contains(.userConfiguredDomains) {
+            required.append(.userConfiguredDomains)
         }
         if selectedAccount?.credentialRef != nil, declared.contains(.keychain) {
             required.append(.keychain)
