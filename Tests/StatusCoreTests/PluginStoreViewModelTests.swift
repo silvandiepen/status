@@ -83,7 +83,7 @@ import Testing
 }
 
 @MainActor
-@Test func pluginStoreViewModelLoadsRuntimeStatusesForInstalledPlugins() async throws {
+@Test func pluginStoreViewModelLoadsRuntimeStatusesForConfiguredApps() async throws {
     let plugin = InstalledPlugin(
         id: "com.status.github",
         name: "GitHub",
@@ -96,27 +96,60 @@ import Testing
         installedAt: Date(timeIntervalSince1970: 1_783_433_520),
         updatedAt: Date(timeIntervalSince1970: 1_783_433_520)
     )
-    let runtimeStatus = PluginRuntimeStatus(
+    let workAccount = PluginAccountConfiguration(
+        id: "acct_work",
+        pluginID: plugin.id,
+        accountName: "Work GitHub",
+        variables: [:],
+        authType: "apiKey",
+        credentialRef: nil
+    )
+    let personalAccount = PluginAccountConfiguration(
+        id: "acct_personal",
+        pluginID: plugin.id,
+        accountName: "Personal GitHub",
+        variables: [:],
+        authType: "apiKey",
+        credentialRef: nil
+    )
+    let workStatus = PluginRuntimeStatus(
         pluginID: plugin.id,
         status: .failed,
         detail: "Missing network permission.",
         timestamp: Date(timeIntervalSince1970: 1_783_433_530)
     )
+    let personalStatus = PluginRuntimeStatus(
+        pluginID: plugin.id,
+        status: .success,
+        detail: "Synced personal repositories.",
+        timestamp: Date(timeIntervalSince1970: 1_783_433_540),
+        emittedEventCount: 2
+    )
     var loadedStatusPluginIDs: [[String]] = []
+    var loadedStatusAccountIDs: [[String]] = []
     let viewModel = PluginStoreViewModel(
         loadInstalled: { [plugin] },
         loadAvailable: { [] },
-        loadRuntimeStatuses: { plugins in
+        loadRuntimeStatuses: { plugins, accountsByPluginID in
             loadedStatusPluginIDs.append(plugins.map(\.id))
-            return [plugin.id: runtimeStatus]
+            loadedStatusAccountIDs.append(accountsByPluginID[plugin.id, default: []].map(\.id))
+            return [
+                "\(plugin.id):\(workAccount.id)": workStatus,
+                "\(plugin.id):\(personalAccount.id)": personalStatus
+            ]
         },
-        installPlugin: { _ in }
+        installPlugin: { _ in },
+        loadAccounts: { _ in [workAccount, personalAccount] }
     )
 
     await viewModel.reload()
 
     #expect(loadedStatusPluginIDs == [[plugin.id]])
-    #expect(viewModel.runtimeStatuses == [plugin.id: runtimeStatus])
+    #expect(loadedStatusAccountIDs == [[workAccount.id, personalAccount.id]])
+    #expect(viewModel.runtimeStatuses == [
+        "\(plugin.id):\(workAccount.id)": workStatus,
+        "\(plugin.id):\(personalAccount.id)": personalStatus
+    ])
 }
 
 @MainActor
@@ -410,7 +443,7 @@ import Testing
     let viewModel = PluginStoreViewModel(
         loadInstalled: { [plugin] },
         loadAvailable: { [] },
-        loadRuntimeStatuses: { _ in [:] },
+        loadRuntimeStatuses: { _, _ in [:] },
         loadPluginResources: { plugin in
             loadedResourcePluginIDs.append(plugin.id)
             return [resource]

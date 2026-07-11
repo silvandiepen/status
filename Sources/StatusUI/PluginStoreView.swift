@@ -124,7 +124,7 @@ public final class PluginStoreViewModel: ObservableObject {
 
     private let loadInstalled: () throws -> [InstalledPlugin]
     private let loadAvailable: () async throws -> [RegistryPluginSummary]
-    private let loadRuntimeStatuses: ([InstalledPlugin]) throws -> [String: PluginRuntimeStatus]
+    private let loadRuntimeStatuses: ([InstalledPlugin], [String: [PluginAccountConfiguration]]) throws -> [String: PluginRuntimeStatus]
     private let loadPluginResources: (InstalledPlugin) throws -> [Resource]
     private let loadRules: (InstalledPlugin) throws -> [Rule]
     private let saveRule: (Rule) async throws -> Void
@@ -154,7 +154,7 @@ public final class PluginStoreViewModel: ObservableObject {
         initialCatalog: PluginStoreCatalog = PluginStoreCatalog(),
         loadInstalled: @escaping () throws -> [InstalledPlugin],
         loadAvailable: @escaping () async throws -> [RegistryPluginSummary],
-        loadRuntimeStatuses: @escaping ([InstalledPlugin]) throws -> [String: PluginRuntimeStatus] = { _ in [:] },
+        loadRuntimeStatuses: @escaping ([InstalledPlugin], [String: [PluginAccountConfiguration]]) throws -> [String: PluginRuntimeStatus] = { _, _ in [:] },
         loadPluginResources: @escaping (InstalledPlugin) throws -> [Resource] = { _ in [] },
         loadRules: @escaping (InstalledPlugin) throws -> [Rule] = { _ in [] },
         saveRule: @escaping (Rule) async throws -> Void = { _ in },
@@ -305,7 +305,7 @@ public final class PluginStoreViewModel: ObservableObject {
             installedPermissions[plugin.id] = nil
             installedTriggers[plugin.id] = nil
             pluginActions[plugin.id] = nil
-            runtimeStatuses[plugin.id] = nil
+            runtimeStatuses = runtimeStatuses.filter { key, _ in key != plugin.id && key.hasPrefix("\(plugin.id):") == false }
             pluginResources[plugin.id] = nil
             rulePresets[plugin.id] = nil
             appRules[plugin.id] = nil
@@ -860,7 +860,7 @@ public final class PluginStoreViewModel: ObservableObject {
     }
 
     private func refreshRuntimeStatuses(for plugins: [InstalledPlugin]) {
-        runtimeStatuses = (try? loadRuntimeStatuses(plugins)) ?? [:]
+        runtimeStatuses = (try? loadRuntimeStatuses(plugins, configuredAccounts)) ?? [:]
     }
 
     private func refreshPluginResources(for plugins: [InstalledPlugin]) {
@@ -1408,7 +1408,7 @@ public struct PluginSettingsContainerView: View {
             savingPermissionID: viewModel.savingPermissionID,
             triggers: viewModel.installedTriggers[plugin.id, default: []],
             savingTriggerID: viewModel.savingTriggerID,
-            runtimeStatus: viewModel.runtimeStatuses[plugin.id],
+            runtimeStatus: viewModel.runtimeStatuses[key] ?? viewModel.runtimeStatuses[plugin.id],
             resources: selectedResources,
             rulePresets: viewModel.rulePresets[plugin.id, default: []],
             appRules: viewModel.appRules[plugin.id, default: []],
@@ -2069,7 +2069,7 @@ public struct PluginStoreView: View {
             savingPermissionID: savingPermissionID,
             triggers: installedTriggers[plugin.id, default: []],
             savingTriggerID: savingTriggerID,
-            runtimeStatus: runtimeStatuses[plugin.id],
+            runtimeStatus: runtimeStatuses[setupKey(pluginID: plugin.id, accountID: selectedAccountID)] ?? runtimeStatuses[plugin.id],
             resources: selectedResources,
             rulePresets: rulePresets[plugin.id, default: []],
             appRules: appRules[plugin.id, default: []],
@@ -2198,7 +2198,7 @@ private struct InstalledPluginSection: View {
                             plugin: plugin,
                             availableUpdate: availableUpdates[plugin.id],
                             accounts: configuredAccounts[plugin.id, default: []],
-                            runtimeStatus: runtimeStatuses[plugin.id],
+                            runtimeStatus: runtimeStatus(for: plugin),
                             canRun: canRun(plugin),
                             runUnavailableReason: runUnavailableReason(for: plugin),
                             run: run,
@@ -2239,6 +2239,15 @@ private struct InstalledPluginSection: View {
             return account
         }
         return accounts.first
+    }
+
+    private func runtimeStatus(for plugin: InstalledPlugin) -> PluginRuntimeStatus? {
+        let accounts = configuredAccounts[plugin.id, default: []]
+        if let account = selectedAccount(for: plugin, accounts: accounts),
+           let status = runtimeStatuses["\(plugin.id):\(account.id)"] {
+            return status
+        }
+        return runtimeStatuses[plugin.id]
     }
 
     private func missingRuntimePermissions(

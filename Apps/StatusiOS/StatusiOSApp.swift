@@ -139,8 +139,8 @@ private struct IOSRootView: View {
             return try LocalStatusStore.openApplicationSupportStore().installedPlugins()
         } loadAvailable: {
             try await registry.plugins(platform: platform, coreVersion: "0.1.0")
-        } loadRuntimeStatuses: { plugins in
-            try pluginRuntimeStatuses(for: plugins)
+        } loadRuntimeStatuses: { plugins, accountsByPluginID in
+            try pluginRuntimeStatuses(for: plugins, accountsByPluginID: accountsByPluginID)
         } loadPluginResources: { plugin in
             try LocalStatusStore.openApplicationSupportStore().resources(pluginID: plugin.id)
         } loadRules: { plugin in
@@ -319,14 +319,21 @@ private struct IOSRootView: View {
         }
     }
 
-    private func pluginRuntimeStatuses(for plugins: [InstalledPlugin]) throws -> [String: PluginRuntimeStatus] {
+    private func pluginRuntimeStatuses(
+        for plugins: [InstalledPlugin],
+        accountsByPluginID: [String: [PluginAccountConfiguration]]
+    ) throws -> [String: PluginRuntimeStatus] {
         let store = try LocalStatusStore.openApplicationSupportStore()
-        return try Dictionary(uniqueKeysWithValues: plugins.compactMap { plugin in
-            guard let job = try store.recentJobs(pluginID: plugin.id, limit: 1).first else {
-                return nil
+        var statuses: [String: PluginRuntimeStatus] = [:]
+        for plugin in plugins {
+            for account in accountsByPluginID[plugin.id, default: []] {
+                guard let job = try store.recentJobs(pluginID: plugin.id, accountID: account.id, limit: 1).first else {
+                    continue
+                }
+                statuses["\(plugin.id):\(account.id)"] = runtimeStatus(from: job)
             }
-            return (plugin.id, runtimeStatus(from: job))
-        })
+        }
+        return statuses
     }
 
     private func runtimeStatus(from job: JobRecord) -> PluginRuntimeStatus {
