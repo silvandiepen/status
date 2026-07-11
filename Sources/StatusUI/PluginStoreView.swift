@@ -1544,6 +1544,10 @@ public struct PluginAppDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
+                PluginAppDetailSummaryStrip(
+                    runtimeStatus: runtimeStatus,
+                    resources: resources
+                )
                 if let runtimeStatus {
                     PluginRuntimeStatusView(status: runtimeStatus)
                 }
@@ -1598,6 +1602,127 @@ public struct PluginAppDetailView: View {
                 }
             }
         }
+    }
+}
+
+private struct PluginAppDetailSummaryStrip: View {
+    let runtimeStatus: PluginRuntimeStatus?
+    let resources: [Resource]
+
+    private var facts: PluginAppDetailSummaryFacts {
+        PluginAppDetailSummaryFacts(runtimeStatus: runtimeStatus, resources: resources)
+    }
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 10)], spacing: 10) {
+            PluginAppDetailSummaryTile(
+                title: "Status",
+                value: facts.statusValue,
+                detail: facts.statusTimestamp.map { Text($0, style: .relative) } ?? Text("Run a refresh to collect data"),
+                systemImage: facts.statusIcon,
+                tint: runtimeStatus?.status.statusColor ?? .secondary
+            )
+            PluginAppDetailSummaryTile(
+                title: "Resources",
+                value: "\(facts.resourceCount)",
+                detail: Text(facts.resourceTypeDetail),
+                systemImage: "square.stack.3d.up",
+                tint: .blue
+            )
+            PluginAppDetailSummaryTile(
+                title: "Events",
+                value: "\(facts.emittedEventCount)",
+                detail: Text("Emitted by last refresh"),
+                systemImage: "waveform.path.ecg",
+                tint: .purple
+            )
+            PluginAppDetailSummaryTile(
+                title: "Source Data",
+                value: facts.latestResourceName,
+                detail: Text(facts.latestResourceDetail),
+                systemImage: "link",
+                tint: .green
+            )
+        }
+    }
+}
+
+struct PluginAppDetailSummaryFacts: Equatable {
+    var statusValue: String
+    var statusTimestamp: Date?
+    var statusIcon: String
+    var resourceCount: Int
+    var resourceTypeDetail: String
+    var emittedEventCount: Int
+    var latestResourceName: String
+    var latestResourceDetail: String
+
+    init(runtimeStatus: PluginRuntimeStatus?, resources: [Resource]) {
+        self.statusValue = runtimeStatus?.status.displayName ?? "Not checked yet"
+        self.statusTimestamp = runtimeStatus?.timestamp
+        self.statusIcon = Self.statusIcon(for: runtimeStatus?.status)
+        self.resourceCount = resources.count
+        let resourceTypes = Set(resources.map(\.type)).count
+        self.resourceTypeDetail = resourceTypes == 1 ? "1 resource type" : "\(resourceTypes) resource types"
+        self.emittedEventCount = runtimeStatus?.emittedEventCount ?? 0
+        self.latestResourceName = resources.first?.name ?? "Waiting"
+        self.latestResourceDetail = resources.isEmpty ? "No stored resource" : "Latest stored resource"
+    }
+
+    private static func statusIcon(for status: JobStatus?) -> String {
+        switch status {
+        case .success:
+            "checkmark.circle.fill"
+        case .failed:
+            "exclamationmark.triangle.fill"
+        case .running:
+            "arrow.clockwise.circle.fill"
+        case .queued:
+            "clock.fill"
+        case .cancelled, .skipped:
+            "minus.circle.fill"
+        case nil:
+            "circle.dashed"
+        }
+    }
+}
+
+private struct PluginAppDetailSummaryTile: View {
+    let title: String
+    let value: String
+    let detail: Text
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(tint)
+                .frame(width: 22, height: 22)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                Text(value)
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+                    .truncationMode(.middle)
+                detail
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, minHeight: 76, alignment: .topLeading)
+        .padding(12)
+        .background(Color.statusSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 

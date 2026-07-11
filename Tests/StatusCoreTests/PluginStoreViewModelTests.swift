@@ -39,6 +39,57 @@ import Testing
     #expect(header.metadata == "0.1.0")
 }
 
+@Test func pluginAppDetailSummaryFactsDescribeUncheckedEmptyApps() {
+    let facts = PluginAppDetailSummaryFacts(runtimeStatus: nil, resources: [])
+
+    #expect(facts.statusValue == "Not checked yet")
+    #expect(facts.statusTimestamp == nil)
+    #expect(facts.statusIcon == "circle.dashed")
+    #expect(facts.resourceCount == 0)
+    #expect(facts.resourceTypeDetail == "0 resource types")
+    #expect(facts.emittedEventCount == 0)
+    #expect(facts.latestResourceName == "Waiting")
+    #expect(facts.latestResourceDetail == "No stored resource")
+}
+
+@Test func pluginAppDetailSummaryFactsDescribeLatestRefreshAndResources() {
+    let timestamp = Date(timeIntervalSince1970: 1_783_433_520)
+    let facts = PluginAppDetailSummaryFacts(
+        runtimeStatus: PluginRuntimeStatus(
+            pluginID: "com.status.website",
+            status: .success,
+            detail: "Refresh completed.",
+            timestamp: timestamp,
+            emittedEventCount: 2
+        ),
+        resources: [
+            Resource(
+                id: "res_site",
+                accountID: "acc_site",
+                pluginID: "com.status.website",
+                type: "website",
+                name: "status.hakobs.com"
+            ),
+            Resource(
+                id: "res_check",
+                accountID: "acc_site",
+                pluginID: "com.status.website",
+                type: "check",
+                name: "TLS check"
+            )
+        ]
+    )
+
+    #expect(facts.statusValue == "Last check succeeded")
+    #expect(facts.statusTimestamp == timestamp)
+    #expect(facts.statusIcon == "checkmark.circle.fill")
+    #expect(facts.resourceCount == 2)
+    #expect(facts.resourceTypeDetail == "2 resource types")
+    #expect(facts.emittedEventCount == 2)
+    #expect(facts.latestResourceName == "status.hakobs.com")
+    #expect(facts.latestResourceDetail == "Latest stored resource")
+}
+
 @Test func pluginStoreCatalogDetectsAvailableUpdates() throws {
     let installed = InstalledPlugin(
         id: "com.status.github",
