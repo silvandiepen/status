@@ -17,6 +17,30 @@ import Testing
     #expect(appStoreConnect.brand == .appStoreConnect)
 }
 
+@Test func dashboardTileDisplayValueFormatsRawPluginValuesForUsers() {
+    #expect(
+        DashboardTileDisplayValue(
+            item: DashboardTileItem(id: "reachable", label: "Reachable", value: "true")
+        ).text == "Yes"
+    )
+    #expect(
+        DashboardTileDisplayValue(
+            item: DashboardTileItem(id: "responseTimeMs", label: "Response Time", value: "341", kind: .count)
+        ).text == "341 ms"
+    )
+    #expect(
+        DashboardTileDisplayValue(
+            item: DashboardTileItem(
+                id: "actionUrl",
+                label: "Open",
+                value: "https://status.hakobs.com",
+                kind: .link,
+                actionURL: URL(string: "https://status.hakobs.com")
+            )
+        ).text == "status.hakobs.com"
+    )
+}
+
 @Test func pluginSettingsHeaderPrefersConfiguredAppName() {
     let header = PluginSettingsHeaderText(
         pluginName: "GitHub",
@@ -1206,6 +1230,43 @@ import Testing
     #expect(query["code_challenge_method"] == "S256")
     #expect(query["code_challenge"]?.isEmpty == false)
     #expect(viewModel.oauthConnectionErrors["\(plugin.id):\(selectedAccountID ?? "__new__:")"] == nil)
+}
+
+@MainActor
+@Test func pluginStoreViewModelUsesSetupOAuthClientIDWhenDeclared() async throws {
+    var plugin = oauthGitHubPlugin()
+    plugin.setup = PackagedPluginSetup(
+        title: "OAuth setup",
+        fields: [
+            PackagedPluginSetupField(
+                id: PluginOAuth.clientIDSetupFieldKey,
+                label: "OAuth client ID",
+                type: .text,
+                required: true
+            )
+        ]
+    )
+    let viewModel = PluginStoreViewModel(
+        loadInstalled: { [plugin] },
+        loadAvailable: { [] },
+        installPlugin: { _ in },
+        loadPermissions: { _ in grantedOAuthPermissions(pluginID: plugin.id) },
+        canConfigurePlugin: { _ in true }
+    )
+
+    await viewModel.reload()
+    viewModel.updateSetupValue(plugin, fieldID: PluginOAuth.clientIDSetupFieldKey, value: "custom-client-id")
+    let launchedURL = viewModel.beginOAuthConnection(plugin)
+
+    let key = "\(plugin.id):\(viewModel.selectedAccountIDs[plugin.id] ?? "__new__:")"
+    let url = try #require(viewModel.oauthConnectionURLs[key])
+    #expect(launchedURL == url)
+    let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+    let query = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).compactMap { item in
+        item.value.map { (item.name, $0) }
+    })
+    #expect(query["client_id"] == "custom-client-id")
+    #expect(viewModel.oauthConnectionErrors[key] == nil)
 }
 
 @MainActor

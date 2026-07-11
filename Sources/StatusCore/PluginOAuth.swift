@@ -8,6 +8,7 @@ public struct PluginOAuthTokenSet: Codable, Equatable, Sendable {
     public var tokenType: String
     public var scope: String?
     public var expiresAt: Date?
+    public var clientID: String?
 
     enum CodingKeys: String, CodingKey {
         case accessToken
@@ -15,6 +16,7 @@ public struct PluginOAuthTokenSet: Codable, Equatable, Sendable {
         case tokenType
         case scope
         case expiresAt
+        case clientID
     }
 
     public init(
@@ -22,13 +24,15 @@ public struct PluginOAuthTokenSet: Codable, Equatable, Sendable {
         refreshToken: String? = nil,
         tokenType: String = "Bearer",
         scope: String? = nil,
-        expiresAt: Date? = nil
+        expiresAt: Date? = nil,
+        clientID: String? = nil
     ) {
         self.accessToken = accessToken
         self.refreshToken = refreshToken
         self.tokenType = tokenType
         self.scope = scope
         self.expiresAt = expiresAt
+        self.clientID = clientID
     }
 
     public var authorizationHeader: String? {
@@ -52,11 +56,13 @@ public struct PluginOAuthAuthorizationRequest: Equatable, Sendable {
     public var url: URL
     public var codeVerifier: String
     public var state: String
+    public var clientID: String?
 
-    public init(url: URL, codeVerifier: String, state: String) {
+    public init(url: URL, codeVerifier: String, state: String, clientID: String? = nil) {
         self.url = url
         self.codeVerifier = codeVerifier
         self.state = state
+        self.clientID = clientID
     }
 }
 
@@ -135,16 +141,19 @@ public enum PluginOAuthError: Error, Equatable, LocalizedError, Sendable {
 }
 
 public enum PluginOAuth {
+    public static let clientIDSetupFieldKey = "_status.oauth.clientId"
+
     public static func authorizationRequest(
         pluginID: String,
         auth: PackagedPluginAuth,
+        clientIDOverride: String? = nil,
         state: String = randomURLSafeString(byteCount: 18),
         codeVerifier: String = randomURLSafeString(byteCount: 32)
     ) throws -> PluginOAuthAuthorizationRequest {
         guard auth.type == .oauth2, let config = auth.oauth2 else {
             throw PluginOAuthError.missingOAuthConfiguration(pluginID)
         }
-        guard let clientID = auth.applicationId?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty else {
+        guard let clientID = resolvedClientID(auth: auth, override: clientIDOverride) else {
             throw PluginOAuthError.missingApplicationID(pluginID)
         }
         try validateConfiguredRedirectURI(config.redirectURI, provider: auth.provider, pluginID: pluginID)
@@ -169,7 +178,7 @@ public enum PluginOAuth {
         guard let url = components.url else {
             throw PluginOAuthError.invalidAuthorizationURL(config.authorizationURL.absoluteString)
         }
-        return PluginOAuthAuthorizationRequest(url: url, codeVerifier: codeVerifier, state: state)
+        return PluginOAuthAuthorizationRequest(url: url, codeVerifier: codeVerifier, state: state, clientID: clientID)
     }
 
     public static func tokenSet(
@@ -183,7 +192,7 @@ public enum PluginOAuth {
         guard auth.type == .oauth2, let config = auth.oauth2 else {
             throw PluginOAuthError.missingOAuthConfiguration(pluginID)
         }
-        guard let clientID = auth.applicationId?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty else {
+        guard let clientID = resolvedClientID(auth: auth, override: request.clientID) else {
             throw PluginOAuthError.missingApplicationID(pluginID)
         }
         try validateConfiguredRedirectURI(config.redirectURI, provider: auth.provider, pluginID: pluginID)
@@ -211,7 +220,14 @@ public enum PluginOAuth {
         guard (200..<300).contains(response.statusCode) else {
             throw PluginOAuthError.tokenExchangeFailed(statusCode: response.statusCode)
         }
-        return try tokenSet(from: response.data, now: now)
+        var tokenSet = try tokenSet(from: response.data, now: now)
+        tokenSet.clientID = clientID
+        return tokenSet
+    }
+
+    public static func resolvedClientID(auth: PackagedPluginAuth, override: String? = nil) -> String? {
+        override?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty ??
+            auth.applicationId?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty
     }
 
     public static func codeChallenge(for verifier: String) -> String {

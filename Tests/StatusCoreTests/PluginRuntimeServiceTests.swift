@@ -2228,6 +2228,51 @@ import Testing
     #expect(tokenSet.expiresAt == now.addingTimeInterval(3_600))
 }
 
+@Test func pluginOAuthUsesClientIDOverrideForAuthorizationAndTokenExchange() async throws {
+    let auth = PackagedPluginAuth(
+        type: .oauth2,
+        provider: "youtube",
+        applicationId: "status-foundry.youtube",
+        oauth2: PackagedPluginOAuth2(
+            authorizationURL: try #require(URL(string: "https://accounts.google.com/o/oauth2/v2/auth")),
+            tokenURL: try #require(URL(string: "https://oauth2.googleapis.com/token")),
+            redirectURI: "status://oauth/youtube",
+            scopes: ["https://www.googleapis.com/auth/youtube.readonly"]
+        )
+    )
+    let request = try PluginOAuth.authorizationRequest(
+        pluginID: "com.status.youtube",
+        auth: auth,
+        clientIDOverride: "youtube-client.apps.googleusercontent.com",
+        state: "state-yt",
+        codeVerifier: "verifier-yt"
+    )
+    let authorizationURL = try #require(URLComponents(url: request.url, resolvingAgainstBaseURL: false))
+    let query = Dictionary(uniqueKeysWithValues: (authorizationURL.queryItems ?? []).compactMap { item in
+        item.value.map { (item.name, $0) }
+    })
+    #expect(query["client_id"] == "youtube-client.apps.googleusercontent.com")
+
+    let callback = try #require(URL(string: "status://oauth/youtube?code=code-yt&state=state-yt"))
+    let tokenURL = try #require(URL(string: "https://oauth2.googleapis.com/token"))
+    let tokenSet = try await PluginOAuth.tokenSet(
+        pluginID: "com.status.youtube",
+        auth: auth,
+        request: request,
+        callbackURL: callback,
+        transport: RuntimeOAuthCodeExchangeTransport(
+            tokenURL: tokenURL,
+            expectedClientID: "youtube-client.apps.googleusercontent.com",
+            expectedCode: "code-yt",
+            expectedVerifier: "verifier-yt",
+            expectedRedirectURI: "status://oauth/youtube"
+        )
+    )
+
+    #expect(tokenSet.accessToken == "oauth_access")
+    #expect(tokenSet.clientID == "youtube-client.apps.googleusercontent.com")
+}
+
 @Test func pluginOAuthRejectsInvalidConfiguredRedirectBeforeAuthorizationURL() throws {
     let auth = PackagedPluginAuth(
         type: .oauth2,
@@ -2793,6 +2838,10 @@ private struct RuntimeOAuthRefreshTransport: PluginRequestHTTPTransport {
 
 private struct RuntimeOAuthCodeExchangeTransport: PluginRequestHTTPTransport {
     var tokenURL: URL
+    var expectedClientID = "status-foundry.github"
+    var expectedCode = "code-456"
+    var expectedVerifier = "verifier-123"
+    var expectedRedirectURI = "status://oauth/github"
 
     func response(for request: PluginHTTPRequest) async throws -> PluginHTTPResponse {
         #expect(request.method == "POST")
@@ -2800,11 +2849,11 @@ private struct RuntimeOAuthCodeExchangeTransport: PluginRequestHTTPTransport {
         #expect(request.headers["Accept"] == "application/json")
         #expect(request.headers["Content-Type"] == "application/x-www-form-urlencoded")
         let body = try #require(request.body.flatMap { String(data: $0, encoding: .utf8) })
-        #expect(body.contains("client_id=status-foundry.github"))
-        #expect(body.contains("code=code-456"))
-        #expect(body.contains("code_verifier=verifier-123"))
+        #expect(body.contains("client_id=\(expectedClientID.formURLEncodedForTest())"))
+        #expect(body.contains("code=\(expectedCode.formURLEncodedForTest())"))
+        #expect(body.contains("code_verifier=\(expectedVerifier.formURLEncodedForTest())"))
         #expect(body.contains("grant_type=authorization_code"))
-        #expect(body.contains("redirect_uri=status%3A%2F%2Foauth%2Fgithub"))
+        #expect(body.contains("redirect_uri=\(expectedRedirectURI.formURLEncodedForTest())"))
         return PluginHTTPResponse(
             data: Data("""
             {
@@ -3013,5 +3062,14 @@ private extension Data {
         append(UInt8((value >> 8) & 0xff))
         append(UInt8((value >> 16) & 0xff))
         append(UInt8((value >> 24) & 0xff))
+    }
+}
+
+private extension String {
+    func formURLEncodedForTest() -> String {
+        var allowed = CharacterSet.urlQueryAllowed
+        allowed.remove(charactersIn: ":#[]@!$&'()*+,;=/")
+        return addingPercentEncoding(withAllowedCharacters: allowed)?
+            .replacingOccurrences(of: " ", with: "+") ?? self
     }
 }

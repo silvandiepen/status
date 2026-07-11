@@ -7,6 +7,8 @@ import UniformTypeIdentifiers
 
 @main
 struct StatusMacApp: App {
+    fileprivate static let appSettingsWindowID = "app-settings"
+
     var body: some Scene {
         WindowGroup("Status", id: "main") {
             MacRootView()
@@ -23,7 +25,7 @@ struct StatusMacApp: App {
             }
         }
 
-        WindowGroup("App Settings", id: "integration-settings", for: String.self) { $settingsRoute in
+        WindowGroup("App Settings", id: Self.appSettingsWindowID, for: String.self) { $settingsRoute in
             if let settingsRoute {
                 MacPluginSettingsWindow(route: MacPluginSettingsRoute(rawValue: settingsRoute))
                     .onOpenURL { url in
@@ -504,7 +506,7 @@ private struct MacRootView: View {
                     NavigationLink(value: MacSection.alerts) {
                         Label("Alerts", systemImage: "bell")
                     }
-                    NavigationLink(value: MacSection.integrations) {
+                    NavigationLink(value: MacSection.plugins) {
                         Label("Plugins", systemImage: "puzzlepiece.extension")
                     }
                     NavigationLink(value: MacSection.rules) {
@@ -538,13 +540,13 @@ private struct MacRootView: View {
                     AlertsContainerView(viewModel: makeAlertsViewModel())
                 }
                     .navigationTitle("Alerts")
-            case .integrations:
+            case .plugins:
                 detailWithAppTabs {
                     PluginStoreContainerView(
                         viewModel: makePluginStoreViewModel(platform: .macOS),
                         openSettings: { plugin in
                             openWindow(
-                                id: "integration-settings",
+                                id: StatusMacApp.appSettingsWindowID,
                                 value: MacPluginSettingsRoute(pluginID: plugin.id).rawValue
                             )
                         },
@@ -567,7 +569,7 @@ private struct MacRootView: View {
                         accountID: accountID,
                         openSettings: {
                             openWindow(
-                                id: "integration-settings",
+                                id: StatusMacApp.appSettingsWindowID,
                                 value: MacPluginSettingsRoute(pluginID: pluginID, accountID: accountID).rawValue
                             )
                         },
@@ -1529,7 +1531,7 @@ private struct MacPluginAppDetail: View {
 private enum MacSection: Hashable {
     case overview
     case alerts
-    case integrations
+    case plugins
     case app(pluginID: String, accountID: String?)
     case rules
     case audit

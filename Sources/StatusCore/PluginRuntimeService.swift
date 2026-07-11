@@ -1007,8 +1007,7 @@ public final class PluginRuntimeService: ProviderActionExecutor, @unchecked Send
               let oauth = auth.oauth2 else {
             throw PluginOAuthError.missingOAuthConfiguration(pluginID)
         }
-        guard let clientID = auth.applicationId?.trimmingCharacters(in: .whitespacesAndNewlines),
-              clientID.isEmpty == false else {
+        guard let clientID = PluginOAuth.resolvedClientID(auth: auth, override: tokenSet.clientID) else {
             throw PluginOAuthError.missingApplicationID(pluginID)
         }
         let body = formURLEncoded([
@@ -1038,7 +1037,8 @@ public final class PluginRuntimeService: ProviderActionExecutor, @unchecked Send
             refreshToken: tokenResponse.refreshToken?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty ?? refreshToken,
             tokenType: tokenResponse.tokenType?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty ?? tokenSet.tokenType,
             scope: tokenResponse.scope?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty ?? tokenSet.scope,
-            expiresAt: tokenResponse.expiresIn.map { now.addingTimeInterval($0) } ?? tokenSet.expiresAt
+            expiresAt: tokenResponse.expiresIn.map { now.addingTimeInterval($0) } ?? tokenSet.expiresAt,
+            clientID: clientID
         )
         if let credentialStore,
            let oldReference = configuration.credentialRef {

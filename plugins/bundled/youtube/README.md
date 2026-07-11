@@ -10,7 +10,7 @@ Install YouTube when you manage creator channels and want a compact operational 
 
 Create one configured app per YouTube creator account or channel group you want to watch:
 
-- **Channel filter** - optional channel identifier or handle to narrow the visible channel set
+- **Google OAuth client ID** - the public OAuth client id for a Google Cloud OAuth app that uses `status://oauth/youtube` as an allowed redirect URI
 
 Auth uses Google OAuth 2 with PKCE. Status owns authorization, token refresh, and Keychain-backed token storage. The plugin reads channel and upload data through declared YouTube Data API hosts only.
 
@@ -65,7 +65,8 @@ Read-only in v1. Status does not publish, edit, delete, schedule, monetize, or m
 ## Setup
 
 1. Install **YouTube** from the Status plugin store.
-2. Create a configured app and optionally enter a channel filter.
-3. Connect with Google OAuth using the creator account you want to watch.
+2. In Google Cloud, create an OAuth client for YouTube Data API access with `status://oauth/youtube` as an allowed redirect URI.
+3. Create a configured app in Status and paste the Google OAuth client ID.
 4. Grant network, keychain, OAuth, and background refresh permissions.
-5. Run **Refresh uploads**, then enable **Check channels** if you want scheduled polling.
+5. Connect with Google OAuth using the creator account you want to watch.
+6. Run **Refresh uploads**, then enable **Check channels** if you want scheduled polling.

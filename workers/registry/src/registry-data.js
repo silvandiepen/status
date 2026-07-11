@@ -300,8 +300,8 @@ export const registry = {
           ],
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.youtube/0.1.0/com.status.youtube-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.youtube/0.1.0/manifest.json",
-          "sha256": "71defd768819834a0ab4344e6fa98df34416d5da23b51f00086f47eb9af7d4a0",
-          "signature": "9vc+KHR4USAYjyAe4ipXpd45RGU3Lx0EB97157Rpm0gC9VCXJ2Es4NQKv8mtaPVy9eF7KGeDXjCi9Eg3cybUCA==",
+          "sha256": "85f94a942d22c25ac9ecb1267a4e7a1824fb13ce5bcafdd5bff5bec625afd34c",
+          "signature": "KiSKYg5sY6skPuCgXA836pqcvuSSFiyv1dZ4fe96C+LdYA4QWvnNiXyy4LoAmSZ6Q+p4AhmJCiNEOG8brPllAA==",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-09T12:00:00Z"
         }
