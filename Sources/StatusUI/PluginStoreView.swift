@@ -1138,6 +1138,7 @@ public struct PluginStoreContainerView: View {
             remove: { plugin in
                 Task {
                     await viewModel.remove(plugin)
+                    onAppsChanged?()
                 }
             },
             setPermissionGrant: { plugin, permission, granted in

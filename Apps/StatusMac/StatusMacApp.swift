@@ -597,6 +597,7 @@ private struct MacRootView: View {
 
     private func handleConfiguredAppsChanged() {
         loadSidebarPlugins()
+        repairSelectionAfterSidebarReload()
         dashboardReloadToken += 1
     }
 
@@ -623,6 +624,18 @@ private struct MacRootView: View {
         } catch {
             sidebarApps = []
             sidebarPluginError = error.localizedDescription
+        }
+    }
+
+    private func repairSelectionAfterSidebarReload() {
+        guard case let .app(pluginID, accountID) = selection else {
+            return
+        }
+        let selectedAppStillExists = sidebarApps.contains { app in
+            app.pluginID == pluginID && app.accountID == accountID
+        }
+        if selectedAppStillExists == false {
+            selection = .overview
         }
     }
 
