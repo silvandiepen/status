@@ -71,7 +71,7 @@ jwt-api-key
 private-key-jwt
 ```
 
-`oauth2` plugins must also declare `provider`, public `applicationId`, and an `oauth2` block with `authorizationUrl`, `tokenUrl`, `redirectUri`, and optional `scopes`. The `redirectUri` must use `status://oauth/{provider-slug}` and the slug must match `provider`. The manifest must request both `oauth` and `keychain`. Status owns the native authorization-code + PKCE flow, token storage, refresh, and request header injection.
+`oauth2` plugins must also declare `provider`, public `applicationId`, and an `oauth2` block with `authorizationUrl`, `tokenUrl`, `redirectUri`, and optional `scopes`. The `redirectUri` must use `com.statusfoundry.status.oauth:/{provider-slug}` and the slug must match `provider`. The manifest must request both `oauth` and `keychain`. Status owns the native authorization-code + PKCE flow, token storage, refresh, and request header injection.
 
 `api-key` auth may declare `placement` to tell the request engine which header receives the secret:
 

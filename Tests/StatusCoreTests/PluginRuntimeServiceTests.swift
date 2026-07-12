@@ -2198,7 +2198,7 @@ import Testing
         oauth2: PackagedPluginOAuth2(
             authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
             tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
-            redirectURI: "status://oauth/github",
+            redirectURI: "com.statusfoundry.status.oauth:/github",
             scopes: ["repo"]
         )
     )
@@ -2208,7 +2208,7 @@ import Testing
         state: "state-123",
         codeVerifier: "verifier-123"
     )
-    let callback = try #require(URL(string: "status://oauth/github?code=code-456&state=state-123"))
+    let callback = try #require(URL(string: "com.statusfoundry.status.oauth:/github?code=code-456&state=state-123"))
     let tokenURL = try #require(URL(string: "https://github.com/login/oauth/access_token"))
     let now = Date(timeIntervalSince1970: 1_783_433_520)
 
@@ -2228,75 +2228,7 @@ import Testing
     #expect(tokenSet.expiresAt == now.addingTimeInterval(3_600))
 }
 
-@Test func pluginOAuthUsesClientIDOverrideForAuthorizationAndTokenExchange() async throws {
-    let auth = PackagedPluginAuth(
-        type: .oauth2,
-        provider: "youtube",
-        applicationId: "status-foundry.youtube",
-        oauth2: PackagedPluginOAuth2(
-            authorizationURL: try #require(URL(string: "https://accounts.google.com/o/oauth2/v2/auth")),
-            tokenURL: try #require(URL(string: "https://oauth2.googleapis.com/token")),
-            redirectURI: "status://oauth/youtube",
-            scopes: ["https://www.googleapis.com/auth/youtube.readonly"]
-        )
-    )
-    let request = try PluginOAuth.authorizationRequest(
-        pluginID: "com.status.youtube",
-        auth: auth,
-        clientIDOverride: "youtube-client.apps.googleusercontent.com",
-        state: "state-yt",
-        codeVerifier: "verifier-yt"
-    )
-    let authorizationURL = try #require(URLComponents(url: request.url, resolvingAgainstBaseURL: false))
-    let query = Dictionary(uniqueKeysWithValues: (authorizationURL.queryItems ?? []).compactMap { item in
-        item.value.map { (item.name, $0) }
-    })
-    #expect(query["client_id"] == "youtube-client.apps.googleusercontent.com")
-
-    let callback = try #require(URL(string: "status://oauth/youtube?code=code-yt&state=state-yt"))
-    let tokenURL = try #require(URL(string: "https://oauth2.googleapis.com/token"))
-    let tokenSet = try await PluginOAuth.tokenSet(
-        pluginID: "com.status.youtube",
-        auth: auth,
-        request: request,
-        callbackURL: callback,
-        transport: RuntimeOAuthCodeExchangeTransport(
-            tokenURL: tokenURL,
-            expectedClientID: "youtube-client.apps.googleusercontent.com",
-            expectedCode: "code-yt",
-            expectedVerifier: "verifier-yt",
-            expectedRedirectURI: "status://oauth/youtube"
-        )
-    )
-
-    #expect(tokenSet.accessToken == "oauth_access")
-    #expect(tokenSet.clientID == "youtube-client.apps.googleusercontent.com")
-}
-
-@Test func pluginOAuthRejectsInvalidConfiguredRedirectBeforeAuthorizationURL() throws {
-    let auth = PackagedPluginAuth(
-        type: .oauth2,
-        provider: "github",
-        applicationId: "status-foundry.github",
-        oauth2: PackagedPluginOAuth2(
-            authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
-            tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
-            redirectURI: "status://oauth/google",
-            scopes: ["repo"]
-        )
-    )
-
-    #expect(throws: PluginOAuthError.invalidRedirectURI("status://oauth/google")) {
-        _ = try PluginOAuth.authorizationRequest(
-            pluginID: "com.status.oauthgithub",
-            auth: auth,
-            state: "state-123",
-            codeVerifier: "verifier-123"
-        )
-    }
-}
-
-@Test func pluginOAuthRejectsCallbackRedirectMismatchBeforeTokenExchange() async throws {
+@Test func pluginOAuthStillAcceptsLegacyStatusCallbackRedirects() async throws {
     let auth = PackagedPluginAuth(
         type: .oauth2,
         provider: "github",
@@ -2314,10 +2246,113 @@ import Testing
         state: "state-123",
         codeVerifier: "verifier-123"
     )
-    let callback = try #require(URL(string: "status://oauth/gitlab?code=code-456&state=state-123"))
+    let callback = try #require(URL(string: "status://oauth/github?code=code-456&state=state-123"))
     let tokenURL = try #require(URL(string: "https://github.com/login/oauth/access_token"))
 
-    await #expect(throws: PluginOAuthError.authorizationRedirectMismatch(expected: "status://oauth/github", actual: "status://oauth/gitlab")) {
+    let tokenSet = try await PluginOAuth.tokenSet(
+        pluginID: "com.status.oauthgithub",
+        auth: auth,
+        request: request,
+        callbackURL: callback,
+        transport: RuntimeOAuthCodeExchangeTransport(
+            tokenURL: tokenURL,
+            expectedRedirectURI: "status://oauth/github"
+        )
+    )
+
+    #expect(tokenSet.accessToken == "oauth_access")
+}
+
+@Test func pluginOAuthUsesClientIDOverrideForAuthorizationAndTokenExchange() async throws {
+    let auth = PackagedPluginAuth(
+        type: .oauth2,
+        provider: "youtube",
+        applicationId: "status-foundry.youtube",
+        oauth2: PackagedPluginOAuth2(
+            authorizationURL: try #require(URL(string: "https://accounts.google.com/o/oauth2/v2/auth")),
+            tokenURL: try #require(URL(string: "https://oauth2.googleapis.com/token")),
+            redirectURI: "com.statusfoundry.status.oauth:/youtube",
+            scopes: ["https://www.googleapis.com/auth/youtube.readonly"]
+        )
+    )
+    let request = try PluginOAuth.authorizationRequest(
+        pluginID: "com.status.youtube",
+        auth: auth,
+        clientIDOverride: "youtube-client.apps.googleusercontent.com",
+        state: "state-yt",
+        codeVerifier: "verifier-yt"
+    )
+    let authorizationURL = try #require(URLComponents(url: request.url, resolvingAgainstBaseURL: false))
+    let query = Dictionary(uniqueKeysWithValues: (authorizationURL.queryItems ?? []).compactMap { item in
+        item.value.map { (item.name, $0) }
+    })
+    #expect(query["client_id"] == "youtube-client.apps.googleusercontent.com")
+
+    let callback = try #require(URL(string: "com.statusfoundry.status.oauth:/youtube?code=code-yt&state=state-yt"))
+    let tokenURL = try #require(URL(string: "https://oauth2.googleapis.com/token"))
+    let tokenSet = try await PluginOAuth.tokenSet(
+        pluginID: "com.status.youtube",
+        auth: auth,
+        request: request,
+        callbackURL: callback,
+        transport: RuntimeOAuthCodeExchangeTransport(
+            tokenURL: tokenURL,
+            expectedClientID: "youtube-client.apps.googleusercontent.com",
+            expectedCode: "code-yt",
+            expectedVerifier: "verifier-yt",
+            expectedRedirectURI: "com.statusfoundry.status.oauth:/youtube"
+        )
+    )
+
+    #expect(tokenSet.accessToken == "oauth_access")
+    #expect(tokenSet.clientID == "youtube-client.apps.googleusercontent.com")
+}
+
+@Test func pluginOAuthRejectsInvalidConfiguredRedirectBeforeAuthorizationURL() throws {
+    let auth = PackagedPluginAuth(
+        type: .oauth2,
+        provider: "github",
+        applicationId: "status-foundry.github",
+        oauth2: PackagedPluginOAuth2(
+            authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
+            tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
+            redirectURI: "com.statusfoundry.status.oauth:/google",
+            scopes: ["repo"]
+        )
+    )
+
+    #expect(throws: PluginOAuthError.invalidRedirectURI("com.statusfoundry.status.oauth:/google")) {
+        _ = try PluginOAuth.authorizationRequest(
+            pluginID: "com.status.oauthgithub",
+            auth: auth,
+            state: "state-123",
+            codeVerifier: "verifier-123"
+        )
+    }
+}
+
+@Test func pluginOAuthRejectsCallbackRedirectMismatchBeforeTokenExchange() async throws {
+    let auth = PackagedPluginAuth(
+        type: .oauth2,
+        provider: "github",
+        applicationId: "status-foundry.github",
+        oauth2: PackagedPluginOAuth2(
+            authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
+            tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
+            redirectURI: "com.statusfoundry.status.oauth:/github",
+            scopes: ["repo"]
+        )
+    )
+    let request = try PluginOAuth.authorizationRequest(
+        pluginID: "com.status.oauthgithub",
+        auth: auth,
+        state: "state-123",
+        codeVerifier: "verifier-123"
+    )
+    let callback = try #require(URL(string: "com.statusfoundry.status.oauth:/gitlab?code=code-456&state=state-123"))
+    let tokenURL = try #require(URL(string: "https://github.com/login/oauth/access_token"))
+
+    await #expect(throws: PluginOAuthError.authorizationRedirectMismatch(expected: "com.statusfoundry.status.oauth:/github", actual: "com.statusfoundry.status.oauth:/gitlab")) {
         _ = try await PluginOAuth.tokenSet(
             pluginID: "com.status.oauthgithub",
             auth: auth,
@@ -2336,7 +2371,7 @@ import Testing
         oauth2: PackagedPluginOAuth2(
             authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
             tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
-            redirectURI: "status://oauth/google",
+            redirectURI: "com.statusfoundry.status.oauth:/google",
             scopes: ["repo"]
         )
     )
@@ -2345,10 +2380,10 @@ import Testing
         codeVerifier: "verifier-123",
         state: "state-123"
     )
-    let callback = try #require(URL(string: "status://oauth/google?code=code-456&state=state-123"))
+    let callback = try #require(URL(string: "com.statusfoundry.status.oauth:/google?code=code-456&state=state-123"))
     let tokenURL = try #require(URL(string: "https://github.com/login/oauth/access_token"))
 
-    await #expect(throws: PluginOAuthError.invalidRedirectURI("status://oauth/google")) {
+    await #expect(throws: PluginOAuthError.invalidRedirectURI("com.statusfoundry.status.oauth:/google")) {
         _ = try await PluginOAuth.tokenSet(
             pluginID: "com.status.oauthgithub",
             auth: auth,
@@ -2841,7 +2876,7 @@ private struct RuntimeOAuthCodeExchangeTransport: PluginRequestHTTPTransport {
     var expectedClientID = "status-foundry.github"
     var expectedCode = "code-456"
     var expectedVerifier = "verifier-123"
-    var expectedRedirectURI = "status://oauth/github"
+    var expectedRedirectURI = "com.statusfoundry.status.oauth:/github"
 
     func response(for request: PluginHTTPRequest) async throws -> PluginHTTPResponse {
         #expect(request.method == "POST")
@@ -2904,7 +2939,7 @@ private func oauthRuntimePackageFiles() -> [(String, Data)] {
           "oauth2": {
             "authorizationUrl": "https://github.com/login/oauth/authorize",
             "tokenUrl": "https://github.com/login/oauth/access_token",
-            "redirectUri": "status://oauth/github",
+            "redirectUri": "com.statusfoundry.status.oauth:/github",
             "scopes": ["repo"]
           }
         }

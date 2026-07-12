@@ -469,8 +469,8 @@ function validateDeclaredHost(manifest, host, sourceName, fieldName) {
 }
 
 function validateOAuthRedirectURI(value, provider, sourceName) {
-  if (typeof value !== "string" || value !== `status://oauth/${provider}`) {
-    fail(`${sourceName}: auth.oauth2.redirectUri must match status://oauth/{provider-slug} for auth.provider`);
+  if (typeof value !== "string" || value !== `com.statusfoundry.status.oauth:/${provider}`) {
+    fail(`${sourceName}: auth.oauth2.redirectUri must match com.statusfoundry.status.oauth:/{provider-slug} for auth.provider`);
   }
 }
 

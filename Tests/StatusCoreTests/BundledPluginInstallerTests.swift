@@ -35,7 +35,7 @@ import Testing
     #expect(try store.rules().contains { $0.provider == "com.status.youtube" && $0.eventType == "youtube.channel.visibility_limited" })
     #expect(try store.installedPlugin(id: "com.status.github")?.setup?.fields.first(where: { $0.id == "owner" })?.help == "GitHub user or organization, for example statusfoundry.")
     #expect(try store.installedPlugin(id: "com.status.github")?.auth?.fields.first(where: { $0.id == "token" })?.help?.contains("read-only Metadata, Actions, Pull requests, and Issues") == true)
-    #expect(try store.installedPlugin(id: "com.status.youtube")?.setup?.fields.first(where: { $0.id == PluginOAuth.clientIDSetupFieldKey })?.help?.contains("status://oauth/youtube") == true)
+    #expect(try store.installedPlugin(id: "com.status.youtube")?.setup?.fields.first(where: { $0.id == PluginOAuth.clientIDSetupFieldKey })?.help?.contains("com.statusfoundry.status.oauth:/youtube") == true)
     #expect(try store.installedPluginDefinition(pluginID: "com.status.jira")?.actions.map(\.id) == ["jira.createIssue"])
     let websiteVersion = try #require(try store.installedPluginVersions(pluginID: "com.status.website").first)
     #expect(FileManager.default.fileExists(atPath: try #require(websiteVersion.packagePath)))

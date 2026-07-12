@@ -121,7 +121,7 @@ public enum PluginOAuthError: Error, Equatable, LocalizedError, Sendable {
         case .missingRefreshToken(let pluginID):
             "OAuth token is expired and no refresh token is available: \(pluginID)"
         case .invalidRedirectURI(let redirectURI):
-            "OAuth redirect URI must match status://oauth/{provider}: \(redirectURI)"
+            "OAuth redirect URI must match com.statusfoundry.status.oauth:/{provider}: \(redirectURI)"
         case .authorizationCallbackMissingCode:
             "OAuth callback did not include an authorization code."
         case .authorizationStateMismatch:
@@ -141,7 +141,12 @@ public enum PluginOAuthError: Error, Equatable, LocalizedError, Sendable {
 }
 
 public enum PluginOAuth {
+    public static let callbackScheme = "com.statusfoundry.status.oauth"
     public static let clientIDSetupFieldKey = "_status.oauth.clientId"
+
+    public static func redirectURI(provider: String) -> String {
+        "\(callbackScheme):/\(provider)"
+    }
 
     public static func authorizationRequest(
         pluginID: String,
@@ -278,14 +283,27 @@ public enum PluginOAuth {
         guard let provider = provider?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty else {
             throw PluginOAuthError.missingOAuthConfiguration(pluginID)
         }
-        guard let components = URLComponents(string: redirectURI),
-              components.scheme == "status",
-              components.host == "oauth",
-              components.path == "/\(provider)",
-              components.query == nil,
-              components.fragment == nil else {
+        guard isAppOwnedRedirectURI(redirectURI, provider: provider) else {
             throw PluginOAuthError.invalidRedirectURI(redirectURI)
         }
+    }
+
+    public static func isAppOwnedRedirectURI(_ redirectURI: String, provider: String) -> Bool {
+        guard let components = URLComponents(string: redirectURI),
+              components.query == nil,
+              components.fragment == nil else {
+            return false
+        }
+
+        if components.scheme == callbackScheme,
+           components.host == nil,
+           components.path == "/\(provider)" {
+            return true
+        }
+
+        return components.scheme == "status" &&
+            components.host == "oauth" &&
+            components.path == "/\(provider)"
     }
 
     private static func normalizedPath(_ path: String) -> String {

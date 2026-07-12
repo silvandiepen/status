@@ -114,7 +114,7 @@ import Testing
         oauth2: PackagedPluginOAuth2(
             authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
             tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
-            redirectURI: "status://oauth/github",
+            redirectURI: "com.statusfoundry.status.oauth:/github",
             scopes: ["repo"]
         )
     )
@@ -135,7 +135,7 @@ import Testing
         oauth2: PackagedPluginOAuth2(
             authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
             tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
-            redirectURI: "status://oauth/github"
+            redirectURI: "com.statusfoundry.status.oauth:/github"
         )
     )
 
@@ -156,7 +156,7 @@ import Testing
         oauth2: PackagedPluginOAuth2(
             authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
             tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
-            redirectURI: "status://oauth/github"
+            redirectURI: "com.statusfoundry.status.oauth:/github"
         )
     )
 
@@ -200,11 +200,11 @@ import Testing
         oauth2: PackagedPluginOAuth2(
             authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
             tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
-            redirectURI: "status://oauth/google"
+            redirectURI: "com.statusfoundry.status.oauth:/google"
         )
     )
 
-    #expect(throws: PluginValidationError.oauthInvalidRedirectURI("status://oauth/google")) {
+    #expect(throws: PluginValidationError.oauthInvalidRedirectURI("com.statusfoundry.status.oauth:/google")) {
         try PluginManifestValidator.validate(
             PluginValidationInput(manifest: manifest, authDefinitions: [auth])
         )

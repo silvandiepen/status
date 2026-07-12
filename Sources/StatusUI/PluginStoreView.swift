@@ -16,6 +16,9 @@ public enum StatusOAuthCallbackRouter {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
             return false
         }
+        if components.scheme == PluginOAuth.callbackScheme, components.host == nil {
+            return components.path.isEmpty == false
+        }
         return components.scheme == "status" && components.host == "oauth"
     }
 }
@@ -5021,8 +5024,8 @@ struct PluginSetupGuide: Equatable, Sendable {
             self.title = "YouTube OAuth setup"
             self.detail = "YouTube uses Google OAuth 2 with PKCE. Status needs the public OAuth client ID before it can open the Google authorization page."
             self.steps = [
-                "Create a Google Cloud OAuth client and enable YouTube Data API v3.",
-                "Add status://oauth/youtube as an allowed redirect URI.",
+                "Create a Google Cloud OAuth client for an installed app and enable YouTube Data API v3.",
+                "Add com.statusfoundry.status.oauth:/youtube as an allowed redirect URI.",
                 "Paste the client ID, grant Network, Keychain, and OAuth permissions, then connect the creator account."
             ]
             self.links = [

@@ -72,7 +72,7 @@ Acceptance: the App Store rejection and website down/recovered flows can be trac
 
 Status: implemented for the native v1 path. OAuth plugins declare provider metadata,
 public app/client IDs, authorization/token endpoints, redirect URI, and scopes.
-Status owns PKCE authorization URL creation, `status://oauth/...` callback handling,
+Status owns PKCE authorization URL creation, `com.statusfoundry.status.oauth:/...` callback handling,
 state validation, authorization-code exchange, Keychain-backed token-set storage,
 expired-token refresh, and request header injection. Plugins never ship client
 secrets and never receive token material directly.

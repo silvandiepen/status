@@ -170,8 +170,8 @@
           ],
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.googleplay/0.1.0/com.status.googleplay-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.googleplay/0.1.0/manifest.json",
-          "sha256": "cf2a409c3d42cbc727c14edc433736df2e161d65afa0748f928ebfc54b84219a",
-          "signature": "Ev5OTpMmAL703S9N4aL3cF5R7yWyY6OirhcTi0Pya6HOx9C8CWqVkogls811FDDzqs5ok2XnzZv4EU/3HYeQBQ==",
+          "sha256": "531265e46e79865291d36d2c65283d39e38ba5b4a8e188f238d1adc7ee322dd4",
+          "signature": "BAQUs/tiOLDTwstl/eEGYruV6IyZMXTAM2i5cPMNnoBbbodxvFq22D8qanPpFuhix6d8zbiUgaAxZRpITPHeBw==",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-09T12:00:00Z"
         }
@@ -300,8 +300,8 @@
           ],
           "packageUrl": "https://status-registry.hakobs.com/plugins/com.status.youtube/0.1.0/com.status.youtube-0.1.0.statusplugin.zip",
           "manifestUrl": "https://status-registry.hakobs.com/plugins/com.status.youtube/0.1.0/manifest.json",
-          "sha256": "63c3f3571e1a7b611f7312d38343120f6faace200f774f025c3ac91d992127a0",
-          "signature": "YEydNLQCb15oEX6UpjxdO2whnXCFFJ6L2pGyRXY1nU4exvP0JgAWoeXGLuQn1K/HpnMSJR0j5sTestZ4qgtiCw==",
+          "sha256": "9c2c4e414562bba886b6cfd445762ef52ba75b2e5320111cf6c6565533465521",
+          "signature": "23NaVe0jZSs1fvrWGhPONRioQ5HMDdb4189SKgD4pdCZQTtcRXQhL/aGIX1HXqcf47SyNBOwemUcKzdEkJgcAA==",
           "signedBy": "status-foundry-dev",
           "releasedAt": "2026-07-09T12:00:00Z"
         }

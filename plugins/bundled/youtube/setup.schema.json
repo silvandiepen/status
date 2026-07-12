@@ -7,7 +7,7 @@
       "label": "Google OAuth client ID",
       "type": "text",
       "placeholder": "000000000000-example.apps.googleusercontent.com",
-      "help": "Create an OAuth client in Google Cloud, enable YouTube Data API v3, add status://oauth/youtube as the redirect URI, then paste the public client ID before connecting.",
+      "help": "Create an OAuth client in Google Cloud, enable YouTube Data API v3, add com.statusfoundry.status.oauth:/youtube as the redirect URI, then paste the public client ID before connecting.",
       "required": true
     }
   ]

@@ -67,7 +67,7 @@
         "redirectUri": {
           "type": "string",
           "minLength": 1,
-          "pattern": "^status://oauth/[a-z][a-z0-9-]*$"
+          "pattern": "^com\\.statusfoundry\\.status\\.oauth:/[a-z][a-z0-9-]*$"
         },
         "scopes": {
           "type": "array",

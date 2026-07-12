@@ -74,7 +74,7 @@ public enum PluginValidationError: Error, Equatable, LocalizedError, Sendable {
         case .oauthMissingConfiguration(let pluginID):
             "OAuth plugin must declare authorization and token endpoints: \(pluginID)"
         case .oauthInvalidRedirectURI(let value):
-            "OAuth redirectUri must use the app-owned status://oauth/{provider} callback matching auth.provider: \(value)"
+            "OAuth redirectUri must use the app-owned com.statusfoundry.status.oauth:/{provider} callback matching auth.provider: \(value)"
         case .invalidIcon(let value):
             "Plugin icon must be an SF Symbol name, optionally prefixed with sf:: \(value)"
         case .invalidAccentColor(let value):
@@ -360,16 +360,7 @@ public enum PluginManifestValidator {
     }
 
     private static func validateOAuthRedirectURI(_ redirectURI: String, provider: String) throws {
-        guard let components = URLComponents(string: redirectURI),
-              components.scheme == "status",
-              components.host == "oauth",
-              components.query == nil,
-              components.fragment == nil else {
-            throw PluginValidationError.oauthInvalidRedirectURI(redirectURI)
-        }
-        let path = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        let isValidProviderPath = path.range(of: #"^[a-z][a-z0-9-]*$"#, options: .regularExpression) != nil
-        if isValidProviderPath == false || path != provider {
+        guard PluginOAuth.isAppOwnedRedirectURI(redirectURI, provider: provider) else {
             throw PluginValidationError.oauthInvalidRedirectURI(redirectURI)
         }
     }

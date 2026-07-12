@@ -293,7 +293,7 @@ Later phases, for reference: Cloudflare uses an API token (bearer), Stripe uses 
 - Refresh responsibility: the core request engine owns token refresh, transparently, per account. Plugins never see refresh tokens.
 - Keychain storage: access token, refresh token, expiry, and scopes stored per account in Keychain, same rules as all other secrets.
 
-Implementation boundary: core and the native shells now support OAuth package metadata, PKCE authorization URL creation, `status://oauth/...` callback delivery, callback `state` and redirect validation, authorization-code exchange, Keychain-backed token-set storage, expired-token refresh, and request header injection. GitHub/GitLab/Jira can still keep PAT/API-token setup paths as practical low-friction options, but OAuth-only plugins no longer need a plugin-owned executable flow.
+Implementation boundary: core and the native shells now support OAuth package metadata, PKCE authorization URL creation, `com.statusfoundry.status.oauth:/...` callback delivery, callback `state` and redirect validation, authorization-code exchange, Keychain-backed token-set storage, expired-token refresh, and request header injection. GitHub/GitLab/Jira can still keep PAT/API-token setup paths as practical low-friction options, but OAuth-only plugins no longer need a plugin-owned executable flow.
 
 ### Token refresh and failure behavior
 

@@ -169,7 +169,7 @@ import Testing
     #expect(github.detail.contains("GitHub OAuth is intentionally not enabled yet"))
     #expect(github.links.first?.url.absoluteString == "https://github.com/settings/personal-access-tokens/new")
     #expect(youtube.detail.contains("Google OAuth 2 with PKCE"))
-    #expect(youtube.steps.contains { $0.contains("status://oauth/youtube") })
+    #expect(youtube.steps.contains { $0.contains("com.statusfoundry.status.oauth:/youtube") })
 }
 
 @Test func dashboardTileDisplayValueFormatsRawPluginValuesForUsers() {
@@ -1590,7 +1590,7 @@ import Testing
             oauth2: PackagedPluginOAuth2(
                 authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
                 tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
-                redirectURI: "status://oauth/github",
+                redirectURI: "com.statusfoundry.status.oauth:/github",
                 scopes: ["repo"]
             )
         ),
@@ -1618,7 +1618,7 @@ import Testing
     #expect(url.host == "github.com")
     #expect(query["response_type"] == "code")
     #expect(query["client_id"] == "status-foundry.github")
-    #expect(query["redirect_uri"] == "status://oauth/github")
+    #expect(query["redirect_uri"] == "com.statusfoundry.status.oauth:/github")
     #expect(query["scope"] == "repo")
     #expect(query["code_challenge_method"] == "S256")
     #expect(query["code_challenge"]?.isEmpty == false)
@@ -1705,7 +1705,7 @@ import Testing
             oauth2: PackagedPluginOAuth2(
                 authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
                 tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
-                redirectURI: "status://oauth/github",
+                redirectURI: "com.statusfoundry.status.oauth:/github",
                 scopes: ["repo"]
             )
         ),
@@ -1742,7 +1742,7 @@ import Testing
         .queryItems?
         .first { $0.name == "state" }?
         .value)
-    let callbackURL = try #require(URL(string: "status://oauth/github?code=code-456&state=\(state)"))
+    let callbackURL = try #require(URL(string: "com.statusfoundry.status.oauth:/github?code=code-456&state=\(state)"))
 
     await viewModel.completeOAuthConnection(callbackURL: callbackURL)
 
@@ -1775,7 +1775,7 @@ import Testing
             oauth2: PackagedPluginOAuth2(
                 authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
                 tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
-                redirectURI: "status://oauth/github",
+                redirectURI: "com.statusfoundry.status.oauth:/github",
                 scopes: ["repo"]
             )
         ),
@@ -1823,7 +1823,7 @@ import Testing
         .queryItems?
         .first { $0.name == "state" }?
         .value)
-    let callbackURL = try #require(URL(string: "status://oauth/github?code=code-456&state=\(state)"))
+    let callbackURL = try #require(URL(string: "com.statusfoundry.status.oauth:/github?code=code-456&state=\(state)"))
 
     await viewModel.completeOAuthConnection(callbackURL: callbackURL)
 
@@ -1842,7 +1842,7 @@ import Testing
         loadAvailable: { [] },
         installPlugin: { _ in }
     )
-    let callbackURL = try #require(URL(string: "status://oauth/github?code=code-456&state=missing"))
+    let callbackURL = try #require(URL(string: "com.statusfoundry.status.oauth:/github?code=code-456&state=missing"))
 
     let handled = await viewModel.handleOAuthCallbackIfPending(callbackURL: callbackURL)
 
@@ -1868,7 +1868,7 @@ import Testing
             oauth2: PackagedPluginOAuth2(
                 authorizationURL: try #require(URL(string: "https://github.com/login/oauth/authorize")),
                 tokenURL: try #require(URL(string: "https://github.com/login/oauth/access_token")),
-                redirectURI: "status://oauth/github",
+                redirectURI: "com.statusfoundry.status.oauth:/github",
                 scopes: ["repo"]
             )
         ),
@@ -1898,7 +1898,7 @@ import Testing
         .queryItems?
         .first { $0.name == "state" }?
         .value)
-    let callbackURL = try #require(URL(string: "status://oauth/github?code=code-456&state=\(state)"))
+    let callbackURL = try #require(URL(string: "com.statusfoundry.status.oauth:/github?code=code-456&state=\(state)"))
 
     let handled = await viewModel.handleOAuthCallbackIfPending(callbackURL: callbackURL)
 
@@ -1925,7 +1925,7 @@ private func oauthGitHubPlugin() -> InstalledPlugin {
             oauth2: PackagedPluginOAuth2(
                 authorizationURL: URL(string: "https://github.com/login/oauth/authorize")!,
                 tokenURL: URL(string: "https://github.com/login/oauth/access_token")!,
-                redirectURI: "status://oauth/github",
+                redirectURI: "com.statusfoundry.status.oauth:/github",
                 scopes: ["repo"]
             )
         ),
