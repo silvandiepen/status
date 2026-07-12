@@ -5008,16 +5008,21 @@ struct PluginSetupGuide: Equatable, Sendable {
         switch plugin.id {
         case "com.status.github":
             self.title = "GitHub setup"
-            self.detail = "The current GitHub app uses a fine-grained personal access token. GitHub OAuth is intentionally not enabled yet because the web flow needs a client secret that should not be shipped in the native app."
+            self.detail = "The current GitHub app uses a fine-grained personal access token. Do not create a GitHub OAuth app for this plugin yet; GitHub's web OAuth flow needs a client secret that should not be shipped in the native app."
             self.steps = [
-                "Create a fine-grained token for the repository you are adding.",
-                "Grant read-only Metadata, Actions, Pull requests, and Issues access. Add Contents read-only if GitHub requires it for activity reads.",
-                "Paste the token here, save the app, grant Network and Keychain permissions, then refresh."
+                "Create a fine-grained token named Status Local Dev for the repository you are adding.",
+                "Set repository access to selected repositories only, then choose the same owner and repository you enter in Status.",
+                "Grant read-only Metadata, Actions, Pull requests, and Issues access. Add Contents read-only if GitHub requires it for repository activity reads.",
+                "Paste the token here, save the app, grant Network, Keychain, and Background Refresh permissions, then refresh."
             ]
             self.links = [
                 PluginSetupGuideLink(
                     label: "Create GitHub token",
                     url: URL(string: "https://github.com/settings/personal-access-tokens/new")!
+                ),
+                PluginSetupGuideLink(
+                    label: "Token permissions",
+                    url: URL(string: "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens")!
                 )
             ]
         case "com.status.youtube":

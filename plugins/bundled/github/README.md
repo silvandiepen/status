@@ -15,7 +15,7 @@ Create one configured app per repository you want to watch:
 
 Status stores a GitHub fine-grained personal access token in Keychain when you complete auth setup. The plugin only calls declared `api.github.com` endpoints.
 
-GitHub OAuth is not enabled in this package yet. GitHub's native-friendly device flow needs a separate Status auth flow, while GitHub OAuth App web flow requires a client secret and is not appropriate to store in a declarative plugin. For the current working app, use a read-only fine-grained token.
+GitHub OAuth is not enabled in this package yet. Do not create a GitHub OAuth app for the current plugin. GitHub's native-friendly device flow needs a separate Status auth flow, while GitHub OAuth App web flow requires a client secret and is not appropriate to store in a declarative plugin. For the current working app, use a read-only fine-grained token.
 
 ## What it exposes
 
@@ -67,7 +67,9 @@ Read-only in v1. No merge, close, or branch mutation actions.
 
 1. Install **GitHub** from the Status plugin store.
 2. Create a configured app and enter owner and repository.
-3. Create a fine-grained GitHub personal access token for the repository with read-only metadata, actions, issues, and pull request access where available.
-4. Add that token to the configured app in Status.
-5. Grant network, keychain, and background refresh permissions.
-6. Run **Refresh repository activity** and **Refresh workflow runs**, then enable **Check workflow runs** if you want scheduled polling.
+3. Create a fine-grained GitHub personal access token named `Status Local Dev`.
+4. Set repository access to selected repositories only, then select the repository you entered in Status.
+5. Grant read-only Metadata, Actions, Pull requests, and Issues access. Add Contents read-only if GitHub requires it for repository activity reads.
+6. Add that token to the configured app in Status.
+7. Grant network, keychain, and background refresh permissions.
+8. Run **Refresh repository activity** and **Refresh workflow runs**, then enable **Check workflow runs** if you want scheduled polling.

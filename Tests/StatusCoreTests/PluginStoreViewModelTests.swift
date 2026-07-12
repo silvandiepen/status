@@ -166,7 +166,9 @@ import Testing
     )))
 
     #expect(github.detail.contains("fine-grained personal access token"))
-    #expect(github.detail.contains("GitHub OAuth is intentionally not enabled yet"))
+    #expect(github.detail.contains("Do not create a GitHub OAuth app"))
+    #expect(github.steps.contains { $0.contains("selected repositories only") })
+    #expect(github.steps.contains { $0.contains("read-only Metadata, Actions, Pull requests, and Issues") })
     #expect(github.links.first?.url.absoluteString == "https://github.com/settings/personal-access-tokens/new")
     #expect(youtube.detail.contains("Google OAuth 2 with PKCE"))
     #expect(youtube.steps.contains { $0.contains("com.statusfoundry.status.oauth:/youtube") })
