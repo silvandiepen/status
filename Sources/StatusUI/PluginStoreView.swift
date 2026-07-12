@@ -2882,6 +2882,7 @@ private struct PluginSettingsPanel: View {
                             plugin: plugin,
                             authorizationURL: oauthConnectionURL,
                             error: oauthConnectionError,
+                            readiness: oauthConnectionReadiness,
                             connect: { beginOAuthConnection(plugin) }
                         )
                     }
@@ -3096,6 +3097,14 @@ private struct PluginSettingsPanel: View {
         setupFields.contains { field in
             field.required && setupValues[field.id, default: ""].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
+    }
+
+    private var oauthConnectionReadiness: PluginOAuthConnectionReadiness {
+        PluginOAuthConnectionReadiness(
+            setupFields: setupFields,
+            setupValues: setupValues,
+            permissions: permissions
+        )
     }
 
     private func permissionChangeID(_ permission: InstalledPluginPermission) -> String {
@@ -4719,6 +4728,7 @@ private struct PluginOAuthConnectionPanel: View {
     let plugin: InstalledPlugin
     let authorizationURL: URL?
     let error: String?
+    let readiness: PluginOAuthConnectionReadiness
     let connect: () -> URL?
 
     var body: some View {
@@ -4726,6 +4736,10 @@ private struct PluginOAuthConnectionPanel: View {
             Text("OAuth")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
+            Text(readiness.detail)
+                .font(.caption2)
+                .foregroundStyle(readiness.canConnect ? Color.secondary : Color.orange)
+                .fixedSize(horizontal: false, vertical: true)
             Button {
                 if let url = connect() {
                     openURL(url)
@@ -4734,6 +4748,7 @@ private struct PluginOAuthConnectionPanel: View {
                 Label("Connect account", systemImage: "person.crop.circle.badge.checkmark")
             }
             .buttonStyle(.bordered)
+            .disabled(readiness.canConnect == false)
             if let authorizationURL {
                 Link("Open authorization page", destination: authorizationURL)
                     .font(.caption)
@@ -4751,6 +4766,49 @@ private struct PluginOAuthConnectionPanel: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(plugin.name) OAuth connection")
+    }
+}
+
+struct PluginOAuthConnectionReadiness: Equatable, Sendable {
+    var missingRequiredFieldLabels: [String]
+    var missingPermissionLabels: [String]
+
+    init(
+        setupFields: [PackagedPluginSetupField],
+        setupValues: [String: String],
+        permissions: [InstalledPluginPermission]
+    ) {
+        self.missingRequiredFieldLabels = setupFields
+            .filter { field in
+                field.required && setupValues[field.id, default: field.defaultValue ?? ""]
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .isEmpty
+            }
+            .map(\.label)
+
+        let granted = Set(permissions.filter(\.granted).map(\.permission))
+        let declared = Set(permissions.map(\.permission))
+        self.missingPermissionLabels = [PluginPermission.network, .keychain, .oauth]
+            .filter { declared.contains($0) && granted.contains($0) == false }
+            .map(\.label)
+    }
+
+    var canConnect: Bool {
+        missingRequiredFieldLabels.isEmpty && missingPermissionLabels.isEmpty
+    }
+
+    var detail: String {
+        if canConnect {
+            return "Ready to open the provider authorization page."
+        }
+        var parts: [String] = []
+        if missingRequiredFieldLabels.isEmpty == false {
+            parts.append("Enter \(missingRequiredFieldLabels.joined(separator: ", ")) before connecting.")
+        }
+        if missingPermissionLabels.isEmpty == false {
+            parts.append("Grant \(missingPermissionLabels.joined(separator: ", ")) permission before connecting.")
+        }
+        return parts.joined(separator: " ")
     }
 }
 

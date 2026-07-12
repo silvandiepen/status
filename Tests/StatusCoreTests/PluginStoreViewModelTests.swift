@@ -134,6 +134,65 @@ import Testing
     #expect(header.metadata == "0.1.0")
 }
 
+@Test func pluginOAuthConnectionReadinessRequiresSetupFieldsBeforeConnecting() {
+    let readiness = PluginOAuthConnectionReadiness(
+        setupFields: [
+            PackagedPluginSetupField(
+                id: PluginOAuth.clientIDSetupFieldKey,
+                label: "Google OAuth client ID",
+                type: .text,
+                required: true
+            )
+        ],
+        setupValues: [:],
+        permissions: grantedOAuthPermissions(pluginID: "com.status.youtube")
+    )
+
+    #expect(readiness.canConnect == false)
+    #expect(readiness.detail == "Enter Google OAuth client ID before connecting.")
+}
+
+@Test func pluginOAuthConnectionReadinessRequiresOAuthPermissionsBeforeConnecting() {
+    let readiness = PluginOAuthConnectionReadiness(
+        setupFields: [
+            PackagedPluginSetupField(
+                id: PluginOAuth.clientIDSetupFieldKey,
+                label: "Google OAuth client ID",
+                type: .text,
+                required: true
+            )
+        ],
+        setupValues: [PluginOAuth.clientIDSetupFieldKey: "client.apps.googleusercontent.com"],
+        permissions: [
+            InstalledPluginPermission(id: "plp_network", pluginID: "com.status.youtube", permission: .network, granted: true),
+            InstalledPluginPermission(id: "plp_keychain", pluginID: "com.status.youtube", permission: .keychain, granted: false),
+            InstalledPluginPermission(id: "plp_oauth", pluginID: "com.status.youtube", permission: .oauth, granted: false),
+            InstalledPluginPermission(id: "plp_background", pluginID: "com.status.youtube", permission: .backgroundRefresh, granted: false)
+        ]
+    )
+
+    #expect(readiness.canConnect == false)
+    #expect(readiness.detail == "Grant Keychain, OAuth permission before connecting.")
+}
+
+@Test func pluginOAuthConnectionReadinessAllowsReadyOAuthSetup() {
+    let readiness = PluginOAuthConnectionReadiness(
+        setupFields: [
+            PackagedPluginSetupField(
+                id: PluginOAuth.clientIDSetupFieldKey,
+                label: "Google OAuth client ID",
+                type: .text,
+                required: true
+            )
+        ],
+        setupValues: [PluginOAuth.clientIDSetupFieldKey: "client.apps.googleusercontent.com"],
+        permissions: grantedOAuthPermissions(pluginID: "com.status.youtube")
+    )
+
+    #expect(readiness.canConnect)
+    #expect(readiness.detail == "Ready to open the provider authorization page.")
+}
+
 @Test func pluginAppDetailSummaryFactsDescribeUncheckedEmptyApps() {
     let facts = PluginAppDetailSummaryFacts(runtimeStatus: nil, resources: [])
 
