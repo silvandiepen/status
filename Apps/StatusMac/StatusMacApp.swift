@@ -55,6 +55,7 @@ private struct MacPluginSettingsWindow: View {
             viewModel: makePluginStoreViewModel(platform: .macOS),
             pluginID: route.pluginID,
             initialAccountID: route.accountID,
+            initialMode: route.mode,
             onAppsChanged: {
                 NotificationCenter.default.post(name: .statusConfiguredAppsDidChange, object: nil)
             },
@@ -327,25 +328,32 @@ private struct MacWindowConfigurator: NSViewRepresentable {
 private struct MacPluginSettingsRoute: Equatable {
     var pluginID: String
     var accountID: String?
+    var mode: PluginSettingsOpenMode
 
-    init(pluginID: String, accountID: String? = nil) {
+    init(pluginID: String, accountID: String? = nil, mode: PluginSettingsOpenMode = .selectedApp) {
         self.pluginID = pluginID
         self.accountID = accountID
+        self.mode = mode
     }
 
     init(rawValue: String) {
-        let parts = rawValue.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false)
-        self.pluginID = parts.first.map(String.init) ?? rawValue
-        if parts.count == 2 {
-            let accountID = String(parts[1])
+        let parts = rawValue.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+        self.pluginID = parts.first ?? rawValue
+        if parts.count > 1 {
+            let accountID = parts[1]
             self.accountID = accountID.isEmpty ? nil : accountID
         } else {
             self.accountID = nil
         }
+        if parts.count > 2 {
+            self.mode = PluginSettingsOpenMode(rawValue: parts[2]) ?? .selectedApp
+        } else {
+            self.mode = .selectedApp
+        }
     }
 
     var rawValue: String {
-        "\(pluginID)|\(accountID ?? "")"
+        "\(pluginID)|\(accountID ?? "")|\(mode.rawValue)"
     }
 }
 
@@ -550,10 +558,10 @@ private struct MacRootView: View {
                 detailWithAppTabs {
                     PluginStoreContainerView(
                         viewModel: makePluginStoreViewModel(platform: .macOS),
-                        openSettings: { plugin in
+                        openSettings: { plugin, mode in
                             openWindow(
                                 id: StatusMacApp.appSettingsWindowID,
-                                value: MacPluginSettingsRoute(pluginID: plugin.id).rawValue
+                                value: MacPluginSettingsRoute(pluginID: plugin.id, mode: mode).rawValue
                             )
                         },
                         onAppsChanged: {

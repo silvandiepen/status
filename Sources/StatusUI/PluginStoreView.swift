@@ -60,6 +60,11 @@ enum PluginStoreAccountSelection {
     static let newAccountPrefix = "__new__:"
 }
 
+public enum PluginSettingsOpenMode: String, Equatable, Sendable {
+    case selectedApp
+    case newApp
+}
+
 public struct PluginRuntimeStatus: Equatable, Sendable {
     public var pluginID: String
     public var status: JobStatus
@@ -1036,7 +1041,7 @@ public struct PluginStoreContainerView: View {
     @StateObject private var viewModel: PluginStoreViewModel
     @StateObject private var notificationPreferencesViewModel: NotificationPreferencesViewModel
     private let notificationPreferenceGroups: (InstalledPlugin, String?) -> [NotificationPreferencePluginGroup]
-    private let openSettings: ((InstalledPlugin) -> Void)?
+    private let openSettings: ((InstalledPlugin, PluginSettingsOpenMode) -> Void)?
     private let onAppsChanged: (() -> Void)?
     private let installLocalPlugin: (() async throws -> String)?
     private let previewPluginFixture: ((InstalledPlugin, String?) async throws -> String)?
@@ -1055,7 +1060,7 @@ public struct PluginStoreContainerView: View {
             setPreference: { _, _, _, _ in }
         ),
         notificationPreferenceGroups: @escaping (InstalledPlugin, String?) -> [NotificationPreferencePluginGroup] = { _, _ in [] },
-        openSettings: ((InstalledPlugin) -> Void)? = nil,
+        openSettings: ((InstalledPlugin, PluginSettingsOpenMode) -> Void)? = nil,
         onAppsChanged: (() -> Void)? = nil,
         installLocalPlugin: (() async throws -> String)? = nil,
         previewPluginFixture: ((InstalledPlugin, String?) async throws -> String)? = nil
@@ -1311,6 +1316,7 @@ public struct PluginSettingsContainerView: View {
     @StateObject private var viewModel: PluginStoreViewModel
     private let pluginID: String
     private let initialAccountID: String?
+    private let initialMode: PluginSettingsOpenMode
     private let onAppsChanged: (() -> Void)?
     @StateObject private var notificationPreferencesViewModel: NotificationPreferencesViewModel
     private let notificationPreferenceGroups: (InstalledPlugin, String?) -> [NotificationPreferencePluginGroup]
@@ -1320,6 +1326,7 @@ public struct PluginSettingsContainerView: View {
         viewModel: @autoclosure @escaping () -> PluginStoreViewModel,
         pluginID: String,
         initialAccountID: String? = nil,
+        initialMode: PluginSettingsOpenMode = .selectedApp,
         onAppsChanged: (() -> Void)? = nil,
         notificationPreferencesViewModel: @autoclosure @escaping () -> NotificationPreferencesViewModel = NotificationPreferencesViewModel(
             loadPluginGroups: { [] },
@@ -1331,6 +1338,7 @@ public struct PluginSettingsContainerView: View {
         _viewModel = StateObject(wrappedValue: viewModel())
         self.pluginID = pluginID
         self.initialAccountID = initialAccountID
+        self.initialMode = initialMode
         self.onAppsChanged = onAppsChanged
         _notificationPreferencesViewModel = StateObject(wrappedValue: notificationPreferencesViewModel())
         self.notificationPreferenceGroups = notificationPreferenceGroups
@@ -1392,8 +1400,15 @@ public struct PluginSettingsContainerView: View {
 
     private func applyInitialAccountSelectionIfNeeded() {
         guard appliedInitialAccountSelection == false,
-              let initialAccountID,
-              let plugin = viewModel.catalog.installed.first(where: { $0.id == pluginID }),
+              let plugin = viewModel.catalog.installed.first(where: { $0.id == pluginID }) else {
+            return
+        }
+        if initialMode == .newApp {
+            viewModel.addAccount(for: plugin)
+            appliedInitialAccountSelection = true
+            return
+        }
+        guard let initialAccountID,
               viewModel.configuredAccounts[pluginID, default: []].contains(where: { $0.id == initialAccountID }) else {
             return
         }
@@ -2071,7 +2086,7 @@ public struct PluginStoreView: View {
     private let setAppRuleEnabled: (InstalledPlugin, Rule, Bool) -> Void
     private let deleteAppRule: (InstalledPlugin, Rule) -> Void
     private let setDashboardTileField: (InstalledPlugin, String, Bool) -> Void
-    private let openSettings: ((InstalledPlugin) -> Void)?
+    private let openSettings: ((InstalledPlugin, PluginSettingsOpenMode) -> Void)?
     private let isInstallingLocalPlugin: Bool
     private let localPluginInstallResult: String?
     private let localPluginInstallError: String?
@@ -2085,6 +2100,7 @@ public struct PluginStoreView: View {
     private let previewRuleActions: (InstalledPlugin, String, [RuleActionDefinition]) async throws -> String
     @State private var pluginPendingRemoval: InstalledPlugin?
     @State private var presentedSettingsPlugin: InstalledPlugin?
+    @State private var presentedSettingsMode: PluginSettingsOpenMode = .selectedApp
 
     public init(
         catalog: PluginStoreCatalog,
@@ -2138,7 +2154,7 @@ public struct PluginStoreView: View {
         setAppRuleEnabled: @escaping (InstalledPlugin, Rule, Bool) -> Void = { _, _, _ in },
         deleteAppRule: @escaping (InstalledPlugin, Rule) -> Void = { _, _ in },
         setDashboardTileField: @escaping (InstalledPlugin, String, Bool) -> Void = { _, _, _ in },
-        openSettings: ((InstalledPlugin) -> Void)? = nil,
+        openSettings: ((InstalledPlugin, PluginSettingsOpenMode) -> Void)? = nil,
         isInstallingLocalPlugin: Bool = false,
         localPluginInstallResult: String? = nil,
         localPluginInstallError: String? = nil,
@@ -2282,16 +2298,23 @@ public struct PluginStoreView: View {
         }
         .sheet(item: $presentedSettingsPlugin) { plugin in
             NavigationStack {
-                pluginSettingsView(for: plugin)
+                PluginSettingsSheetContent(
+                    plugin: plugin,
+                    mode: presentedSettingsMode,
+                    addAccount: addAccount
+                ) {
+                    pluginSettingsView(for: plugin)
+                }
                     .navigationTitle(plugin.name)
             }
         }
     }
 
-    private func showSettings(_ plugin: InstalledPlugin) {
+    private func showSettings(_ plugin: InstalledPlugin, mode: PluginSettingsOpenMode = .selectedApp) {
         if let openSettings {
-            openSettings(plugin)
+            openSettings(plugin, mode)
         } else {
+            presentedSettingsMode = mode
             presentedSettingsPlugin = plugin
         }
     }
@@ -2418,6 +2441,25 @@ private struct PluginStoreHeader: View {
     }
 }
 
+private struct PluginSettingsSheetContent<Content: View>: View {
+    let plugin: InstalledPlugin
+    let mode: PluginSettingsOpenMode
+    let addAccount: (InstalledPlugin) -> Void
+    @ViewBuilder let content: () -> Content
+    @State private var didApplyMode = false
+
+    var body: some View {
+        content()
+            .onAppear {
+                guard didApplyMode == false else { return }
+                didApplyMode = true
+                if mode == .newApp {
+                    addAccount(plugin)
+                }
+            }
+    }
+}
+
 private struct InstalledPluginSection: View {
     let plugins: [InstalledPlugin]
     let availableUpdates: [String: RegistryPluginSummary]
@@ -2430,7 +2472,7 @@ private struct InstalledPluginSection: View {
     let installingPluginID: String?
     let install: (RegistryPluginSummary) -> Void
     let removingPluginID: String?
-    let openSettings: (InstalledPlugin) -> Void
+    let openSettings: (InstalledPlugin, PluginSettingsOpenMode) -> Void
     let requestRemoval: (InstalledPlugin) -> Void
 
     var body: some View {
@@ -2570,7 +2612,7 @@ private struct InstalledPluginRow: View {
     let isUpdating: Bool
     let update: (RegistryPluginSummary) -> Void
     let isRemoving: Bool
-    let openSettings: (InstalledPlugin) -> Void
+    let openSettings: (InstalledPlugin, PluginSettingsOpenMode) -> Void
     let requestRemoval: (InstalledPlugin) -> Void
 
     var body: some View {
@@ -2617,11 +2659,19 @@ private struct InstalledPluginRow: View {
                 PluginTrustLabel(trustLevel: plugin.trustLevel)
                 HStack(spacing: 8) {
                     Button {
-                        openSettings(plugin)
+                        openSettings(plugin, .selectedApp)
                     } label: {
                         Label(settingsActionTitle, systemImage: "gearshape")
                     }
                     .buttonStyle(.bordered)
+                    if accounts.isEmpty == false {
+                        Button {
+                            openSettings(plugin, .newApp)
+                        } label: {
+                            Label("Add App", systemImage: "plus")
+                        }
+                        .buttonStyle(.bordered)
+                    }
                     if canRun {
                         Button {
                             run(plugin)

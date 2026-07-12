@@ -705,6 +705,59 @@ import Testing
 }
 
 @MainActor
+@Test func pluginStoreViewModelAddAccountKeepsExistingAppsAndSelectsDraft() async throws {
+    let plugin = InstalledPlugin(
+        id: "com.status.youtube",
+        name: "YouTube",
+        author: "Status Foundry",
+        description: "YouTube creator checks.",
+        category: "creator",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/com.status.youtube",
+        setup: PackagedPluginSetup(
+            title: "Creator channel",
+            fields: [
+                PackagedPluginSetupField(
+                    id: "channelId",
+                    label: "Channel ID",
+                    type: .text,
+                    required: true
+                )
+            ]
+        ),
+        installedAt: Date(timeIntervalSince1970: 1_783_433_520),
+        updatedAt: Date(timeIntervalSince1970: 1_783_433_520)
+    )
+    let existing = PluginAccountConfiguration(
+        id: "acc_creator",
+        pluginID: plugin.id,
+        accountName: "Creator Channel",
+        variables: ["channelId": "UC123"]
+    )
+    let viewModel = PluginStoreViewModel(
+        loadInstalled: { [plugin] },
+        loadAvailable: { [] },
+        installPlugin: { _ in },
+        canConfigurePlugin: { _ in true },
+        loadAccounts: { _ in [existing] },
+        loadConfigurationValues: { _, accountID in
+            accountID == existing.id ? existing.variables : [:]
+        }
+    )
+
+    await viewModel.reload()
+    viewModel.addAccount(for: plugin)
+
+    let draftAccountID = "__new__:\(plugin.id)"
+    let draftKey = "\(plugin.id):\(draftAccountID)"
+    #expect(viewModel.configuredAccounts[plugin.id]?.map { $0.id } == [existing.id])
+    #expect(viewModel.selectedAccountIDs[plugin.id] == draftAccountID)
+    #expect(viewModel.setupValues[draftKey] == ["channelId": ""])
+    #expect(viewModel.accountDisplayNames[draftKey] == "")
+}
+
+@MainActor
 @Test func pluginStoreViewModelLoadsResourcesForInstalledPlugins() async throws {
     let plugin = InstalledPlugin(
         id: "com.status.website",
