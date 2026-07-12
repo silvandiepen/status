@@ -2582,23 +2582,12 @@ private struct InstalledPluginSection: View {
         selectedAccount: PluginAccountConfiguration,
         permissions: [InstalledPluginPermission]
     ) -> [PluginPermission] {
-        let declared = Set(permissions.map(\.permission))
         let granted = Set(permissions.filter(\.granted).map(\.permission))
-        var required: [PluginPermission] = []
-        if declared.contains(.network) {
-            required.append(.network)
-        }
-        if declared.contains(.userConfiguredDomains) {
-            required.append(.userConfiguredDomains)
-        }
-        if selectedAccount.credentialRef != nil, declared.contains(.keychain) {
-            required.append(.keychain)
-        }
-        if selectedAccount.credentialRef != nil,
-           declared.contains(.privateKey),
-           selectedAccount.authType == AuthKind.jwtAPIKey.rawValue || selectedAccount.authType == AuthKind.privateKeyJWT.rawValue {
-            required.append(.privateKey)
-        }
+        let required = PluginRuntimePermissionRequirements(
+            permissions: permissions,
+            authType: selectedAccount.authType,
+            hasCredential: selectedAccount.credentialRef != nil
+        ).requiredPermissions
         return required.filter { granted.contains($0) == false }
     }
 
