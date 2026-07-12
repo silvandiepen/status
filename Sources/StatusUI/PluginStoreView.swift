@@ -334,6 +334,26 @@ public final class PluginStoreViewModel: ObservableObject {
         }
     }
 
+    public func setPermissions(_ permissions: [PluginPermission], granted: Bool, for plugin: InstalledPlugin) async {
+        guard savingPermissionID == nil else { return }
+        let uniquePermissions = Array(Set(permissions)).sorted { lhs, rhs in
+            lhs.label.localizedCaseInsensitiveCompare(rhs.label) == .orderedAscending
+        }
+        guard uniquePermissions.isEmpty == false else { return }
+
+        do {
+            for permission in uniquePermissions {
+                savingPermissionID = permissionChangeID(plugin: plugin, permission: permission)
+                try await setPermissionGrant(plugin, permission, granted)
+            }
+            savingPermissionID = nil
+            await reload()
+        } catch {
+            savingPermissionID = nil
+            loadError = error.localizedDescription
+        }
+    }
+
     public func setTrigger(_ trigger: TriggerDefinition, enabled: Bool, for plugin: InstalledPlugin) async {
         guard savingTriggerID == nil else { return }
         savingTriggerID = trigger.id
@@ -1168,6 +1188,12 @@ public struct PluginStoreContainerView: View {
                     onAppsChanged?()
                 }
             },
+            setPermissionGrants: { plugin, permissions, granted in
+                Task {
+                    await viewModel.setPermissions(permissions, granted: granted, for: plugin)
+                    onAppsChanged?()
+                }
+            },
             setTriggerEnabled: { plugin, trigger, enabled in
                 Task {
                     await viewModel.setTrigger(trigger, enabled: enabled, for: plugin)
@@ -1501,6 +1527,12 @@ public struct PluginSettingsContainerView: View {
             setPermissionGrant: { plugin, permission, granted in
                 Task {
                     await viewModel.setPermission(permission, granted: granted, for: plugin)
+                    onAppsChanged?()
+                }
+            },
+            setPermissionGrants: { plugin, permissions, granted in
+                Task {
+                    await viewModel.setPermissions(permissions, granted: granted, for: plugin)
                     onAppsChanged?()
                 }
             },
@@ -2080,6 +2112,7 @@ public struct PluginStoreView: View {
     private let install: (RegistryPluginSummary) -> Void
     private let remove: (InstalledPlugin) -> Void
     private let setPermissionGrant: (InstalledPlugin, PluginPermission, Bool) -> Void
+    private let setPermissionGrants: (InstalledPlugin, [PluginPermission], Bool) -> Void
     private let setTriggerEnabled: (InstalledPlugin, TriggerDefinition, Bool) -> Void
     private let setRulePresetEnabled: (InstalledPlugin, Rule, Bool) -> Void
     private let saveCustomAppRule: (InstalledPlugin, String?, String, String, [RuleCondition], [RuleActionDefinition]) -> Void
@@ -2148,6 +2181,7 @@ public struct PluginStoreView: View {
         install: @escaping (RegistryPluginSummary) -> Void = { _ in },
         remove: @escaping (InstalledPlugin) -> Void = { _ in },
         setPermissionGrant: @escaping (InstalledPlugin, PluginPermission, Bool) -> Void = { _, _, _ in },
+        setPermissionGrants: @escaping (InstalledPlugin, [PluginPermission], Bool) -> Void = { _, _, _ in },
         setTriggerEnabled: @escaping (InstalledPlugin, TriggerDefinition, Bool) -> Void = { _, _, _ in },
         setRulePresetEnabled: @escaping (InstalledPlugin, Rule, Bool) -> Void = { _, _, _ in },
         saveCustomAppRule: @escaping (InstalledPlugin, String?, String, String, [RuleCondition], [RuleActionDefinition]) -> Void = { _, _, _, _, _, _ in },
@@ -2216,6 +2250,7 @@ public struct PluginStoreView: View {
         self.install = install
         self.remove = remove
         self.setPermissionGrant = setPermissionGrant
+        self.setPermissionGrants = setPermissionGrants
         self.setTriggerEnabled = setTriggerEnabled
         self.setRulePresetEnabled = setRulePresetEnabled
         self.saveCustomAppRule = saveCustomAppRule
@@ -2376,6 +2411,7 @@ public struct PluginStoreView: View {
                 { plugin in preview(plugin, selectedAccountID) }
             },
             setPermissionGrant: setPermissionGrant,
+            setPermissionGrants: setPermissionGrants,
             setTriggerEnabled: setTriggerEnabled,
             setRulePresetEnabled: setRulePresetEnabled,
             saveCustomAppRule: saveCustomAppRule,
@@ -2818,6 +2854,7 @@ private struct PluginSettingsPanel: View {
     let previewError: String?
     let previewFixture: ((InstalledPlugin) -> Void)?
     let setPermissionGrant: (InstalledPlugin, PluginPermission, Bool) -> Void
+    let setPermissionGrants: (InstalledPlugin, [PluginPermission], Bool) -> Void
     let setTriggerEnabled: (InstalledPlugin, TriggerDefinition, Bool) -> Void
     let setRulePresetEnabled: (InstalledPlugin, Rule, Bool) -> Void
     let saveCustomAppRule: (InstalledPlugin, String?, String, String, [RuleCondition], [RuleActionDefinition]) -> Void
@@ -2883,7 +2920,14 @@ private struct PluginSettingsPanel: View {
                 }
             }
             if let settingsRunUnavailableReason {
-                SettingsRunUnavailableView(reason: settingsRunUnavailableReason)
+                SettingsRunUnavailableView(
+                    reason: settingsRunUnavailableReason,
+                    missingPermissions: missingRuntimePermissions,
+                    isGrantingPermissions: savingPermissionID != nil,
+                    grantPermissions: {
+                        setPermissionGrants(plugin, missingRuntimePermissions, true)
+                    }
+                )
             }
             if canConfigure {
                 VStack(alignment: .leading, spacing: 10) {
@@ -2933,6 +2977,10 @@ private struct PluginSettingsPanel: View {
                             authorizationURL: oauthConnectionURL,
                             error: oauthConnectionError,
                             readiness: oauthConnectionReadiness,
+                            isGrantingPermissions: savingPermissionID != nil,
+                            grantPermissions: { permissions in
+                                setPermissionGrants(plugin, permissions, true)
+                            },
                             connect: { beginOAuthConnection(plugin) }
                         )
                     }
@@ -3353,6 +3401,9 @@ private struct PluginRequestTestPanel: View {
 
 private struct SettingsRunUnavailableView: View {
     let reason: String
+    let missingPermissions: [PluginPermission]
+    let isGrantingPermissions: Bool
+    let grantPermissions: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -3369,6 +3420,22 @@ private struct SettingsRunUnavailableView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                if missingPermissions.isEmpty == false {
+                    Button {
+                        grantPermissions()
+                    } label: {
+                        if isGrantingPermissions {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Label("Grant Required Permissions", systemImage: "checkmark.shield")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(isGrantingPermissions)
+                    .padding(.top, 2)
+                }
             }
             Spacer(minLength: 0)
         }
@@ -4779,6 +4846,8 @@ private struct PluginOAuthConnectionPanel: View {
     let authorizationURL: URL?
     let error: String?
     let readiness: PluginOAuthConnectionReadiness
+    let isGrantingPermissions: Bool
+    let grantPermissions: ([PluginPermission]) -> Void
     let connect: () -> URL?
 
     var body: some View {
@@ -4799,6 +4868,20 @@ private struct PluginOAuthConnectionPanel: View {
             }
             .buttonStyle(.bordered)
             .disabled(readiness.canConnect == false)
+            if readiness.missingPermissions.isEmpty == false {
+                Button {
+                    grantPermissions(readiness.missingPermissions)
+                } label: {
+                    if isGrantingPermissions {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Label("Grant OAuth Permissions", systemImage: "checkmark.shield")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(isGrantingPermissions)
+            }
             if let authorizationURL {
                 Link("Open authorization page", destination: authorizationURL)
                     .font(.caption)
@@ -4820,6 +4903,7 @@ private struct PluginOAuthConnectionPanel: View {
 }
 
 struct PluginOAuthConnectionReadiness: Equatable, Sendable {
+    var missingPermissions: [PluginPermission]
     var missingRequiredFieldLabels: [String]
     var missingPermissionLabels: [String]
 
@@ -4838,8 +4922,9 @@ struct PluginOAuthConnectionReadiness: Equatable, Sendable {
 
         let granted = Set(permissions.filter(\.granted).map(\.permission))
         let declared = Set(permissions.map(\.permission))
-        self.missingPermissionLabels = [PluginPermission.network, .keychain, .oauth]
+        self.missingPermissions = [PluginPermission.network, .keychain, .oauth]
             .filter { declared.contains($0) && granted.contains($0) == false }
+        self.missingPermissionLabels = missingPermissions
             .map(\.label)
     }
 

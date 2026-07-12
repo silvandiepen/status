@@ -172,6 +172,7 @@ import Testing
     )
 
     #expect(readiness.canConnect == false)
+    #expect(readiness.missingPermissions == [.keychain, .oauth])
     #expect(readiness.detail == "Grant Keychain, OAuth permission before connecting.")
 }
 
@@ -488,6 +489,60 @@ import Testing
     await viewModel.reload()
 
     #expect(viewModel.pluginActions[plugin.id] == [action])
+}
+
+@MainActor
+@Test func pluginStoreViewModelGrantsMultiplePermissionsSequentially() async throws {
+    let plugin = InstalledPlugin(
+        id: "com.status.youtube",
+        name: "YouTube",
+        author: "Status Foundry",
+        description: "YouTube creator checks.",
+        category: "creator",
+        trustLevel: .official,
+        installedVersion: "0.1.0",
+        installPath: "/tmp/com.status.youtube",
+        installedAt: Date(timeIntervalSince1970: 1_783_433_520),
+        updatedAt: Date(timeIntervalSince1970: 1_783_433_520)
+    )
+    var granted: Set<PluginPermission> = []
+    var grantOrder: [PluginPermission] = []
+    let viewModel = PluginStoreViewModel(
+        loadInstalled: { [plugin] },
+        loadAvailable: { [] },
+        installPlugin: { _ in },
+        loadPermissions: { plugin in
+            [
+                InstalledPluginPermission(
+                    id: "plp_network",
+                    pluginID: plugin.id,
+                    permission: .network,
+                    granted: granted.contains(.network)
+                ),
+                InstalledPluginPermission(
+                    id: "plp_keychain",
+                    pluginID: plugin.id,
+                    permission: .keychain,
+                    granted: granted.contains(.keychain)
+                )
+            ]
+        },
+        setPermissionGrant: { _, permission, isGranted in
+            grantOrder.append(permission)
+            if isGranted {
+                granted.insert(permission)
+            } else {
+                granted.remove(permission)
+            }
+        }
+    )
+
+    await viewModel.reload()
+    await viewModel.setPermissions([.network, .keychain, .network], granted: true, for: plugin)
+
+    #expect(grantOrder == [.keychain, .network])
+    #expect(Set(viewModel.installedPermissions[plugin.id, default: []].filter(\.granted).map(\.permission)) == [.network, .keychain])
+    #expect(viewModel.savingPermissionID == nil)
 }
 
 @MainActor
