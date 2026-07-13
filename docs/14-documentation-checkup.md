@@ -46,7 +46,7 @@ Strengths:
 
 ### Architecture direction
 
-`docs/03-architecture.md` is structurally sound. The package split (`StatusCore`, `StatusUI`, `StatusMac`, `StatusiOS`) matches the product doctrine and is practical for Swift/SwiftUI.
+`docs/03-architecture.md` is structurally sound. The package split (`StatusCore`, `StatusUI`, `macos`, `ios`) matches the product doctrine and is practical for Swift/SwiftUI.
 
 Strengths:
 

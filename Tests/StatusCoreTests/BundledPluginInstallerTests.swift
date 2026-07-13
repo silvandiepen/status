@@ -34,7 +34,7 @@ import Testing
     #expect(try store.rules().contains { $0.provider == "com.status.googleplay" && $0.eventType == "googleplay.review.needs_attention" })
     #expect(try store.rules().contains { $0.provider == "com.status.youtube" && $0.eventType == "youtube.channel.visibility_limited" })
     #expect(try store.installedPlugin(id: "com.status.github")?.setup?.fields.first(where: { $0.id == "owner" })?.help == "GitHub user or organization, for example statusfoundry.")
-    #expect(try store.installedPlugin(id: "com.status.github")?.auth?.fields.first(where: { $0.id == "token" })?.help?.contains("read-only Metadata, Actions, Pull requests, and Issues") == true)
+    #expect(try store.installedPlugin(id: "com.status.github")?.auth?.type == .oauth2)
     #expect(try store.installedPlugin(id: "com.status.youtube")?.setup?.fields.first(where: { $0.id == PluginOAuth.clientIDSetupFieldKey })?.help?.contains("com.statusfoundry.status.oauth:/youtube") == true)
     #expect(try store.installedPluginDefinition(pluginID: "com.status.jira")?.actions.map(\.id) == ["jira.createIssue"])
     let websiteVersion = try #require(try store.installedPluginVersions(pluginID: "com.status.website").first)
@@ -161,10 +161,16 @@ import Testing
     let installer = BundledPluginInstaller(store: store, installRoot: installRoot)
     _ = try installer.install(pluginID: "com.status.github", installedAt: Date(timeIntervalSince1970: 1_783_433_520))
     let now = Date(timeIntervalSince1970: 1_783_433_520)
-    try grantBundledPermissions([.network, .keychain, .backgroundRefresh], pluginID: "com.status.github", store: store, at: now)
+    try grantBundledPermissions([.network, .keychain, .oauth, .backgroundRefresh], pluginID: "com.status.github", store: store, at: now)
     let plugin = try #require(try store.installedPlugin(id: "com.status.github"))
-    _ = try PluginSetupConfiguration.saveValues(
-        ["owner": "statusfoundry", "repo": "status", "token": "github_pat_example"],
+    _ = try PluginSetupConfiguration.saveOAuthTokenSet(
+        PluginOAuthTokenSet(
+            accessToken: "github_oauth_access",
+            refreshToken: nil,
+            expiresAt: nil,
+            clientID: "Iv23li8WJVyW9xcEihGR"
+        ),
+        setupValues: ["owner": "statusfoundry", "repo": "status"],
         for: plugin,
         service: PluginRuntimeService(store: store, credentialStore: nil),
         credentialStore: credentials,
@@ -173,7 +179,7 @@ import Testing
     let account = try #require(try store.accountConfigurations(pluginID: "com.status.github").first)
     let activityFixture = try Data(contentsOf: bundledPluginDirectory(pluginID: "com.status.github").appendingPathComponent("fixtures/list_repository_activity.json"))
     let workflowFixture = try Data(contentsOf: bundledPluginDirectory(pluginID: "com.status.github").appendingPathComponent("fixtures/list_workflow_runs.json"))
-    let transport = BundledProviderTransport(expectedAuthorization: "Bearer github_pat_example") { request in
+    let transport = BundledProviderTransport(expectedAuthorization: "Bearer github_oauth_access") { request in
         if request.url.path == "/repos/statusfoundry/status/events" {
             return PluginHTTPResponse(data: activityFixture, statusCode: 200, url: request.url)
         }

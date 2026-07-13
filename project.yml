@@ -14,11 +14,11 @@ packages:
   StatusPackage:
     path: .
 targets:
-  StatusMac:
+  macos:
     type: application
     platform: macOS
     sources:
-      - _apps/StatusMac
+      - apps/macos
     dependencies:
       - package: StatusPackage
         product: StatusUI
@@ -26,12 +26,12 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.statusfoundry.status.mac
         PRODUCT_NAME: Status
-        INFOPLIST_FILE: _apps/StatusMac/Info.plist
-  StatusiOS:
+        INFOPLIST_FILE: apps/macos/Info.plist
+  ios:
     type: application
     platform: iOS
     sources:
-      - _apps/StatusiOS
+      - apps/ios
     dependencies:
       - package: StatusPackage
         product: StatusUI
@@ -39,17 +39,17 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.statusfoundry.status.ios
         PRODUCT_NAME: Status
-        INFOPLIST_FILE: _apps/StatusiOS/Info.plist
+        INFOPLIST_FILE: apps/ios/Info.plist
 schemes:
-  StatusMac:
+  macos:
     build:
       targets:
-        StatusMac: all
+        macos: all
     run:
       config: Debug
-  StatusiOS:
+  ios:
     build:
       targets:
-        StatusiOS: all
+        ios: all
     run:
       config: Debug

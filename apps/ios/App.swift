@@ -5,7 +5,7 @@ import UIKit
 @preconcurrency import UserNotifications
 
 @main
-struct StatusiOSApp: App {
+struct IOSApp: App {
     var body: some Scene {
         WindowGroup {
             IOSRootView()

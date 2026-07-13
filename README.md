@@ -83,9 +83,9 @@ Plugin package schemas live in [`schemas/plugin/v1/`](schemas/plugin/v1/).
 ## Repository layout
 
 ```txt
-_apps/
-  StatusMac/
-  StatusiOS/
+apps/
+  macos/
+  ios/
 Sources/
   StatusCore/
   StatusUI/
@@ -123,8 +123,8 @@ Generate and build the native apps:
 
 ```sh
 xcodegen generate
-xcodebuild -project Status.xcodeproj -scheme StatusMac -destination 'platform=macOS' -derivedDataPath /tmp/status-mac-derived build
-xcodebuild -project Status.xcodeproj -scheme StatusiOS -destination 'generic/platform=iOS' -derivedDataPath /tmp/status-ios-derived CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project Status.xcodeproj -scheme macos -destination 'platform=macOS' -derivedDataPath /tmp/status-mac-derived build
+xcodebuild -project Status.xcodeproj -scheme ios -destination 'generic/platform=iOS' -derivedDataPath /tmp/status-ios-derived CODE_SIGNING_ALLOWED=NO build
 ```
 
 Rebuild bundled plugin packages and generated registry data:

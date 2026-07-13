@@ -37,7 +37,7 @@ Expected test types:
 
 Snapshot tests should be treated as change detectors, not design verification. When a snapshot changes deliberately, regenerate it in the same commit and explain why.
 
-### StatusMac and StatusiOS
+### macos and ios
 
 The shells are deliberately thin. They get:
 
@@ -216,8 +216,8 @@ A submission without fixtures for its mappings is rejected by CI. Validation nev
 On every pull request:
 
 ```txt
-- build StatusMac (macOS)
-- build StatusiOS (iOS)
+- build macos
+- build ios
 - StatusCore unit and scenario tests
 - StatusUI view-model and snapshot tests
 - schema validation suite (fixtures + docs/04 examples)

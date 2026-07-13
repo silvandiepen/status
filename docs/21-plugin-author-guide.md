@@ -143,7 +143,7 @@ Read `docs/04-plugin-system.md` for field-level reference and `docs/16-mapping-l
 
 Local plugins install only through **Developer Mode** on macOS.
 
-1. Build and open StatusMac.
+1. Build and open the macos app.
 2. Enable Developer Mode in Settings.
 3. Open the plugin catalog and choose **Install Local**.
 4. Select your plugin source folder.

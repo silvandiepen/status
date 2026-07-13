@@ -21,8 +21,8 @@ npm run web:build
 npm run registry:check
 swift test
 xcodegen generate
-xcodebuild -project Status.xcodeproj -scheme StatusMac -destination 'platform=macOS' -derivedDataPath /tmp/status-mac-derived build
-xcodebuild -project Status.xcodeproj -scheme StatusiOS -destination 'generic/platform=iOS' -derivedDataPath /tmp/status-ios-derived CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project Status.xcodeproj -scheme macos -destination 'platform=macOS' -derivedDataPath /tmp/status-mac-derived build
+xcodebuild -project Status.xcodeproj -scheme ios -destination 'generic/platform=iOS' -derivedDataPath /tmp/status-ios-derived CODE_SIGNING_ALLOWED=NO build
 ```
 
 Deployment commands, only when intentionally deploying:
@@ -98,14 +98,14 @@ StatusUI
 - automation builder
 - audit log views
 
-StatusMac
+macos
 - macOS shell
 - sidebar
 - menu bar
 - background runner
 - local notifications
 
-StatusiOS
+ios
 - iOS shell
 - tabs/navigation
 - alerts

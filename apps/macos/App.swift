@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 @preconcurrency import UserNotifications
 
 @main
-struct StatusMacApp: App {
+struct MacOSApp: App {
     fileprivate static let appSettingsWindowID = "app-settings"
 
     var body: some Scene {
@@ -557,7 +557,7 @@ private struct MacRootView: View {
                         viewModel: makePluginStoreViewModel(platform: .macOS),
                         openSettings: { plugin, mode in
                             openWindow(
-                                id: StatusMacApp.appSettingsWindowID,
+                                id: MacOSApp.appSettingsWindowID,
                                 value: MacPluginSettingsRoute(pluginID: plugin.id, mode: mode).rawValue
                             )
                         },
@@ -580,7 +580,7 @@ private struct MacRootView: View {
                         accountID: accountID,
                         openSettings: {
                             openWindow(
-                                id: StatusMacApp.appSettingsWindowID,
+                                id: MacOSApp.appSettingsWindowID,
                                 value: MacPluginSettingsRoute(pluginID: pluginID, accountID: accountID).rawValue
                             )
                         },

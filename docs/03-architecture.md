@@ -9,10 +9,10 @@ StatusCore
 StatusUI
 → shared SwiftUI view primitives
 
-StatusMac
+macos
 → macOS app shell
 
-StatusiOS
+ios
 → iOS app shell
 
 Plugin Registry
@@ -91,7 +91,7 @@ Responsibilities:
 
 The UI package should render based on normalized data and view descriptors. It should not know service-specific API details.
 
-### StatusMac
+### macos
 
 Responsibilities:
 
@@ -104,7 +104,7 @@ Responsibilities:
 - local plugin developer mode;
 - file import/export if needed.
 
-### StatusiOS
+### ios
 
 Responsibilities:
 

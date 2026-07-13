@@ -109,7 +109,7 @@ Acceptance: grep for each fixed term shows consistent usage across all docs.
 
 ### WP-1.1 Swift workspace and package structure — Architecture Agent
 
-Blocking WP for all code. Create the workspace: `StatusCore` and `StatusUI` as local Swift packages, `StatusMac` and `StatusiOS` app targets, both shells compiling and importing the shared packages. Establish lint/format config and CI build.
+Blocking WP for all code. Create the workspace: `StatusCore` and `StatusUI` as local Swift packages, `macos` and `ios` app targets, both shells compiling and importing the shared packages. Establish lint/format config and CI build.
 
 Depends: none (can start alongside Milestone 0).
 Acceptance: `xcodebuild` succeeds for both platforms; a shared type from StatusCore renders in both shells.
